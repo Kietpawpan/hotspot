@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แผนที่จุดความร้อน VIIRS พื้นที่ สคพ.11 (รอบวัน)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { font-family: sans-serif; }
+        #map { height: 600px; width: 100%; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h2>แผนที่แสดงข้อมูลจุดความร้อน VIIRS ย้อน 1 วัน (เฉพาะพื้นที่ สคพ.11)</h2>
+    <div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // กำหนด API Key ที่ได้จากระบบ GISTDA
+        const apikey = 'csbkEXCCJBRqM6DonhfyWrk5K1hbiCsp5VvdioLzSqQqVJFJqZ3mRSl7e1XL6t4l';
+
+        // กำหนด URL และเพิ่ม &limit=10000 เพื่อดึงข้อมูลมาให้ครบถ้วน
+        const apiUrl = 'https://api-gateway.gistda.or.th/api/2.0/resources/features/viirs/1day?api_key=' + apikey + '&limit=10000';
+
+        // สร้างแผนที่และกำหนดจุดศูนย์กลางให้อยู่ที่ภาคอีสานตอนล่าง
+        const map = L.map('map').setView([15.0, 103.0], 8);
+
+        // เพิ่มชั้นข้อมูลแผนที่ฐาน (Base Map)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // ดึงข้อมูลจาก API และคัดกรองเฉพาะพื้นที่ที่ต้องการ
+        fetch(apiUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // *** แก้ไขแล้ว: เติมเครื่องหมายลูกน้ำ (,) คั่นระหว่างชื่อจังหวัด ***
+                const targetProvinces = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
+
+                // คัดกรองข้อมูลเฉพาะจุดที่อยู่ในเขตพื้นที่
+                const filteredFeatures = data.features.filter(feature => {
+                    const props = feature.properties;
+                    if (!props) return false;
+
+                    // ใช้ชื่อฟิลด์ที่พบใน Console
+                    const provName = props.province_t || props.changwat || props.prov_name || "";
+
+                    return targetProvinces.some(p => provName.includes(p));
+                });
+
+                // สร้างชุดข้อมูล GeoJSON ใหม่
+                const filteredData = {
+                    type: "FeatureCollection",
+                    features: filteredFeatures
+                };
+
+              // นำข้อมูลที่กรองแล้วมาสร้างเป็นจุดบนแผนที่
+                L.geoJSON(filteredData, {
+                    pointToLayer: function (feature, latlng) {
+                        return L.circleMarker(latlng, {
+                            radius: 5,
+                            fillColor: "#ff0000",
+                            color: "#000",
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        });
+                    },
+                    onEachFeature: function (feature, layer) {
+                        if (feature.properties) {
+                            let props = feature.properties;
+                            
+                            // ดึงข้อมูลพิกัด
+                            let lat = props.latitude || (feature.geometry && feature.geometry.coordinates[1]) || "-";
+                            let lon = props.longitude || (feature.geometry && feature.geometry.coordinates[0]) || "-";
+                            
+                            // ดึงข้อมูลเขตปกครอง พร้อมดักจับชื่อฟิลด์หลายรูปแบบ
+                            let prov = props.province_t || props.changwat || props.prov_name || "-";
+                            let amp = props.amphoe_t || props.ap_tn || props.amphoe || "-";
+                            let tam = props.tambon_t || props.tb_tn || props.tambon || "-";
+                            
+                            // จัดรูปแบบกล่องข้อความ
+                            let popupContent = "<b>รายละเอียดจุดความร้อน</b><br>";
+                            popupContent += "<b>พิกัด:</b> " + lat + "  " + lon + "<br>";
+                            popupContent += "<b>ตำบล:</b> " + tam + "<br>";
+                            popupContent += "<b>อำเภอ:</b> " + amp + "<br>";
+                            popupContent += "<b>จังหวัด:</b> " + prov + "<br>";
+                            popupContent += "<b>วันที่:</b> " + (props.acq_date || "-") + "<br>";
+                            popupContent += "<b>เวลา:</b> " + (props.acq_time || "-") + " น.<br>";
+                            popupContent += "<b>ค่าความเชื่อมั่น:</b> " + (props.confidence || "-");
+                            
+                            layer.bindPopup(popupContent);
+                        }
+                    }
+                }).addTo(map);
+            })
+            .catch(error => {
+                // *** แก้ไขแล้ว: เติมเครื่องหมายลูกน้ำ (,) คั่นระหว่างข้อความและตัวแปร ***
+                console.error('เกิดข้อผิดพลาดในการดึงข้อมูล:', error);
+            });
+    </script></body>
+</html>
