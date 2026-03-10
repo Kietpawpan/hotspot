@@ -79,6 +79,18 @@
             })
             .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้', err));
 
+        // ฟังก์ชันแปลงวันที่และเวลาเป็นตัวเลขมิลลิวินาที
+        function parseDateTimeToMs(dateStr, timeStr) {
+            if (!dateStr || !timeStr) return 0;
+            // ลบเครื่องหมาย : ออกถ้ามี และจัดให้ครบ 4 หลัก
+            let cleanTime = String(timeStr).replace(/:/g, "").padStart(4, "0");
+            let hour = cleanTime.substring(0, 2);
+            let min = cleanTime.substring(2, 4);
+            // สร้าง Date Object เพื่อแปลงเป็นตัวเลข
+            let dt = new Date(`${dateStr}T${hour}:${min}:00`);
+            return dt.getTime();
+        }
+
         fetch(apiUrl)
             .then(response => {
                 if (!response.ok) throw new Error('Network response was not ok');
@@ -92,20 +104,28 @@
                     return targetProvincesThai.some(p => provName.includes(p));
                 });
 
-                let latestDateTime = "";
+                // 1. หาเวลาที่ใหม่ที่สุดจากจุดทั้งหมด
+                let latestTimeMs = 0;
+                let displayLatestTime = "-";
+                
                 filteredFeatures.forEach(feature => {
                     let props = feature.properties;
-                    let currentDateTime = (props.acq_date || "") + (props.acq_time || "");
-                    if (currentDateTime > latestDateTime) {
-                        latestDateTime = currentDateTime;
+                    let timeMs = parseDateTimeToMs(props.acq_date, props.acq_time);
+                    if (timeMs > latestTimeMs) {
+                        latestTimeMs = timeMs;
+                        displayLatestTime = (props.acq_time || "-") + " น.";
                     }
                 });
 
+                // 2. กำหนดช่วงเวลา Time Window ย้อนหลัง 2 ชั่วโมง (7,200,000 มิลลิวินาที)
+                const twoHoursMs = 2 * 60 * 60 * 1000;
+
+                // 3. กรองจุดความร้อนให้อยู่ในกรอบเวลาที่ตั้งไว้
                 const onlyLatestFeatures = filteredFeatures.filter(feature => {
                     let props = feature.properties;
-                    let currentDateTime = (props.acq_date || "") + (props.acq_time || "");
+                    let timeMs = parseDateTimeToMs(props.acq_date, props.acq_time);
                     
-                    if (currentDateTime === latestDateTime) {
+                    if (timeMs > 0 && (latestTimeMs - timeMs <= twoHoursMs)) {
                         let provName = props.province_t || props.changwat || props.prov_name || "";
                         let matchedProv = targetProvincesThai.find(p => provName.includes(p));
                         if (matchedProv) {
@@ -178,13 +198,8 @@
                     
                     let total = hotspotCounts["นครราชสีมา"] + hotspotCounts["ชัยภูมิ"] + hotspotCounts["บุรีรัมย์"] + hotspotCounts["สุรินทร์"];
                     
-                    let latestTimeDisplay = "-";
-                    if (onlyLatestFeatures.length > 0) {
-                        latestTimeDisplay = onlyLatestFeatures[0].properties.acq_time + " น.";
-                    }
-                    
                     let html = '<div class="legend-title">สรุปจุดความร้อน สคพ.11 (รอบล่าสุด)</div>';
-                    html += 'เวลาล่าสุดที่พบ: <b>' + latestTimeDisplay + '</b><br>';
+                    html += 'รอบเวลาล่าสุด: <b>' + displayLatestTime + '</b><br>';
                     html += 'รวมพบจุดใหม่: <b>' + total + '</b> จุด<br><br>';
                     html += 'โคราช: ' + hotspotCounts["นครราชสีมา"] + ' จุด<br>';
                     html += 'ชัยภูมิ: ' + hotspotCounts["ชัยภูมิ"] + ' จุด<br>';
