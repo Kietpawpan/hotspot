@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แผนที่จุดความร้อน VIIRS พื้นที่ สคพ.11 (ปรับเวลาได้)</title>
+    <title>แผนที่จุดความร้อน VIIRS พื้นที่ สคพ.11</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body { font-family: sans-serif; background-color: #f3f4f6; padding: 20px; }
@@ -44,6 +44,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const apikey = 'csbkEXCCJBRqM6DonhfyWrk5K1hbiCsp5VvdioLzSqQqVJFJqZ3mRSl7e1XL6t4l';
+        // เปลี่ยนกลับเป็น 1day เพื่อไม่ให้ API ตัดข้อมูลใหม่ทิ้งจากข้อจำกัด limit=10000
         const apiUrl = 'https://api-gateway.gistda.or.th/api/2.0/resources/features/viirs/1day?api_key=' + apikey + '&limit=10000';
         const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailandProvinces.geojson';
 
@@ -141,7 +142,7 @@
                     map.fitBounds(boundaryLayer.getBounds());
                 }
             })
-            .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้' + err));
+            .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้: ' + err));
 
         fetch(apiUrl)
             .then(response => {
@@ -149,28 +150,28 @@
                 return response.json();
             })
             .then(data => {
-                allReo11Features = data.features.filter(feature => {
-                    const propStr = JSON.stringify(feature.properties || {});
-                    return targetProvincesThai.some(p => propStr.includes(p));
-                });
-
-                allReo11Features.forEach(feature => {
+                data.features.forEach(feature => {
                     let dt = parseAcqDateTime(feature);
                     if (dt > latestDateObj) {
                         latestDateObj = dt;
                     }
                 });
 
+                allReo11Features = data.features.filter(feature => {
+                    const propStr = JSON.stringify(feature.properties || {});
+                    return targetProvincesThai.some(p => propStr.includes(p));
+                });
+
                 if (latestDateObj.getTime() > 0) {
-                    document.getElementById('lastUpdateDisplay').innerText = "วันที่ " + formatDateStr(latestDateObj) + " เวลา " + formatTimeStr(latestDateObj);
+                    document.getElementById('lastUpdateDisplay').innerText = "วันที่ " + formatDateStr(latestDateObj) + " เวลา " + formatTimeStr(latestDateObj) + " (อ้างอิงระดับประเทศ)";
                 } else {
-                    document.getElementById('lastUpdateDisplay').innerText = "ไม่พบข้อมูลในพื้นที่ สคพ.11 วันนี้";
+                    document.getElementById('lastUpdateDisplay').innerText = "ไม่พบข้อมูลในระบบ GISTDA";
                 }
 
                 updateMapByHours(8);
             })
             .catch(error => {
-                console.error('เกิดข้อผิดพลาดในการดึงข้อมูลจุดความร้อน' + error);
+                console.error('เกิดข้อผิดพลาดในการดึงข้อมูลจุดความร้อน: ' + error);
                 document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อ GISTDA API";
             });
 
@@ -274,8 +275,8 @@
                 
                 let html = '<div class="legend-title">สรุปจุดความร้อน สคพ.11 (ย้อนหลัง ' + hours + ' ชม.)</div>';
                 
-                if (allReo11Features.length === 0) {
-                    html += '<div style="color:#d84315; font-weight:bold; margin-bottom:10px;">ไม่มีจุดความร้อนในพื้นที่รับผิดชอบ</div>';
+                if (latestDateObj.getTime() === 0) {
+                    html += '<div style="color:#d84315; font-weight:bold; margin-bottom:10px;">ไม่พบข้อมูลในระบบ</div>';
                 } else {
                     html += 'ช่วงเวลาที่ค้นหา: <b>' + timeRangeDisplay + '</b><br>';
                     html += 'รวมพบ: <b>' + total + '</b> จุด<br><br>';
