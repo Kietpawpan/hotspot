@@ -3,21 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แผนที่จุดความร้อน VIIRS พื้นที่ สคพ.11 (จุดใหม่ล่าสุด)</title>
+    <title>แผนที่จุดความร้อน VIIRS พื้นที่ สคพ.11 (ปรับเวลาได้)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body { font-family: sans-serif; background-color: #f3f4f6; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2 { text-align: center; color: #4a148c; }
-        #map { height: 600px; width: 100%; border-radius: 8px; margin-top: 20px; z-index: 10; }
+        .control-panel { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 15px; margin-bottom: 15px; }
+        #map { height: 600px; width: 100%; border-radius: 8px; z-index: 10; }
         .legend-box { background: white; padding: 10px 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; line-height: 1.6; }
         .legend-title { font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
         .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
+        input[type=range] { width: 100%; margin-top: 10px; accent-color: #4a148c; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>แผนที่แสดงข้อมูลจุดความร้อน VIIRS จุดใหม่ล่าสุด (เฉพาะพื้นที่ สคพ.11)</h2>
+        <h2>แผนที่แสดงข้อมูลจุดความร้อน VIIRS (เฉพาะพื้นที่ สคพ.11)</h2>
+        
+        <div class="control-panel">
+            <div style="font-size: 15px; color: #4a148c; margin-bottom: 12px; background: #e9d5ff; padding: 10px; border-radius: 6px; border: 1px solid #d8b4fe;">
+                🛰️ <b>ข้อมูลดาวเทียมในระบบล่าสุด:</b> <span id="lastUpdateDisplay" style="color: #b91c1c; font-weight: bold;">กำลังตรวจสอบ...</span>
+            </div>
+            <label for="hourSlider" style="font-size: 16px;">
+                <b>แสดงจุดความร้อนย้อนหลัง: </b> 
+                <span id="hourValueDisplay" style="color: #d84315; font-weight: bold; font-size: 1.2em;">8</span> 
+                <b> ชั่วโมง</b> <span style="font-size: 14px; color: #64748b;">(นับย้อนจากข้อมูลดาวเทียมล่าสุด)</span>
+            </label>
+            <input type="range" id="hourSlider" min="1" max="24" value="8" step="1">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-top: 5px;">
+                <span>1 ชม.</span>
+                <span>12 ชม.</span>
+                <span>24 ชม.</span>
+            </div>
+        </div>
+
         <div id="map"></div>
     </div>
 
@@ -25,7 +45,6 @@
     <script>
         const apikey = 'csbkEXCCJBRqM6DonhfyWrk5K1hbiCsp5VvdioLzSqQqVJFJqZ3mRSl7e1XL6t4l';
         const apiUrl = 'https://api-gateway.gistda.or.th/api/2.0/resources/features/viirs/1day?api_key=' + apikey + '&limit=10000';
-        
         const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailandProvinces.geojson';
 
         const map = L.map('map').setView([15.2, 102.5], 8);
@@ -50,7 +69,52 @@
 
         const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
         const targetProvincesThai = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
-        let hotspotCounts = { "นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0 };
+        
+        let allReo11Features = [];
+        let latestDateObj = new Date(0);
+        let hotspotLayer;
+        let summaryControl;
+
+        function parseAcqDateTime(feature) {
+            let props = feature.properties || {};
+            let dateStr = props.acq_date || props.ACQ_DATE || props.acq_datetime || props.ADATE || "";
+            let timeStr = props.acq_time || props.ACQ_TIME || props.ATIME || "0000";
+            
+            if (!dateStr) return new Date(0);
+            
+            let year = 0, month = 0, day = 0;
+            let dStr = String(dateStr);
+            if (dStr.includes('-')) {
+                let parts = dStr.split('-');
+                if (parts[0].length === 4) { year = parseInt(parts[0], 10); month = parseInt(parts[1], 10) - 1; day = parseInt(parts[2], 10); }
+                else { year = parseInt(parts[2], 10); month = parseInt(parts[1], 10) - 1; day = parseInt(parts[0], 10); }
+            } else if (dStr.includes('/')) {
+                let parts = dStr.split('/');
+                if (parts[2].length === 4) { year = parseInt(parts[2], 10); month = parseInt(parts[1], 10) - 1; day = parseInt(parts[0], 10); }
+                else { year = parseInt(parts[0], 10); month = parseInt(parts[1], 10) - 1; day = parseInt(parts[2], 10); }
+            } else {
+                return new Date(0);
+            }
+            
+            let tStr = String(timeStr).replace(/:/g, '').padStart(4, '0');
+            let hours = parseInt(tStr.substring(0, 2), 10) || 0;
+            let mins = parseInt(tStr.substring(2, 4), 10) || 0;
+            
+            return new Date(Date.UTC(year, month, day, hours, mins));
+        }
+
+        function formatTimeStr(dateObj) {
+            let h = String(dateObj.getHours()).padStart(2, '0');
+            let m = String(dateObj.getMinutes()).padStart(2, '0');
+            return h + ":" + m + " น.";
+        }
+        
+        function formatDateStr(dateObj) {
+            let d = String(dateObj.getDate()).padStart(2, '0');
+            let m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            let y = dateObj.getFullYear() + 543;
+            return d + "/" + m + "/" + y;
+        }
 
         fetch(geojsonBoundariesUrl)
             .then(res => res.json())
@@ -77,19 +141,7 @@
                     map.fitBounds(boundaryLayer.getBounds());
                 }
             })
-            .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้', err));
-
-        // ฟังก์ชันแปลงวันที่และเวลาเป็นตัวเลขมิลลิวินาที
-        function parseDateTimeToMs(dateStr, timeStr) {
-            if (!dateStr || !timeStr) return 0;
-            // ลบเครื่องหมาย : ออกถ้ามี และจัดให้ครบ 4 หลัก
-            let cleanTime = String(timeStr).replace(/:/g, "").padStart(4, "0");
-            let hour = cleanTime.substring(0, 2);
-            let min = cleanTime.substring(2, 4);
-            // สร้าง Date Object เพื่อแปลงเป็นตัวเลข
-            let dt = new Date(`${dateStr}T${hour}:${min}:00`);
-            return dt.getTime();
-        }
+            .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้' + err));
 
         fetch(apiUrl)
             .then(response => {
@@ -97,37 +149,55 @@
                 return response.json();
             })
             .then(data => {
-                const filteredFeatures = data.features.filter(feature => {
-                    const props = feature.properties;
-                    if (!props) return false;
-                    const provName = props.province_t || props.changwat || props.prov_name || "";
-                    return targetProvincesThai.some(p => provName.includes(p));
+                allReo11Features = data.features.filter(feature => {
+                    const propStr = JSON.stringify(feature.properties || {});
+                    return targetProvincesThai.some(p => propStr.includes(p));
                 });
 
-                // 1. หาเวลาที่ใหม่ที่สุดจากจุดทั้งหมด
-                let latestTimeMs = 0;
-                let displayLatestTime = "-";
-                
-                filteredFeatures.forEach(feature => {
-                    let props = feature.properties;
-                    let timeMs = parseDateTimeToMs(props.acq_date, props.acq_time);
-                    if (timeMs > latestTimeMs) {
-                        latestTimeMs = timeMs;
-                        displayLatestTime = (props.acq_time || "-") + " น.";
+                allReo11Features.forEach(feature => {
+                    let dt = parseAcqDateTime(feature);
+                    if (dt > latestDateObj) {
+                        latestDateObj = dt;
                     }
                 });
 
-                // 2. กำหนดช่วงเวลา Time Window ย้อนหลัง 2 ชั่วโมง (7,200,000 มิลลิวินาที)
-                const twoHoursMs = 2 * 60 * 60 * 1000;
+                if (latestDateObj.getTime() > 0) {
+                    document.getElementById('lastUpdateDisplay').innerText = "วันที่ " + formatDateStr(latestDateObj) + " เวลา " + formatTimeStr(latestDateObj);
+                } else {
+                    document.getElementById('lastUpdateDisplay').innerText = "ไม่พบข้อมูลในพื้นที่ สคพ.11 วันนี้";
+                }
 
-                // 3. กรองจุดความร้อนให้อยู่ในกรอบเวลาที่ตั้งไว้
-                const onlyLatestFeatures = filteredFeatures.filter(feature => {
-                    let props = feature.properties;
-                    let timeMs = parseDateTimeToMs(props.acq_date, props.acq_time);
+                updateMapByHours(8);
+            })
+            .catch(error => {
+                console.error('เกิดข้อผิดพลาดในการดึงข้อมูลจุดความร้อน' + error);
+                document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อ GISTDA API";
+            });
+
+        function updateMapByHours(hours) {
+            if (hotspotLayer) {
+                map.removeLayer(hotspotLayer);
+            }
+            if (summaryControl) {
+                map.removeControl(summaryControl);
+            }
+
+            let hotspotCounts = { "นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0 };
+            let timeWindowFeatures = [];
+            let timeRangeDisplay = "-";
+
+            if (latestDateObj.getTime() > 0) {
+                const hoursInMs = hours * 60 * 60 * 1000;
+                const cutoffTime = new Date(latestDateObj.getTime() - hoursInMs);
+                
+                timeRangeDisplay = formatTimeStr(cutoffTime) + " ถึง " + formatTimeStr(latestDateObj);
+
+                timeWindowFeatures = allReo11Features.filter(feature => {
+                    let dt = parseAcqDateTime(feature);
                     
-                    if (timeMs > 0 && (latestTimeMs - timeMs <= twoHoursMs)) {
-                        let provName = props.province_t || props.changwat || props.prov_name || "";
-                        let matchedProv = targetProvincesThai.find(p => provName.includes(p));
+                    if (dt >= cutoffTime && dt <= latestDateObj) {
+                        let propStr = JSON.stringify(feature.properties || {});
+                        let matchedProv = targetProvincesThai.find(p => propStr.includes(p));
                         if (matchedProv) {
                             hotspotCounts[matchedProv]++;
                         }
@@ -135,91 +205,103 @@
                     }
                     return false;
                 });
+            }
 
-                const filteredData = {
-                    type: "FeatureCollection",
-                    features: onlyLatestFeatures
-                };
+            const filteredData = {
+                type: "FeatureCollection",
+                features: timeWindowFeatures
+            };
 
-                L.geoJSON(filteredData, {
-                    pointToLayer: function (feature, latlng) {
-                        let conf = feature.properties.confidence || feature.properties.CONFIDENCE || "";
-                        let confStr = String(conf).trim().toLowerCase();
-                        let markerColor = "#ffc107"; 
-                        
-                        if (confStr === 'h' || confStr === 'high' || Number(conf) >= 80) {
-                            markerColor = "#dc3545"; 
-                        } else if (confStr === 'n' || confStr === 'nominal' || (Number(conf) >= 50 && Number(conf) < 80)) {
-                            markerColor = "#fd7e14"; 
-                        }
-
-                        return L.circleMarker(latlng, {
-                            radius: 6,
-                            fillColor: markerColor,
-                            color: "#fff",
-                            weight: 1,
-                            opacity: 1,
-                            fillOpacity: 0.9
-                        });
-                    },
-                    onEachFeature: function (feature, layer) {
-                        if (feature.properties) {
-                            let props = feature.properties;
-                            
-                            let lat = props.latitude || (feature.geometry && feature.geometry.coordinates[1]) || "-";
-                            let lon = props.longitude || (feature.geometry && feature.geometry.coordinates[0]) || "-";
-                            
-                            let prov = props.province_t || props.changwat || props.prov_name || "-";
-                            let amp = props.amphoe_t || props.ap_tn || props.amphoe || "-";
-                            let tam = props.tambon_t || props.tb_tn || props.tambon || "-";
-                            
-                            let landuse = props.landuse_t || props.lu_name || props.landuse || props.lu_type || "ไม่ระบุข้อมูล";
-                            
-                            let popupContent = "<div style='font-size: 14px;'>";
-                            popupContent += "<div style='background-color:#4a148c; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>รายละเอียดจุดความร้อน (ล่าสุด)</b></div>";
-                            popupContent += "<b>พิกัด:</b> " + lat + "  " + lon + "<br>";
-                            popupContent += "<b>ประเภทพื้นที่:</b> <span style='color:#d84315; font-weight:bold;'>" + landuse + "</span><br>";
-                            popupContent += "<b>ตำบล:</b> " + tam + "<br>";
-                            popupContent += "<b>อำเภอ:</b> " + amp + "<br>";
-                            popupContent += "<b>จังหวัด:</b> " + prov + "<br>";
-                            popupContent += "<b>วันที่:</b> " + (props.acq_date || "-") + "<br>";
-                            popupContent += "<b>เวลา:</b> " + (props.acq_time || "-") + " น.<br>";
-                            popupContent += "<b>ความเชื่อมั่น:</b> " + (props.confidence || "-");
-                            popupContent += "</div>";
-                            
-                            layer.bindPopup(popupContent);
-                        }
+            hotspotLayer = L.geoJSON(filteredData, {
+                pointToLayer: function (feature, latlng) {
+                    let props = feature.properties || {};
+                    let conf = props.confidence || props.CONFIDENCE || "";
+                    let confStr = String(conf).trim().toLowerCase();
+                    let markerColor = "#ffc107"; 
+                    
+                    if (confStr === 'h' || confStr === 'high' || Number(conf) >= 80) {
+                        markerColor = "#dc3545"; 
+                    } else if (confStr === 'n' || confStr === 'nominal' || (Number(conf) >= 50 && Number(conf) < 80)) {
+                        markerColor = "#fd7e14"; 
                     }
-                }).addTo(map);
 
-                const summaryControl = L.control({position: 'bottomright'});
-                summaryControl.onAdd = function (map) {
-                    const div = L.DomUtil.create('div', 'legend-box');
+                    return L.circleMarker(latlng, {
+                        radius: 6,
+                        fillColor: markerColor,
+                        color: "#fff",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.9
+                    });
+                },
+                onEachFeature: function (feature, layer) {
+                    let props = feature.properties || {};
+                    let dt = parseAcqDateTime(feature);
+                    let timeDisplay = dt.getTime() > 0 ? formatTimeStr(dt) : "-";
+                    let dateDisplay = dt.getTime() > 0 ? formatDateStr(dt) : "-";
                     
-                    let total = hotspotCounts["นครราชสีมา"] + hotspotCounts["ชัยภูมิ"] + hotspotCounts["บุรีรัมย์"] + hotspotCounts["สุรินทร์"];
+                    let lat = props.latitude || (feature.geometry && feature.geometry.coordinates[1]) || "-";
+                    let lon = props.longitude || (feature.geometry && feature.geometry.coordinates[0]) || "-";
                     
-                    let html = '<div class="legend-title">สรุปจุดความร้อน สคพ.11 (รอบล่าสุด)</div>';
-                    html += 'รอบเวลาล่าสุด: <b>' + displayLatestTime + '</b><br>';
-                    html += 'รวมพบจุดใหม่: <b>' + total + '</b> จุด<br><br>';
+                    let propStr = JSON.stringify(props);
+                    let prov = targetProvincesThai.find(p => propStr.includes(p)) || "-";
+                    let amp = props.amphoe_t || props.ap_tn || props.amphoe || "-";
+                    let tam = props.tambon_t || props.tb_tn || props.tambon || "-";
+                    let landuse = props.landuse_t || props.lu_name || props.landuse || props.lu_type || "ไม่ระบุข้อมูล";
+                    let conf = props.confidence || props.CONFIDENCE || "-";
+                    
+                    let popupContent = "<div style='font-size: 14px;'>";
+                    popupContent += "<div style='background-color:#4a148c; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>รายละเอียดจุดความร้อน</b></div>";
+                    popupContent += "<b>พิกัด:</b> " + lat + "  " + lon + "<br>";
+                    popupContent += "<b>ประเภทพื้นที่:</b> <span style='color:#d84315; font-weight:bold;'>" + landuse + "</span><br>";
+                    popupContent += "<b>ตำบล:</b> " + tam + "<br>";
+                    popupContent += "<b>อำเภอ:</b> " + amp + "<br>";
+                    popupContent += "<b>จังหวัด:</b> " + prov + "<br>";
+                    popupContent += "<b>วันที่:</b> " + dateDisplay + "<br>";
+                    popupContent += "<b>เวลา:</b> " + timeDisplay + "<br>";
+                    popupContent += "<b>ความเชื่อมั่น:</b> " + conf;
+                    popupContent += "</div>";
+                    
+                    layer.bindPopup(popupContent);
+                }
+            }).addTo(map);
+
+            summaryControl = L.control({position: 'bottomright'});
+            summaryControl.onAdd = function (map) {
+                const div = L.DomUtil.create('div', 'legend-box');
+                
+                let total = hotspotCounts["นครราชสีมา"] + hotspotCounts["ชัยภูมิ"] + hotspotCounts["บุรีรัมย์"] + hotspotCounts["สุรินทร์"];
+                
+                let html = '<div class="legend-title">สรุปจุดความร้อน สคพ.11 (ย้อนหลัง ' + hours + ' ชม.)</div>';
+                
+                if (allReo11Features.length === 0) {
+                    html += '<div style="color:#d84315; font-weight:bold; margin-bottom:10px;">ไม่มีจุดความร้อนในพื้นที่รับผิดชอบ</div>';
+                } else {
+                    html += 'ช่วงเวลาที่ค้นหา: <b>' + timeRangeDisplay + '</b><br>';
+                    html += 'รวมพบ: <b>' + total + '</b> จุด<br><br>';
                     html += 'โคราช: ' + hotspotCounts["นครราชสีมา"] + ' จุด<br>';
                     html += 'ชัยภูมิ: ' + hotspotCounts["ชัยภูมิ"] + ' จุด<br>';
                     html += 'บุรีรัมย์: ' + hotspotCounts["บุรีรัมย์"] + ' จุด<br>';
                     html += 'สุรินทร์: ' + hotspotCounts["สุรินทร์"] + ' จุด<br><br>';
-                    
-                    html += '<div class="legend-title">ระดับความเชื่อมั่น</div>';
-                    html += '<div><span class="dot" style="background:#dc3545;"></span> สูง (High)</div>';
-                    html += '<div><span class="dot" style="background:#fd7e14;"></span> ปานกลาง (Nominal)</div>';
-                    html += '<div><span class="dot" style="background:#ffc107;"></span> ต่ำ (Low)</div>';
-                    
-                    div.innerHTML = html;
-                    return div;
-                };
-                summaryControl.addTo(map);
+                }
+                
+                html += '<div class="legend-title">ระดับความเชื่อมั่น</div>';
+                html += '<div><span class="dot" style="background:#dc3545;"></span> สูง (High)</div>';
+                html += '<div><span class="dot" style="background:#fd7e14;"></span> ปานกลาง (Nominal)</div>';
+                html += '<div><span class="dot" style="background:#ffc107;"></span> ต่ำ (Low)</div>';
+                
+                div.innerHTML = html;
+                return div;
+            };
+            summaryControl.addTo(map);
+        }
 
-            })
-            .catch(error => {
-                console.error('เกิดข้อผิดพลาดในการดึงข้อมูลจุดความร้อน', error);
-            });
+        document.getElementById('hourSlider').addEventListener('input', function(e) {
+            const selectedHours = parseInt(e.target.value);
+            document.getElementById('hourValueDisplay').innerText = selectedHours;
+            updateMapByHours(selectedHours);
+        });
+
     </script>
 </body>
 </html>
