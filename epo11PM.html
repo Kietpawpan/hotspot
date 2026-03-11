@@ -61,16 +61,23 @@
 
     <div id="loader">กำลังโหลดข้อมูลจาก Google Sheets...</div>
 
-    <header class="bg-purple-800 text-white p-4 rounded-t-xl shadow-md text-center">
-        <h1 class="text-2xl font-bold">รายงานสถานการณ์ฝุ่นละออง PM2.5</h1>
-        <h2 class="text-lg">สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 11 (นครราชสีมา)</h2>
-        <p id="report-date" class="mt-2 font-semibold text-yellow-300"></p>
-        <a href="#" id="hazeDownloadBtnClean" class="btn-clean" target="_blank">
-  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
-  ดาวน์โหลดข้อมูลฝุ่น PM2.5 ประจำวัน
-</a>
+ <header class="bg-purple-800 text-white p-4 rounded-t-xl shadow-md text-center">
+  <div class="flex justify-center items-center gap-6 mb-4">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/e/e0/%E0%B8%95%E0%B8%A3%E0%B8%B2%E0%B8%81%E0%B8%A3%E0%B8%B0%E0%B8%97%E0%B8%A3%E0%B8%A7%E0%B8%87%E0%B8%97%E0%B8%A3%E0%B8%B1%E0%B8%9E%E0%B8%A2%E0%B8%B2%E0%B8%81%E0%B8%A3%E0%B8%98%E0%B8%A3%E0%B8%A3%E0%B8%A1%E0%B8%8A%E0%B8%B2%E0%B8%95%E0%B8%B4%E0%B9%81%E0%B8%A5%E0%B8%B0%E0%B8%AA%E0%B8%B4%E0%B9%88%E0%B8%87%E0%B9%81%E0%B8%A7%E0%B8%94%E0%B8%A5%E0%B9%89%E0%B8%AD%E0%B8%A1.png" alt="โลโก้กระทรวงทรัพยากรธรรมชาติและสิ่งแวดล้อม" class="w-20 h-20 md:w-28 md:h-28 object-contain drop-shadow-lg">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Emblem_of_the_Pollution_Control_Department.svg/960px-Emblem_of_the_Pollution_Control_Department.svg.png" alt="โลโก้กรมควบคุมมลพิษ" class="w-16 h-16 md:w-24 md:h-24 object-contain drop-shadow-lg">
+    </div>
 
-    </header>
+    <h1 class="text-2xl font-bold">รายงานสถานการณ์ฝุ่นละออง PM2.5</h1>
+    <h2 class="text-lg">สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 11 (นครราชสีมา)</h2>
+    <p id="report-date" class="mt-2 font-semibold text-yellow-300"></p>
+    
+    <div class="mt-4 flex flex-col md:flex-row justify-center items-center gap-3">
+        <a href="#" id="hazeDownloadBtnClean" class="btn-clean" target="_blank">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
+            ดาวน์โหลดข้อมูลฝุ่น PM2.5 ประจำวัน
+        </a>
+          </div>
+</header>
 
     <main class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 hidden" id="main-content">
         
@@ -159,6 +166,17 @@
                 </div>
             </div>
         </div>
+
+
+<div class="md:col-span-3 bg-white p-4 rounded-xl shadow-md mt-4">
+            <h3 class="text-xl font-bold mb-4 text-center">สภาพอากาศที่มีผลต่อการสะสมของฝุ่นละออง (TMD API)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="weather-cards">
+                <div class="col-span-1 md:col-span-4 text-center p-4 text-gray-500">กำลังเชื่อมต่อข้อมูลจากกรมอุตุนิยมวิทยา...</div>
+            </div>
+        </div>
+
+
+
     </main>
 
 <footer class="mt-8 mb-4 text-center text-sm text-gray-500 font-medium">
@@ -523,7 +541,79 @@
         }
   
         updateDownloadLinkClean();
-    </script>
+
+// วาง URL ของ Google Apps Script ที่ท่านเพิ่งสร้างลงไปตรงนี้
+const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycby6DOHtrlvjLx-ddWMAUenRuwsDcb2_r-osiPBzefpNQ4ruRC6aiod7oARIVrob33K_4A/exec';
+
+        async function fetchWeatherData() {
+            const weatherContainer = document.getElementById('weather-cards');
+            const provinces = [
+                { name: 'นครราชสีมา', lat: 14.9799, lon: 102.0978 },
+                { name: 'ชัยภูมิ', lat: 15.8063, lon: 102.0315 },
+                { name: 'บุรีรัมย์', lat: 14.9951, lon: 103.1116 },
+                { name: 'สุรินทร์', lat: 14.8818, lon: 103.4936 }
+            ];
+
+            weatherContainer.innerHTML = '';
+
+            for (const prov of provinces) {
+                let cardHtml = `
+                    <div class="border rounded-lg p-3 bg-blue-50 relative" id="weather-${prov.name}">
+                        <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
+                        <div class="text-sm space-y-2 text-center text-gray-500">
+                            กำลังโหลด...
+                        </div>
+                    </div>
+                `;
+                weatherContainer.innerHTML += cardHtml;
+            }
+
+            for (const prov of provinces) {
+                try {
+                    const response = await fetch(`${GAS_WEATHER_PROXY}?lat=${prov.lat}&lon=${prov.lon}`);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        
+                        if (data && data.WeatherForecasts && data.WeatherForecasts.length > 0) {
+                            // ปรับการเข้าถึงข้อมูลให้ตรงกับ JSON ที่ได้มา
+                            const forecastObj = data.WeatherForecasts[0].forecasts[0]; 
+                            const weatherData = forecastObj.data;
+                            
+                            const tc = weatherData.tc !== undefined ? weatherData.tc : '-';
+                            const rh = weatherData.rh !== undefined ? weatherData.rh : '-';
+                            
+                            // ป้องกัน Error กรณี API ไม่มีข้อมูลลมส่งมา
+                            const windSpeed = weatherData.ws !== undefined ? weatherData.ws : '-';
+                            const windDir = weatherData.wd !== undefined ? weatherData.wd : '-';
+                            
+                            document.getElementById(`weather-${prov.name}`).innerHTML = `
+                                <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
+                                <div class="text-sm space-y-2">
+                                    <div class="flex justify-between"><span>🌡️ อุณหภูมิ:</span> <span class="font-semibold">${tc} °C</span></div>
+                                    <div class="flex justify-between"><span>💧 ความชื้น:</span> <span class="font-semibold">${rh} %</span></div>
+                                    <div class="flex justify-between"><span>🌬️ ความเร็วลม:</span> <span class="font-semibold">${windSpeed} กม./ชม.</span></div>
+                                    <div class="flex justify-between"><span>🧭 ทิศทางลม:</span> <span class="font-semibold">${windDir}</span></div>
+                                </div>
+                            `;
+                        } else {
+                            throw new Error('รูปแบบข้อมูลผิดพลาด');
+                        }
+                    } else {
+                        throw new Error('เชื่อมต่อไม่สำเร็จ');
+                    }
+                } catch (error) {
+                    document.getElementById(`weather-${prov.name}`).innerHTML = `
+                        <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
+                        <div class="text-sm text-red-500 text-center">ไม่สามารถดึงข้อมูลได้ในขณะนี้</div>
+                    `;
+                }
+            }
+        }
+
+        window.addEventListener('load', () => {
+            setTimeout(fetchWeatherData, 1000);
+        });</script>
 </body>
 </html>
 </body>
