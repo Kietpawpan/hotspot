@@ -14,7 +14,7 @@ This project, EPO11-PM ([https://esc.mnre.go.th/f4.php](https://kietpawpan.githu
 ## TMD Weather API Integration Process
 We successfully integrated meteorological data from the Thai Meteorological Department (TMD) to analyze factors affecting PM2.5 accumulation using the following approach:
 
-1. **API Endpoint Selection & Authentication:** Utilized the TMD Hourly Location Forecast API targeting the exact coordinates of the four target provinces authenticated via an OAuth Access Token
+1. **API Endpoint Selection & Authentication:** Utilized the TMD Hourly Location Forecast API targeting the exact coordinates of the four target provinces authenticated via an OAuth Access Token. See https://data.tmd.go.th/nwpapi/doc/apidoc/forecast_location.html
 2. **Overcoming CORS via Google Apps Script (Proxy):** To bypass Cross-Origin Resource Sharing (CORS) restrictions and secure the API Token a Google Apps Script was deployed as a middleware proxy to fetch data securely from the TMD servers
 3. **Query Parameters Configuration:** Customized the API request by appending specific fields (`&fields=tc rh cond ws10m wd10m`) to ensure the payload includes temperature humidity weather conditions wind speed and wind direction
 4. **Data Transformation:** Developed JavaScript functions to convert raw data into user-friendly formats (e.g. converting wind speed from m/s to km/h translating wind degrees to Thai compass directions and parsing ISO time strings into readable Thai formats)
