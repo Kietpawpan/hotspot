@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>รายงานสถานการณ์ฝุ่นละออง PM2.5 สคพ.11</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <style>
+        .aqi-excellent { background-color: #00B0F0; color: white; }
+        .aqi-good { background-color: #92D050; color: black; }
+        .aqi-moderate { background-color: #FFFF00; color: black; }
+        .aqi-unhealthy-sensitive { background-color: #FFC000; color: black; }
+        .aqi-unhealthy { background-color: #FF0000; color: white; }
+        
+        #loader {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex; justify-content: center; align-items: center;
+            font-size: 1.5rem; font-weight: bold; color: #6b21a8;
+            z-index: 50;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+         .btn-clean {
+    display: inline-flex;
+    align-items: center;
+    padding: 10px 24px;
+    background-color: #ffffff;
+    color: #374151;
+    text-decoration: none;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-family: sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  .btn-clean:hover {
+    border-color: #3b82f6;
+    color: #3b82f6;
+    background-color: #f8fafc;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+  }
+  .btn-clean svg {
+    margin-right: 8px;
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+  }
+
+    </style>
+</head>
+<body class="bg-gray-100 font-sans p-4">
+
+    <div id="loader">กำลังโหลดข้อมูลจาก Google Sheets...</div>
+
+    <header class="bg-purple-800 text-white p-4 rounded-t-xl shadow-md text-center">
+        <h1 class="text-2xl font-bold">รายงานสถานการณ์ฝุ่นละออง PM2.5</h1>
+        <h2 class="text-lg">สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 11 (นครราชสีมา)</h2>
+        <p id="report-date" class="mt-2 font-semibold text-yellow-300"></p>
+        <a href="#" id="hazeDownloadBtnClean" class="btn-clean" target="_blank">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
+  ดาวน์โหลดข้อมูลฝุ่น PM2.5 ประจำวัน
+</a>
+<a href="https://ozone.tmd.go.th/wi_daily.html" id="hazeDownloadBtnVR" class="btn-clean" target="_blank">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
+  ตรวจสอบอัตราการระบายฝุ่น 10 วัน
+</a>
+
+
+    </header>
+
+    <main class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 hidden" id="main-content">
+        
+        <div class="md:col-span-2 space-y-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4" id="province-cards"></div>
+
+            <div class="bg-white p-4 rounded-xl shadow-md overflow-x-auto">
+                <h3 class="text-xl font-bold mb-2">รายงานสถานการณ์คุณภาพอากาศ PM2.5 (ย้อนหลัง)</h3>
+                <table class="w-full text-center border-collapse">
+                    <thead>
+                        <tr class="bg-purple-200">
+                            <th class="border p-2">จังหวัด</th>
+                            <th class="border p-2">ย้อนหลัง 4 วัน</th>
+                            <th class="border p-2">ย้อนหลัง 3 วัน</th>
+                            <th class="border p-2">ย้อนหลัง 2 วัน</th>
+                            <th class="border p-2">ย้อนหลัง 1 วัน</th>
+                            <th class="border p-2 bg-purple-400 text-white">วันนี้</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table"></tbody>
+                </table>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-md">
+                <h3 class="text-xl font-bold mb-2 text-center">เปรียบเทียบค่า PM2.5 วันปัจจุบัน</h3>
+                <canvas id="aqiChart" height="100"></canvas>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <div class="bg-purple-100 p-4 rounded-xl shadow-md border-2 border-purple-300">
+                <h3 class="text-xl font-bold text-center text-purple-800 mb-4">มาตรฐานคุณภาพอากาศ PM2.5</h3>
+                <div class="flex flex-col space-y-2">
+                    <div class="p-3 aqi-excellent rounded text-center"><p class="font-bold">0 - 15</p><p>ดีมาก</p></div>
+                    <div class="p-3 aqi-good rounded text-center"><p class="font-bold">15.1 - 25.0</p><p>ดี</p></div>
+                    <div class="p-3 aqi-moderate rounded text-center"><p class="font-bold">25.1 - 37.5</p><p>ปานกลาง</p></div>
+                    <div class="p-3 aqi-unhealthy-sensitive rounded text-center"><p class="font-bold">37.6 - 75.0</p><p>เริ่มมีผลกระทบ</p></div>
+                    <div class="p-3 aqi-unhealthy rounded text-center"><p class="font-bold">75.1 ขึ้นไป</p><p>มีผลกระทบ</p></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-white p-4 rounded-xl shadow-md">
+                <h3 class="text-xl font-bold mb-2 text-center">จำนวนวันค่าฝุ่นเกินมาตรฐานสะสม</h3>
+                <canvas id="daysOverChart" height="150"></canvas>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-md">
+                <h3 class="text-xl font-bold mb-2 text-center">จุดความร้อนสะสม</h3>
+                <canvas id="hotspotAccumChart" height="150"></canvas>
+            </div>
+
+           <div class="bg-white p-4 rounded-xl shadow-md">
+                <h3 class="text-xl font-bold mb-2 text-center">แผนที่จุดความร้อน (พื้นที่ สคพ.11)</h3>
+                <a href="https://kietpawpan.github.io/hotspot/" id="hazeDownloadBtnVR" class="btn-clean" target="_blank">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
+  สะสม 24 ชั่วโมง
+</a>
+ <a href="https://kietpawpan.github.io/hotspot/hpRecent.html" id="hazeDownloadBtnVR" class="btn-clean" target="_blank">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
+  ตรวจพบล่าสุด
+</a>
+
+            </div>
+        </div>
+
+    </main>
+
+  <script>
+        Chart.register(ChartDataLabels);
+
+        function getAqiClass(value) {
+            if (isNaN(value)) return 'bg-gray-300 text-gray-700';
+            if (value <= 15) return 'aqi-excellent';
+            if (value <= 25) return 'aqi-good';
+            if (value <= 37.5) return 'aqi-moderate';
+            if (value <= 75) return 'aqi-unhealthy-sensitive';
+            return 'aqi-unhealthy';
+        }
+
+        function getHealthAdvice(value) {
+            if (isNaN(value)) return 'ไม่มีข้อมูลฝุ่น PM2.5 ในขณะนี้';
+            if (value <= 15) return 'ประชาชนทุกคนสามารถดำเนินชีวิตได้ตามปกติ';
+            if (value <= 25) return 'สามารถทำกิจกรรมกลางแจ้งได้ตามปกติ';
+            if (value <= 37.5) return 'ลดระยะเวลาทำกิจกรรมกลางแจ้งหรือออกกำลังกายที่ใช้แรงมาก';
+            if (value <= 75) return 'สวมหน้ากากป้องกันฝุ่น PM2.5 และจำกัดระยะเวลาทำกิจกรรมกลางแจ้ง';
+            return 'งดกิจกรรมกลางแจ้ง และสวมหน้ากากป้องกันฝุ่น PM2.5';
+        }
+
+        function updateDateText() {
+            const date = new Date();
+            const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+            const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+            
+            const dayName = days[date.getDay()];
+            const day = date.getDate();
+            const monthName = months[date.getMonth()];
+            const year = date.getFullYear() + 543;
+            
+            document.getElementById('report-date').innerText = `ประจำวัน${dayName}ที่ ${day} ${monthName} ${year} เวลา 07.00 น.`;
+        }
+
+        window.onload = function() {
+            updateDateText();
+            
+            const apiUrl = 'https://script.google.com/macros/s/AKfycbwSWmdAG3qKHJRSxTTvyV2Yr_Vbw3I6gOy2NwRUwsA8ajvFIUV6Kma2jLVLRYvIXJwD/exec';
+
+            fetch(apiUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    renderDashboard(data);
+                })
+                .catch(error => {
+                    showError(error);
+                });
+        };
+
+        function renderDashboard(data) {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('main-content').classList.remove('hidden');
+
+            const cardsContainer = document.getElementById('province-cards');
+            const historyTable = document.getElementById('history-table');
+            
+            let chartLabels = [];
+            let chartData = [];
+            let chartColors = [];
+
+            let daysOver68Data = [];
+            let daysOver69Data = [];
+            let hotspot68Data = [];
+            let hotspot69Data = [];
+
+            // กำหนดจังหวัดที่อนุญาตและตัวแปรเช็กการแสดงซ้ำ
+            const targetProvinces = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
+            const seenProvinces = new Set();
+
+            data.forEach(row => {
+                const province = row[0];
+                
+                // กรองเฉพาะ 4 จังหวัด และต้องไม่เคยแสดงผลมาก่อน
+                if (!targetProvinces.includes(province) || seenProvinces.has(province)) return;
+                seenProvinces.add(province);
+
+                const pmTodayNum = parseFloat(row[1]);
+                const pmToday = isNaN(pmTodayNum) ? "N/A" : pmTodayNum;
+                const hotspot = row[2] || "-";
+                
+                const dayMinus1Num = parseFloat(row[3]);
+                const dayMinus1 = isNaN(dayMinus1Num) ? "-" : dayMinus1Num;
+                const dayMinus2Num = parseFloat(row[4]);
+                const dayMinus2 = isNaN(dayMinus2Num) ? "-" : dayMinus2Num;
+                const dayMinus3Num = parseFloat(row[5]);
+                const dayMinus3 = isNaN(dayMinus3Num) ? "-" : dayMinus3Num;
+                const dayMinus4Num = parseFloat(row[6]); 
+                const dayMinus4 = isNaN(dayMinus4Num) ? "-" : dayMinus4Num;
+
+                const daysOver68 = parseFloat(row[7]) || 0;
+                const daysOver69 = parseFloat(row[8]) || 0;
+                
+                daysOver68Data.push(daysOver68);
+                daysOver69Data.push(daysOver69);
+                hotspot68Data.push(parseFloat(row[9]) || 0);
+                hotspot69Data.push(parseFloat(row[10]) || 0);
+
+                const currentAqiClass = getAqiClass(pmTodayNum);
+                const healthAdvice = getHealthAdvice(pmTodayNum);
+
+                const target69 = Math.floor(daysOver68 * 0.95);
+                const remainingDays = target69 - daysOver69;
+                let quotaHtml = '';
+
+                if (remainingDays > 0) {
+                    quotaHtml = `
+                        <div class="mt-2 text-xs p-2 bg-blue-100 text-blue-900 rounded-lg w-full text-left border border-blue-300">
+                            📉 <span class="font-bold">เป้าหมายลดฝุ่น 5% จากปี 68:</span> ต้องไม่เกิน ${target69} วัน<br>
+                            ⏳ <span class="font-bold text-green-700">เหลือโควตาอีก: ${remainingDays} วัน</span>
+                        </div>
+                    `;
+                } else if (remainingDays === 0) {
+                    quotaHtml = `
+                        <div class="mt-2 text-xs p-2 bg-orange-100 text-orange-900 rounded-lg w-full text-left border border-orange-400">
+                            ⚠️ <span class="font-bold">เป้าหมายลดฝุ่น 5% จากปี 68:</span> ต้องไม่เกิน ${target69} วัน<br>
+                            🚨 <span class="font-bold text-orange-700">คำเตือน: วันนี้ฝุ่นเกินมาตรฐานชนเพดานเป้าหมายแล้ว!</span>
+                        </div>
+                    `;
+                } else {
+                    quotaHtml = `
+                        <div class="mt-2 text-xs p-2 bg-red-200 text-red-900 rounded-lg w-full text-left border border-red-500 font-bold">
+                            ❌ เป้าหมายลดฝุ่น 5% จากปี 68: ต้องไม่เกิน ${target69} วัน<br>
+                            ทะลุเป้าหมายแล้ว (เกินมา ${Math.abs(remainingDays)} วัน)
+                        </div>
+                    `;
+                }
+
+                let riskAdviceHtml = '';
+                if (pmTodayNum >= 25.1 && pmTodayNum <= 37.5) {
+                    riskAdviceHtml = `
+                        <div class="mt-2 text-xs p-2 bg-yellow-50 text-yellow-900 rounded-lg w-full text-left border border-yellow-300">
+                            <span class="font-bold">กลุ่มเสี่ยง:</span> สวมหน้ากาก ป้องกันตนเอง เฝ้าระวังสุขภาพตนเอง หากมีอาการผิดปกติ ให้รีบไปพบแพทย์
+                        </div>
+                    `;
+                } else if (pmTodayNum >= 37.6 && pmTodayNum <= 75.0) {
+                    riskAdviceHtml = `
+                        <div class="mt-2 text-xs p-2 bg-orange-50 text-orange-900 rounded-lg w-full text-left border border-orange-300">
+                            <span class="font-bold">กลุ่มเสี่ยง:</span> เลี่ยงกิจกรรมกลางแจ้ง สวมหน้ากากป้องกันฝุ่น พกพายาประจำตัวและอุปกรณ์ที่จำเป็นให้พร้อม หากมีอาการผิดปกติ ให้รีบไปพบแพทย์
+                        </div>
+                    `;
+                }
+
+                let warningHtml = '';
+                
+                if (pmTodayNum >= 75.1) {
+                    warningHtml = `
+                        <div class="mt-3 text-xs p-3 bg-red-100 text-red-900 rounded-lg border-2 border-red-600 w-full text-left overflow-y-auto max-h-48 custom-scrollbar">
+                            <div class="font-bold text-sm mb-2 text-red-700">🚨 ยกระดับมาตรการรับมือฝุ่น PM2.5 สีแดง:</div>
+                            <div class="space-y-3">
+                                <div>
+                                    <span class="font-bold">1. การป้องกันสุขภาพและบริหารจัดการภาพรวม</span>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li><span class="font-semibold">ลดการรับสัมผัสฝุ่น:</span> ขอความร่วมมือประชาชนงดกิจกรรมกลางแจ้ง เช่น การแข่งขันกีฬาหรือคอนเสิร์ตกลางแจ้ง ให้หน่วยงานพิจารณาทำงานที่บ้าน (Work From Home) และพิจารณาปิดสถานศึกษาชั่วคราว</li>
+                                        <li><span class="font-semibold">การแจ้งเตือน:</span> แจ้งเตือนภัยสถานการณ์ฝุ่นละอองผ่านระบบ Cell Broadcast และ SMS ส่งตรงถึงโทรศัพท์มือถือของประชาชนในพื้นที่เสี่ยง</li>
+                                        <li><span class="font-semibold">การสาธารณสุข:</span> จัดเตรียมห้องปลอดฝุ่นเพื่อดูแลกลุ่มเปราะบาง แจกอุปกรณ์ป้องกันส่วนบุคคล (หน้ากากมุ่งสู้ฝุ่น) จัดหน่วยแพทย์ลงพื้นที่ และเปิดคลินิกมลพิษ</li>
+                                        <li><span class="font-semibold">การบรรเทาสถานการณ์:</span> ปฏิบัติการทำฝนหลวงเพื่อลดปริมาณฝุ่นละออง และพิจารณาประกาศเขตการให้ความช่วยเหลือผู้ประสบภัยพิบัติกรณีฉุกเฉินเพื่อให้ความช่วยเหลือประชาชนได้ทันท่วงที</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <span class="font-bold">2. การควบคุมฝุ่นในเขตเมือง</span>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li><span class="font-semibold">ยานพาหนะ:</span> ตั้งจุดตรวจจับยานพาหนะควันดำอย่างเข้มงวด หากพบค่าเกินมาตรฐานให้บังคับใช้กฎหมายอย่างเด็ดขาด</li>
+                                        <li><span class="font-semibold">อุตสาหกรรมและก่อสร้าง:</span> ตรวจกำกับและบังคับใช้กฎหมายอย่างเข้มงวดกับโรงงานที่มีความเสี่ยงสูง (เช่น โรงงานใช้หม้อไอน้ำ แพลนท์ปูน โรงหลอมโลหะ) รวมถึงสถานที่ก่อสร้าง</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <span class="font-bold">3. การควบคุมการเผาในพื้นที่ป่าและเกษตรกรรม</span>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li><span class="font-semibold">บังคับใช้กฎหมายการเผา:</span> หากพบการเผาในพื้นที่เกษตร จะถูกบังคับใช้กฎหมาย และถูกตัดสิทธิ์ความช่วยเหลือจากภาครัฐ</li>
+                                        <li><span class="font-semibold">การจัดการไฟป่า:</span> จัดชุดปฏิบัติการลาดตระเวนและจุดสกัดในพื้นที่เสี่ยง หากมีไฟป่าเกิดขึ้นเจ้าของพื้นที่ต้องร่วมรับผิดชอบ และพิจารณาประกาศปิดป่าในห้วงเวลาที่เหมาะสม</li>
+                                        <li><span class="font-semibold">บทลงโทษขั้นเด็ดขาด:</span> หากพบการลักลอบเผาในพื้นที่เกษตรกรรมที่ตั้งอยู่ในเขตที่ดินของรัฐ จะถูกดำเนินการเพิกถอนสิทธิในการเข้าทำประโยชน์หรืออยู่อาศัยทันที</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <span class="font-bold">4. การจัดการหมอกควันข้ามแดน</span>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li>ควบคุมและบังคับใช้กฎหมายอย่างเคร่งครัดกับผู้ลักลอบนำเข้าข้าวโพดเลี้ยงสัตว์ที่ไม่ปลอดการเผา</li>
+                                        <li>ประสานงานเพื่อแก้ไขปัญหาหมอกควันข้ามแดนผ่านกลไกคณะกรรมการชายแดน และการประชุมระดับอาเซียน</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else if (pmTodayNum >= 37.6 && pmTodayNum <= 75.0) {
+                    warningHtml = `
+                        <div class="mt-3 text-xs p-3 bg-orange-100 text-orange-900 rounded-lg border-2 border-orange-500 w-full text-left overflow-y-auto max-h-48 custom-scrollbar">
+                            <div class="font-bold text-sm mb-2 text-orange-700">⚠️ ยกระดับมาตรการรับมือฝุ่น PM2.5 สีส้ม:</div>
+                            <div class="space-y-3">
+                                <div>
+                                    <span class="font-bold">1. การแจ้งเตือนและป้องกันสุขภาพของประชาชน</span>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li><span class="font-semibold">แจ้งเตือนภัย:</span> ยกระดับการแจ้งเตือนสถานการณ์ฝุ่น PM2.5</li>
+                                        <li><span class="font-semibold">ลดการรับสัมผัส:</span> ขอความร่วมมือประชาชนงดกิจกรรมกลางแจ้ง</li>
+                                        <li><span class="font-semibold">สาธารณสุข:</span> จัดเตรียมห้องปลอดฝุ่นเพื่อดูแลกลุ่มเปราะบาง</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <span class="font-bold">2. การควบคุมฝุ่นในเขตเมือง</span>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li><span class="font-semibold">ตรวจจับยานพาหนะ:</span> เข้มงวดการตรวจสอบและตรวจจับรถยนต์ควันดำ หากพบค่าเกินมาตรฐานให้บังคับใช้กฎหมายอย่างเด็ดขาด</li>
+                                        <li><span class="font-semibold">คุมเข้มโรงงานและก่อสร้าง:</span> ตรวจกำกับและบังคับใช้กฎหมายอย่างเข้มงวดกับโรงงานอุตสาหกรรมเสี่ยงสูง (เช่น หม้อไอน้ำ แพลนท์ปูน โรงหลอมโลหะ) และสถานที่ก่อสร้าง</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <span class="font-bold">3. การควบคุมการเผาในพื้นที่เกษตรและไฟป่า</span>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li><span class="font-semibold">คุมเข้มการเผาทางการเกษตร:</span> ควบคุมการเผาอย่างเคร่งครัด หากเกษตรกรฝ่าฝืนหรือไม่ปฏิบัติตามเงื่อนไข จะถูกบังคับใช้กฎหมายและตัดสิทธิ์การรับความช่วยเหลือจากรัฐ</li>
+                                        <li><span class="font-semibold">การจัดการป่าไม้:</span> จัดชุดปฏิบัติการลาดตระเวน ตั้งจุดสกัดและจุดเฝ้าระวังในพื้นที่ป่าอนุรักษ์และป่าสงวน หากเกิดไฟป่าเจ้าของพื้นที่ต้องร่วมรับผิดชอบ</li>
+                                        <li><span class="font-semibold">บทลงโทษในที่ดินรัฐ:</span> หากพบการกระทำผิดลักลอบเผาในพื้นที่เกษตรกรรมที่อยู่ในเขตที่ดินของรัฐ จะถูกพิจารณาเพิกถอนสิทธิการทำประโยชน์หรืออยู่อาศัย</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <span class="font-bold">4. การบริหารจัดการภาพรวม</span>
+                                    <ul class="list-disc pl-4 mt-1 space-y-1">
+                                        <li>ติดตามสถานการณ์อย่างใกล้ชิด หากสถานการณ์รุนแรงเข้าตามหลักเกณฑ์ จังหวัดพิจารณาประกาศเขตการให้ความช่วยเหลือผู้ประสบภัยพิบัติกรณีฉุกเฉินเพื่อให้การดูแลประชาชนได้ทันท่วงที</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else if (dayMinus2Num > 25.0 && dayMinus2Num <= 37.5 &&
+                           dayMinus1Num > 25.0 && dayMinus1Num <= 37.5 &&
+                           pmTodayNum >= 30.0 && pmTodayNum <= 37.5 &&
+                           dayMinus2Num < dayMinus1Num && dayMinus1Num < pmTodayNum) {
+                    warningHtml = `
+                        <div class="mt-3 text-xs p-2 bg-yellow-100 text-yellow-800 rounded-lg font-bold border border-yellow-500 w-full text-left">
+                            ⚠️ แจ้งเตือน: ควรพิจารณายกระดับมาตรการป้องกันปัญหาฝุ่น PM2.5 ก่อนจะเริ่มมีผลกระทบต่อสุขภาพ
+                        </div>
+                    `;
+                }
+
+                cardsContainer.innerHTML += `
+                    <div class="p-4 rounded-xl shadow-md text-center flex flex-col justify-start items-center ${currentAqiClass}">
+                        <h4 class="text-xl font-bold">${province}</h4>
+                        <div class="text-3xl font-black mt-2">${pmToday}</div>
+                        <div class="text-xs">มคก./ลบ.ม.</div>
+                        <div class="mt-2 text-sm bg-white bg-opacity-30 rounded px-2 py-1 w-full">
+                            จุดความร้อน: <span class="font-bold text-red-700">${hotspot}</span>
+                        </div>
+                        ${quotaHtml}
+                        <div class="mt-2 text-xs p-2 bg-white bg-opacity-60 rounded-lg text-black w-full text-left">
+                            <span class="font-bold">คำแนะนำ:</span> ${healthAdvice}
+                        </div>
+                        ${riskAdviceHtml}
+                        ${warningHtml}
+                    </div>
+                `;
+
+                historyTable.innerHTML += `
+                    <tr>
+                        <td class="border p-2 font-semibold text-left">${province}</td>
+                        <td class="border p-2 ${getAqiClass(dayMinus4Num)}">${dayMinus4}</td>
+                        <td class="border p-2 ${getAqiClass(dayMinus3Num)}">${dayMinus3}</td>
+                        <td class="border p-2 ${getAqiClass(dayMinus2Num)}">${dayMinus2}</td>
+                        <td class="border p-2 ${getAqiClass(dayMinus1Num)}">${dayMinus1}</td>
+                        <td class="border p-2 font-bold ${currentAqiClass}">${pmToday}</td>
+                    </tr>
+                `;
+
+                chartLabels.push(province);
+                chartData.push(isNaN(pmTodayNum) ? null : pmTodayNum);
+                
+                if (isNaN(pmTodayNum)) chartColors.push('#D1D5DB');
+                else if (pmTodayNum <= 15) chartColors.push('#00B0F0');
+                else if (pmTodayNum <= 25) chartColors.push('#92D050');
+                else if (pmTodayNum <= 37.5) chartColors.push('#FFFF00');
+                else if (pmTodayNum <= 75) chartColors.push('#FFC000');
+                else chartColors.push('#FF0000');
+            });
+
+            const datalabelsOptions = {
+                anchor: 'end',
+                align: 'top',
+                color: '#333',
+                font: { weight: 'bold' },
+                formatter: Math.round
+            };
+
+            new Chart(document.getElementById('aqiChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'ค่าฝุ่น PM2.5 วันนี้',
+                        data: chartData,
+                        backgroundColor: chartColors,
+                        borderWidth: 1,
+                        borderColor: '#333'
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    layout: { padding: { top: 25 } },
+                    scales: { y: { beginAtZero: true } }, 
+                    plugins: { 
+                        legend: { display: false },
+                        datalabels: datalabelsOptions
+                    } 
+                }
+            });
+
+            new Chart(document.getElementById('daysOverChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: chartLabels,
+                    datasets: [
+                        { label: 'ปี 2568', data: daysOver68Data, backgroundColor: '#9CA3AF' },
+                        { label: 'ปี 2569', data: daysOver69Data, backgroundColor: '#EF4444' }
+                    ]
+                },
+                options: { 
+                    responsive: true, 
+                    layout: { padding: { top: 25 } },
+                    scales: { y: { beginAtZero: true } },
+                    plugins: { datalabels: datalabelsOptions }
+                }
+            });
+
+            new Chart(document.getElementById('hotspotAccumChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: chartLabels,
+                    datasets: [
+                        { label: 'ปี 2568', data: hotspot68Data, backgroundColor: '#9CA3AF' },
+                        { label: 'ปี 2569', data: hotspot69Data, backgroundColor: '#F97316' }
+                    ]
+                },
+                options: { 
+                    responsive: true, 
+                    layout: { padding: { top: 25 } },
+                    scales: { y: { beginAtZero: true } },
+                    plugins: { datalabels: datalabelsOptions }
+                }
+            });
+        }
+
+        function showError(error) {
+            document.getElementById('loader').innerHTML = "เกิดข้อผิดพลาดในการดึงข้อมูล โปรดตรวจสอบ Google Sheets";
+            console.error(error);
+        }
+
+        function updateDownloadLinkClean() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            const formattedDate = `${year}-${month}-${day}`;
+            const dynamicUrl = `http://air4thai.pcd.go.th/report/HazeTableReportNE_V2003_${formattedDate}_7.pdf`;
+            document.getElementById('hazeDownloadBtnClean').href = dynamicUrl;
+        }
+  
+        updateDownloadLinkClean();
+    </script>
+</body>
+</html>
+</body>
+</html>
