@@ -545,7 +545,6 @@
 // วาง URL ของ Google Apps Script ที่ท่านเพิ่งสร้างลงไปตรงนี้
 const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz2jGIqN44-71pjnMVyeV_ofNx0jDodMfMITcbCyw81Vsxw9rAURiRtDuw/exec';
 
-
         // ฟังก์ชันแปลงรหัสสภาพอากาศเป็นข้อความ
         function getWeatherCondition(condCode) {
             switch(parseInt(condCode)) {
@@ -619,15 +618,22 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
                             const tc = weatherData.tc !== undefined ? weatherData.tc : '-';
                             const rh = weatherData.rh !== undefined ? weatherData.rh : '-';
                             
-                            // ดึงค่าลมตาม API คู่มือ (ws10m และ wd10m)
+                            // ดึงค่าลม
                             let windSpeedDisplay = '-';
                             if (weatherData.ws10m !== undefined) {
-                                // แปลง m/s เป็น กม./ชม.
                                 const kmh = (weatherData.ws10m * 3.6).toFixed(1);
                                 windSpeedDisplay = `${kmh} กม./ชม.`;
                             }
                             
                             const windDirDisplay = weatherData.wd10m !== undefined ? getWindDirectionThai(weatherData.wd10m) : '-';
+                            
+                            // สร้างไอคอนลูกศรชี้ทิศทางที่ลมพัดไป
+                            let windArrowHtml = '';
+                            if (weatherData.wd10m !== undefined) {
+                                // บวก 180 องศาเพื่อให้ลูกศรชี้ไปในทิศที่ลมจะพัดไป
+                                const rotation = (weatherData.wd10m + 180) % 360;
+                                windArrowHtml = `<svg style="transform: rotate(${rotation}deg);" class="inline-block w-5 h-5 ml-1 text-blue-600 font-bold drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 19V5m-7 7l7-7 7 7"></path></svg>`;
+                            }
                             
                             document.getElementById(`weather-${prov.name}`).innerHTML = `
                                 <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
@@ -639,7 +645,12 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
                                     <div class="flex justify-between"><span>🌡️ อุณหภูมิ:</span> <span class="font-semibold">${tc} °C</span></div>
                                     <div class="flex justify-between"><span>💧 ความชื้น:</span> <span class="font-semibold">${rh} %</span></div>
                                     <div class="flex justify-between"><span>🌬️ ความเร็วลม:</span> <span class="font-semibold">${windSpeedDisplay}</span></div>
-                                    <div class="flex justify-between"><span>🧭 ทิศทางลม:</span> <span class="font-semibold text-right">${windDirDisplay}</span></div>
+                                    <div class="flex justify-between items-center">
+                                        <span>🧭 ทิศทางลม:</span> 
+                                        <span class="font-semibold text-right flex items-center justify-end">
+                                            ${windDirDisplay} ${windArrowHtml}
+                                        </span>
+                                    </div>
                                 </div>
                             `;
                         } else {
