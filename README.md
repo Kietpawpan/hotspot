@@ -1,6 +1,6 @@
 # PM2.5 Air Quality Dashboard - EPO11
 
-EPO11PM([https://esc.mnre.go.th/f4.php](https://kietpawpan.github.io/hotspot/epo11PM.html)) is a real-time web-based dashboard for monitoring PM2.5 air quality, hotspots, and ventilation rates in the lower Northeastern region of Thailand (Nakhon Ratchasima, Chaiyaphum, Buriram, and Surin). 
+EPO11PM ([https://esc.mnre.go.th/f4.php](https://kietpawpan.github.io/hotspot/epo11PM.html)) is a real-time web-based dashboard for monitoring PM2.5 air quality, hotspots, and ventilation rates in the lower Northeastern region of Thailand (Nakhon Ratchasima, Chaiyaphum, Buriram, and Surin). 
 
 This project was developed to provide clear visual data and actionable health advisories for the public and relevant agencies.
 
