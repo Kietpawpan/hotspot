@@ -36,4 +36,4 @@ We successfully integrated meteorological data from the Thai Meteorological Depa
 &copy; EPO11 (M. Kietpawpan, Director)
 Environmental and Pollution Control Office 11 (Nakhon Ratchasima), Pollution Control Department, Thailand.
 
-Further information: See this [paper](https://esc.mnre.go.th/f4.php](https://kietpawpan.github.io/hotspot/paper.html)) (in Thai).
+For more information, see this [paper](https://kietpawpan.github.io/hotspot/paper.html) (in Thai).
