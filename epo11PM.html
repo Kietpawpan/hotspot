@@ -543,7 +543,35 @@
         updateDownloadLinkClean();
 
 // วาง URL ของ Google Apps Script ที่ท่านเพิ่งสร้างลงไปตรงนี้
-const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycby6DOHtrlvjLx-ddWMAUenRuwsDcb2_r-osiPBzefpNQ4ruRC6aiod7oARIVrob33K_4A/exec';
+const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz2jGIqN44-71pjnMVyeV_ofNx0jDodMfMITcbCyw81Vsxw9rAURiRtDuw/exec';
+
+
+        // ฟังก์ชันแปลงรหัสสภาพอากาศเป็นข้อความ
+        function getWeatherCondition(condCode) {
+            switch(parseInt(condCode)) {
+                case 1: return "ท้องฟ้าแจ่มใส";
+                case 2: return "มีเมฆบางส่วน";
+                case 3: return "เมฆเป็นส่วนมาก";
+                case 4: return "มีเมฆมาก";
+                case 5: return "ฝนตกเล็กน้อย";
+                case 6: return "ฝนปานกลาง";
+                case 7: return "ฝนตกหนัก";
+                case 8: return "ฝนฟ้าคะนอง";
+                case 9: return "อากาศหนาวจัด";
+                case 10: return "อากาศหนาว";
+                case 11: return "อากาศเย็น";
+                case 12: return "อากาศร้อนจัด";
+                default: return "-";
+            }
+        }
+
+        // ฟังก์ชันแปลงองศาเป็นชื่อทิศภาษาไทย
+        function getWindDirectionThai(degree) {
+            if (degree === undefined || isNaN(degree)) return '-';
+            const directions = ["เหนือ", "ตะวันออกเฉียงเหนือ", "ตะวันออก", "ตะวันออกเฉียงใต้", "ใต้", "ตะวันตกเฉียงใต้", "ตะวันตก", "ตะวันตกเฉียงเหนือ"];
+            const index = Math.round(((degree %= 360) < 0 ? degree + 360 : degree) / 45) % 8;
+            return 'ทิศ' + directions[index] + ' (' + degree + '°)';
+        }
 
         async function fetchWeatherData() {
             const weatherContainer = document.getElementById('weather-cards');
@@ -561,7 +589,7 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycby6DOHtrlvjLx
                     <div class="border rounded-lg p-3 bg-blue-50 relative" id="weather-${prov.name}">
                         <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
                         <div class="text-sm space-y-2 text-center text-gray-500">
-                            กำลังโหลด...
+                            กำลังโหลดข้อมูล...
                         </div>
                     </div>
                 `;
@@ -576,24 +604,42 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycby6DOHtrlvjLx
                         const data = await response.json();
                         
                         if (data && data.WeatherForecasts && data.WeatherForecasts.length > 0) {
-                            // ปรับการเข้าถึงข้อมูลให้ตรงกับ JSON ที่ได้มา
                             const forecastObj = data.WeatherForecasts[0].forecasts[0]; 
                             const weatherData = forecastObj.data;
+                            const rawTime = forecastObj.time;
                             
+                            // แปลงเวลา
+                            const dateObj = new Date(rawTime);
+                            const timeString = dateObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                            const dateString = dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+                            const displayTime = `${dateString} เวลา ${timeString} น.`;
+                            
+                            // ดึงค่าสภาพอากาศ
+                            const condText = weatherData.cond !== undefined ? getWeatherCondition(weatherData.cond) : '-';
                             const tc = weatherData.tc !== undefined ? weatherData.tc : '-';
                             const rh = weatherData.rh !== undefined ? weatherData.rh : '-';
                             
-                            // ป้องกัน Error กรณี API ไม่มีข้อมูลลมส่งมา
-                            const windSpeed = weatherData.ws !== undefined ? weatherData.ws : '-';
-                            const windDir = weatherData.wd !== undefined ? weatherData.wd : '-';
+                            // ดึงค่าลมตาม API คู่มือ (ws10m และ wd10m)
+                            let windSpeedDisplay = '-';
+                            if (weatherData.ws10m !== undefined) {
+                                // แปลง m/s เป็น กม./ชม.
+                                const kmh = (weatherData.ws10m * 3.6).toFixed(1);
+                                windSpeedDisplay = `${kmh} กม./ชม.`;
+                            }
+                            
+                            const windDirDisplay = weatherData.wd10m !== undefined ? getWindDirectionThai(weatherData.wd10m) : '-';
                             
                             document.getElementById(`weather-${prov.name}`).innerHTML = `
                                 <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
+                                <div class="text-xs text-center text-gray-500 mb-3 bg-white py-1 rounded border border-gray-200 shadow-sm">
+                                    อัปเดตข้อมูล: <span class="font-bold text-blue-700">${displayTime}</span>
+                                </div>
                                 <div class="text-sm space-y-2">
+                                    <div class="flex justify-between"><span>🌤️ สภาพอากาศ:</span> <span class="font-semibold text-blue-700">${condText}</span></div>
                                     <div class="flex justify-between"><span>🌡️ อุณหภูมิ:</span> <span class="font-semibold">${tc} °C</span></div>
                                     <div class="flex justify-between"><span>💧 ความชื้น:</span> <span class="font-semibold">${rh} %</span></div>
-                                    <div class="flex justify-between"><span>🌬️ ความเร็วลม:</span> <span class="font-semibold">${windSpeed} กม./ชม.</span></div>
-                                    <div class="flex justify-between"><span>🧭 ทิศทางลม:</span> <span class="font-semibold">${windDir}</span></div>
+                                    <div class="flex justify-between"><span>🌬️ ความเร็วลม:</span> <span class="font-semibold">${windSpeedDisplay}</span></div>
+                                    <div class="flex justify-between"><span>🧭 ทิศทางลม:</span> <span class="font-semibold text-right">${windDirDisplay}</span></div>
                                 </div>
                             `;
                         } else {
@@ -605,7 +651,7 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycby6DOHtrlvjLx
                 } catch (error) {
                     document.getElementById(`weather-${prov.name}`).innerHTML = `
                         <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
-                        <div class="text-sm text-red-500 text-center">ไม่สามารถดึงข้อมูลได้ในขณะนี้</div>
+                        <div class="text-sm text-red-500 text-center">ไม่สามารถดึงข้อมูลพยากรณ์ได้</div>
                     `;
                 }
             }
@@ -613,7 +659,9 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycby6DOHtrlvjLx
 
         window.addEventListener('load', () => {
             setTimeout(fetchWeatherData, 1000);
-        });</script>
+        });
+        
+</script>
 </body>
 </html>
 </body>
