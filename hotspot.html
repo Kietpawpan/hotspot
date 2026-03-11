@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แผนที่จุดความร้อน VIIRS พื้นที่ สคพ.11 (ฉบับสมบูรณ์)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { font-family: sans-serif; background-color: #f3f4f6; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #4a148c; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 20px; }
+        .control-panel { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
+        .status-box { font-size: 15px; color: #4a148c; margin-bottom: 15px; background: #e9d5ff; padding: 10px; border-radius: 6px; border: 1px solid #d8b4fe; }
+        .mode-selector { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #cbd5e1; }
+        .mode-selector label { font-size: 16px; cursor: pointer; margin-right: 20px; display: inline-flex; align-items: center; }
+        .mode-selector input { margin-right: 8px; accent-color: #4a148c; transform: scale(1.2); }
+        #sliderContainer { transition: opacity 0.3s ease; }
+        #map { height: 600px; width: 100%; border-radius: 8px; z-index: 10; }
+        .legend-box { background: white; padding: 10px 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; line-height: 1.6; max-height: 500px; overflow-y: auto; }
+        .legend-title { font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 10px; }
+        .legend-title:first-child { margin-top: 0; }
+        .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
+        input[type=range] { width: 100%; margin-top: 10px; accent-color: #4a148c; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>ระบบเฝ้าระวังจุดความร้อน VIIRS (สคพ.11)</h2>
+        <div class="subtitle">ครอบคลุมพื้นที่ นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์</div>
+        
+        <div class="control-panel">
+            <div class="status-box">
+                🛰️ <b>ข้อมูลดาวเทียมในระบบล่าสุด:</b> <span id="lastUpdateDisplay" style="color: #b91c1c; font-weight: bold;">กำลังตรวจสอบ...</span>
+            </div>
+
+            <div class="mode-selector">
+                <label>
+                    <input type="radio" name="viewMode" value="slider" checked>
+                    <b>ระบุช่วงเวลา (ชั่วโมงย้อนหลัง)</b>
+                </label>
+                <label>
+                    <input type="radio" name="viewMode" value="allday">
+                    <b>แสดงภาพรวมทั้งหมด (รอบ 24 ชั่วโมง)</b>
+                </label>
+            </div>
+
+            <div id="sliderContainer">
+                <label for="hourSlider" style="font-size: 16px;">
+                    <b>แสดงจุดความร้อนย้อนหลัง: </b> 
+                    <span id="hourValueDisplay" style="color: #d84315; font-weight: bold; font-size: 1.2em;">8</span> 
+                    <b> ชั่วโมง</b> <span style="font-size: 14px; color: #64748b;">(นับย้อนจากข้อมูลดาวเทียมล่าสุด)</span>
+                </label>
+                <input type="range" id="hourSlider" min="1" max="24" value="8" step="1">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-top: 5px;">
+                    <span>1 ชม.</span>
+                    <span>12 ชม.</span>
+                    <span>24 ชม.</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const apikey = 'csbkEXCCJBRqM6DonhfyWrk5K1hbiCsp5VvdioLzSqQqVJFJqZ3mRSl7e1XL6t4l';
+        const apiUrl = 'https://api-gateway.gistda.or.th/api/2.0/resources/features/viirs/1day?api_key=' + apikey + '&limit=10000';
+        const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailandProvinces.geojson';
+
+        const map = L.map('map').setView([15.2, 102.5], 8);
+
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap'
+        });
+
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: '© Esri'
+        });
+
+        osmLayer.addTo(map);
+
+        const baseMaps = {
+            "แผนที่ถนน (OSM)": osmLayer,
+            "ภาพถ่ายดาวเทียม (Esri)": satelliteLayer
+        };
+        L.control.layers(baseMaps).addTo(map);
+
+        const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
+        const targetProvincesThai = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
+        
+        let allReo11Features = [];
+        let latestDateObj = new Date(0);
+        let hotspotLayer;
+        let summaryControl;
+        let currentMode = 'slider';
+
+        function parseAcqDateTime(feature) {
+            let props = feature.properties || {};
+            let dateStr = props.acq_date || props.ACQ_DATE || props.acq_datetime || props.ADATE || "";
+            let timeStr = props.acq_time || props.ACQ_TIME || props.ATIME || "0000";
+            
+            if (!dateStr) return new Date(0);
+            
+            let year = 0, month = 0, day = 0;
+            let dStr = String(dateStr);
+            if (dStr.includes('-')) {
+                let parts = dStr.split('-');
+                if (parts[0].length === 4) { year = parseInt(parts[0], 10); month = parseInt(parts[1], 10) - 1; day = parseInt(parts[2], 10); }
+                else { year = parseInt(parts[2], 10); month = parseInt(parts[1], 10) - 1; day = parseInt(parts[0], 10); }
+            } else if (dStr.includes('/')) {
+                let parts = dStr.split('/');
+                if (parts[2].length === 4) { year = parseInt(parts[2], 10); month = parseInt(parts[1], 10) - 1; day = parseInt(parts[0], 10); }
+                else { year = parseInt(parts[0], 10); month = parseInt(parts[1], 10) - 1; day = parseInt(parts[2], 10); }
+            } else {
+                return new Date(0);
+            }
+            
+            let tStr = String(timeStr).replace(/:/g, '').padStart(4, '0');
+            let hours = parseInt(tStr.substring(0, 2), 10) || 0;
+            let mins = parseInt(tStr.substring(2, 4), 10) || 0;
+            
+            return new Date(Date.UTC(year, month, day, hours, mins));
+        }
+
+        function formatTimeStr(dateObj) {
+            let h = String(dateObj.getHours()).padStart(2, '0');
+            let m = String(dateObj.getMinutes()).padStart(2, '0');
+            return h + ":" + m + " น.";
+        }
+        
+        function formatDateStr(dateObj) {
+            let d = String(dateObj.getDate()).padStart(2, '0');
+            let m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            let y = dateObj.getFullYear() + 543;
+            return d + "/" + m + "/" + y;
+        }
+
+        fetch(geojsonBoundariesUrl)
+            .then(res => res.json())
+            .then(data => {
+                const filteredBoundaries = {
+                    type: "FeatureCollection",
+                    features: data.features.filter(f => {
+                        const propStr = JSON.stringify(f.properties);
+                        return targetKeywords.some(keyword => propStr.includes(keyword));
+                    })
+                };
+
+                const boundaryLayer = L.geoJSON(filteredBoundaries, {
+                    style: {
+                        color: "#4a148c", 
+                        weight: 5,         
+                        opacity: 1,        
+                        fillOpacity: 0.05,
+                        dashArray: ''
+                    }
+                }).addTo(map);
+
+                if (filteredBoundaries.features.length > 0) {
+                    map.fitBounds(boundaryLayer.getBounds());
+                }
+            })
+            .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้', err));
+
+        fetch(apiUrl)
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                data.features.forEach(feature => {
+                    let dt = parseAcqDateTime(feature);
+                    if (dt > latestDateObj) {
+                        latestDateObj = dt;
+                    }
+                });
+
+                allReo11Features = data.features.filter(feature => {
+                    const propStr = JSON.stringify(feature.properties || {});
+                    return targetProvincesThai.some(p => propStr.includes(p));
+                });
+
+                if (latestDateObj.getTime() > 0) {
+                    document.getElementById('lastUpdateDisplay').innerText = "วันที่ " + formatDateStr(latestDateObj) + " เวลา " + formatTimeStr(latestDateObj) + " (อ้างอิงระดับประเทศ)";
+                } else {
+                    document.getElementById('lastUpdateDisplay').innerText = "ไม่พบข้อมูลในระบบ GISTDA";
+                }
+
+                updateMap();
+            })
+            .catch(error => {
+                console.error('เกิดข้อผิดพลาดในการดึงข้อมูล', error);
+                document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูล";
+            });
+
+        function getTopLanduseHtml(provName, pLuCounts) {
+            let luObj = pLuCounts[provName];
+            let keys = Object.keys(luObj);
+            if (keys.length === 0) return "<div style='margin-bottom: 8px;'></div>";
+            let topLu = keys.reduce((a, b) => luObj[a] > luObj[b] ? a : b);
+            return `<div style="padding-left: 10px; font-size: 13px; color: #b91c1c; margin-bottom: 8px; margin-top: 2px;">↳ พบใน<b>${topLu}</b>มากที่สุด (${luObj[topLu]} จุด)</div>`;
+        }
+
+        function updateMap() {
+            if (hotspotLayer) { map.removeLayer(hotspotLayer); }
+            if (summaryControl) { map.removeControl(summaryControl); }
+
+            let hotspotCounts = { "นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0 };
+            let landuseCounts = {};
+            let provLuCounts = { "นครราชสีมา": {}, "ชัยภูมิ": {}, "บุรีรัมย์": {}, "สุรินทร์": {} };
+            
+            let featuresToDisplay = [];
+            let timeRangeDisplay = "รอบ 24 ชั่วโมง";
+            let hours = parseInt(document.getElementById('hourSlider').value);
+
+            if (latestDateObj.getTime() > 0) {
+                if (currentMode === 'slider') {
+                    const hoursInMs = hours * 60 * 60 * 1000;
+                    const cutoffTime = new Date(latestDateObj.getTime() - hoursInMs);
+                    timeRangeDisplay = formatTimeStr(cutoffTime) + " ถึง " + formatTimeStr(latestDateObj);
+
+                    featuresToDisplay = allReo11Features.filter(feature => {
+                        let dt = parseAcqDateTime(feature);
+                        if (dt >= cutoffTime && dt <= latestDateObj) {
+                            countFeature(feature, hotspotCounts, landuseCounts, provLuCounts);
+                            return true;
+                        }
+                        return false;
+                    });
+                } else {
+                    featuresToDisplay = allReo11Features;
+                    featuresToDisplay.forEach(feature => countFeature(feature, hotspotCounts, landuseCounts, provLuCounts));
+                }
+            }
+
+            const filteredData = {
+                type: "FeatureCollection",
+                features: featuresToDisplay
+            };
+
+            hotspotLayer = L.geoJSON(filteredData, {
+                pointToLayer: function (feature, latlng) {
+                    let props = feature.properties || {};
+                    let conf = props.confidence || props.CONFIDENCE || "";
+                    let confStr = String(conf).trim().toLowerCase();
+                    let markerColor = "#ffc107"; 
+                    
+                    if (confStr === 'h' || confStr === 'high' || Number(conf) >= 80) {
+                        markerColor = "#dc3545"; 
+                    } else if (confStr === 'n' || confStr === 'nominal' || (Number(conf) >= 50 && Number(conf) < 80)) {
+                        markerColor = "#fd7e14"; 
+                    }
+
+                    return L.circleMarker(latlng, {
+                        radius: 6,
+                        fillColor: markerColor,
+                        color: "#fff",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.9
+                    });
+                },
+                onEachFeature: function (feature, layer) {
+                    let props = feature.properties || {};
+                    let dt = parseAcqDateTime(feature);
+                    let timeDisplay = dt.getTime() > 0 ? formatTimeStr(dt) : "-";
+                    let dateDisplay = dt.getTime() > 0 ? formatDateStr(dt) : "-";
+                    
+                    let lat = props.latitude || (feature.geometry && feature.geometry.coordinates[1]) || "-";
+                    let lon = props.longitude || (feature.geometry && feature.geometry.coordinates[0]) || "-";
+                    
+                    let propStr = JSON.stringify(props);
+                    let prov = targetProvincesThai.find(p => propStr.includes(p)) || "-";
+                    let amp = props.amphoe_t || props.ap_tn || props.amphoe || "-";
+                    let tam = props.tambon_t || props.tb_tn || props.tambon || "-";
+                    let landuse = props.landuse_t || props.lu_name || props.landuse || props.lu_type || "ไม่ระบุข้อมูล";
+                    let conf = props.confidence || props.CONFIDENCE || "-";
+                    
+                    let popupContent = "<div style='font-size: 14px;'>";
+                    popupContent += "<div style='background-color:#4a148c; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>รายละเอียดจุดความร้อน</b></div>";
+                    popupContent += "<b>พิกัด:</b> " + lat + "  " + lon + "<br>";
+                    popupContent += "<b>ประเภทพื้นที่:</b> <span style='color:#d84315; font-weight:bold;'>" + landuse + "</span><br>";
+                    popupContent += "<b>ตำบล:</b> " + tam + "<br>";
+                    popupContent += "<b>อำเภอ:</b> " + amp + "<br>";
+                    popupContent += "<b>จังหวัด:</b> " + prov + "<br>";
+                    popupContent += "<b>วันที่:</b> " + dateDisplay + "<br>";
+                    popupContent += "<b>เวลา:</b> " + timeDisplay + "<br>";
+                    popupContent += "<b>ความเชื่อมั่น:</b> " + conf;
+                    popupContent += "</div>";
+                    
+                    layer.bindPopup(popupContent);
+                }
+            }).addTo(map);
+
+            summaryControl = L.control({position: 'bottomright'});
+            summaryControl.onAdd = function (map) {
+                const div = L.DomUtil.create('div', 'legend-box');
+                let total = hotspotCounts["นครราชสีมา"] + hotspotCounts["ชัยภูมิ"] + hotspotCounts["บุรีรัมย์"] + hotspotCounts["สุรินทร์"];
+                
+                let modeText = currentMode === 'slider' ? '(ย้อนหลัง ' + hours + ' ชม.)' : '(รวม 24 ชม.)';
+                let html = '<div class="legend-title">สรุปข้อมูล สคพ.11 ' + modeText + '</div>';
+                
+                if (latestDateObj.getTime() === 0) {
+                    html += '<div style="color:#d84315; font-weight:bold; margin-bottom:10px;">ไม่พบข้อมูลในระบบ</div>';
+                } else {
+                    if (currentMode === 'slider') {
+                        html += 'ช่วงเวลา: <b>' + timeRangeDisplay + '</b><br>';
+                    }
+                    html += 'รวมพบ: <b>' + total + '</b> จุด<br><br>';
+                    
+                    html += '<b>นครราชสีมา:</b> ' + hotspotCounts["นครราชสีมา"] + ' จุด<br>';
+                    html += getTopLanduseHtml("นครราชสีมา", provLuCounts);
+                    
+                    html += '<b>ชัยภูมิ:</b> ' + hotspotCounts["ชัยภูมิ"] + ' จุด<br>';
+                    html += getTopLanduseHtml("ชัยภูมิ", provLuCounts);
+                    
+                    html += '<b>บุรีรัมย์:</b> ' + hotspotCounts["บุรีรัมย์"] + ' จุด<br>';
+                    html += getTopLanduseHtml("บุรีรัมย์", provLuCounts);
+                    
+                    html += '<b>สุรินทร์:</b> ' + hotspotCounts["สุรินทร์"] + ' จุด<br>';
+                    html += getTopLanduseHtml("สุรินทร์", provLuCounts);
+                }
+
+                html += '<div class="legend-title">รวมแยกตามประเภทพื้นที่</div>';
+                let luKeys = Object.keys(landuseCounts).sort((a, b) => landuseCounts[b] - landuseCounts[a]);
+                if (luKeys.length === 0) {
+                    html += '<div style="color:#64748b;">ไม่มีข้อมูล</div>';
+                } else {
+                    luKeys.forEach(key => {
+                        html += key + ': <b>' + landuseCounts[key] + '</b> จุด<br>';
+                    });
+                }
+                
+                html += '<div class="legend-title">ระดับความเชื่อมั่น</div>';
+                html += '<div><span class="dot" style="background:#dc3545;"></span> สูง (High)</div>';
+                html += '<div><span class="dot" style="background:#fd7e14;"></span> ปานกลาง (Nominal)</div>';
+                html += '<div><span class="dot" style="background:#ffc107;"></span> ต่ำ (Low)</div>';
+                
+                div.innerHTML = html;
+                return div;
+            };
+            summaryControl.addTo(map);
+        }
+
+        function countFeature(feature, counts, luCounts, pLuCounts) {
+            let props = feature.properties || {};
+            let propStr = JSON.stringify(props);
+            let matchedProv = targetProvincesThai.find(p => propStr.includes(p));
+            if (matchedProv) {
+                counts[matchedProv]++;
+                let landuse = props.landuse_t || props.lu_name || props.landuse || props.lu_type || "ไม่ระบุข้อมูล";
+                
+                if (!luCounts[landuse]) {
+                    luCounts[landuse] = 0;
+                }
+                luCounts[landuse]++;
+                
+                if (!pLuCounts[matchedProv][landuse]) {
+                    pLuCounts[matchedProv][landuse] = 0;
+                }
+                pLuCounts[matchedProv][landuse]++;
+            }
+        }
+
+        document.getElementById('hourSlider').addEventListener('input', function(e) {
+            document.getElementById('hourValueDisplay').innerText = e.target.value;
+            if (currentMode === 'slider') {
+                updateMap();
+            }
+        });
+
+        const radios = document.querySelectorAll('input[name="viewMode"]');
+        radios.forEach(radio => {
+            radio.addEventListener('change', function(e) {
+                currentMode = e.target.value;
+                const sliderDiv = document.getElementById('sliderContainer');
+                if (currentMode === 'allday') {
+                    sliderDiv.style.opacity = '0.3';
+                    sliderDiv.style.pointerEvents = 'none';
+                } else {
+                    sliderDiv.style.opacity = '1';
+                    sliderDiv.style.pointerEvents = 'auto';
+                }
+                updateMap();
+            });
+        });
+
+    </script>
+</body>
+</html>
