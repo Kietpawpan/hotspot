@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>รายงานสถานการณ์ฝุ่นละออง PM2.5 สคพ.11.</title>
+    <title>รายงานสถานการณ์ฝุ่นละออง PM2.5 สคพ.11</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
@@ -82,7 +82,7 @@
         
         <div class="md:col-span-3 bg-purple-50 p-6 rounded-xl shadow-md border-2 border-purple-400">
 <h3 class="text-xl font-bold mb-3 text-purple-800 flex items-center gap-2">
-    ✨ ผู้ช่วย AI ร่างข้อแนะนำ (สำหรับ ผอ.สคพ.11.)
+    ✨ ผู้ช่วย AI ร่างข้อแนะนำ (สำหรับ ผอ.สคพ.11)
 </h3>            <p class="text-sm text-purple-600 mb-4">ดึงข้อมูลจุดความร้อน ฝุ่น PM2.5 และสภาพอากาศล่าสุดมาประมวลผลเป็นร่างข้อความสำหรับส่งเข้า LINE กลุ่มศูนย์บัญชาการ</p>
             <button id="btnAnalyze" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-lg flex justify-center items-center gap-2">
                 ✨ ประมวลผลข้อมูลด้วย Gemini API
@@ -154,7 +154,7 @@
 
 
 <div class="md:col-span-3 bg-white p-4 rounded-xl shadow-md">
-            <h3 class="text-xl font-bold mb-4 text-center">กราฟอัตราการระบายอากาศ (Ventilation Rate) พื้นที่ สคพ.11.</h3>
+            <h3 class="text-xl font-bold mb-4 text-center">กราฟอัตราการระบายอากาศ (Ventilation Rate) พื้นที่ สคพ.11</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="border rounded-lg p-3 text-center bg-gray-50">
                     <h4 class="font-bold mb-2 text-purple-800">จ.นครราชสีมา</h4>
@@ -748,7 +748,7 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
                         }
                     }
                 });
-                contextData += `ยอดรวมจุดความร้อนทั้งหมดในพื้นที่ สคพ.11. (4 จังหวัด) วันนี้ ${totalHotspots} จุด\n`;
+                contextData += `ยอดรวมจุดความร้อนทั้งหมดในพื้นที่ สคพ.11 (4 จังหวัด) วันนี้ ${totalHotspots} จุด\n`;
             } else {
                 contextData += "- ไม่มีข้อมูลหรือรอการอัปเดต\n";
             }
@@ -757,7 +757,7 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
             const monthsTh = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
             const formattedToday = `${today.getDate()} ${monthsTh[today.getMonth()]} ${today.getFullYear() + 543}`;
 
-            const promptText = `สวมบทบาทเป็น ผอ.สคพ.11 ผู้ชาย แทนตนเองว่า สคพ.11. ไม่มีหางเสียง เขียนข้อความส่งเข้ากลุ่ม LINE ขึ้นต้นว่า เรียน ท่าน ผู้ประสานงาน ทสจ. 4 จังหวัด นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ เพื่อแจ้งสถานการณ์สิ่งแวดล้อมประจำวันและแนะมาตรการที่เหมาะสม \n
+            const promptText = `สวมบทบาทเป็น ผอ.สคพ.11 ผู้ชาย แทนตนเองว่า สคพ.11 ไม่มีหางเสียง เขียนข้อความส่งเข้ากลุ่ม LINE ขึ้นต้นว่า เรียน ท่าน ผู้ประสานงาน ทสจ. 4 จังหวัด นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ เพื่อแจ้งสถานการณ์สิ่งแวดล้อมประจำวันและแนะมาตรการที่เหมาะสม \n
 ข้อมูลสถานการณ์ล่าสุดที่ต้องรายงาน:
 ${contextData}
 
@@ -768,7 +768,7 @@ ${contextData}
 4. สำคัญมาก: ในส่วนรายงานสถานการณ์ ให้ใช้รูปแบบข้อมูลรายจังหวัดที่จัดเตรียมไว้ให้ครบถ้วนทุกจังหวัด (ต้องมีทั้ง ค่าฝุ่น จุดความร้อน โควตาวันที่เหลือ และสภาพอากาศ) ห้ามตัดทอน
 5. ต้องขึ้นต้นด้วยดอกจัน (*) หน้าชื่อจังหวัด และเว้น 1 บรรทัดคั่นระหว่างจังหวัดเสมอ
 6. น้ำเสียงแสดงถึงความเป็นผู้นำที่กระตือรือร้น ให้เกียรติผู้ร่วมงานทุกคน และมุ่งเน้นผลสัมฤทธิ์ เป็นทางการ
-7. ลงท้ายว่า จึงเรียนมาเพื่อโปรดทราบ สคพ.11. (นครราชสีมา)\n
+7. ลงท้ายว่า จึงเรียนมาเพื่อโปรดทราบ สคพ.11 (นครราชสีมา)\n
 รายละเอียดการมอบหมายงานในส่วนคำแนะนำ ให้ระบุชื่อจังหวัดให้ชัดเจน`;
 
             try {
