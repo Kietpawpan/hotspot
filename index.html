@@ -12,8 +12,8 @@
         .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 20px; }
         .control-panel { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
         .status-box { font-size: 15px; color: #4a148c; margin-bottom: 15px; background: #e9d5ff; padding: 10px; border-radius: 6px; border: 1px solid #d8b4fe; }
-        .mode-selector { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #cbd5e1; }
-        .mode-selector label { font-size: 16px; cursor: pointer; margin-right: 20px; display: inline-flex; align-items: center; }
+        .mode-selector { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #cbd5e1; display: flex; flex-wrap: wrap; gap: 15px; }
+        .mode-selector label { font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; }
         .mode-selector input { margin-right: 8px; accent-color: #4a148c; transform: scale(1.2); }
         #sliderContainer { transition: opacity 0.3s ease; }
         #map { height: 600px; width: 100%; border-radius: 8px; z-index: 10; }
@@ -40,22 +40,30 @@
                     <b>ระบุช่วงเวลา (ชั่วโมงย้อนหลัง)</b>
                 </label>
                 <label>
-                    <input type="radio" name="viewMode" value="allday">
-                    <b>แสดงภาพรวมทั้งหมด (รอบ 24 ชั่วโมง)</b>
+                    <input type="radio" name="viewMode" value="24hours">
+                    <b>แสดงรอบ 24 ชม.</b>
+                </label>
+                <label>
+                    <input type="radio" name="viewMode" value="72hours">
+                    <b>แสดงภาพรวม 3 วัน</b>
+                </label>
+                <label>
+                    <input type="radio" name="viewMode" value="30days">
+                    <b>แสดงภาพรวม 30 วัน</b>
                 </label>
             </div>
 
             <div id="sliderContainer">
                 <label for="hourSlider" style="font-size: 16px;">
                     <b>แสดงจุดความร้อนย้อนหลัง: </b> 
-                    <span id="hourValueDisplay" style="color: #d84315; font-weight: bold; font-size: 1.2em;">8</span> 
+                    <span id="hourValueDisplay" style="color: #d84315; font-weight: bold; font-size: 1.2em;">24</span> 
                     <b> ชั่วโมง</b> <span style="font-size: 14px; color: #64748b;">(นับย้อนจากข้อมูลดาวเทียมล่าสุด)</span>
                 </label>
-                <input type="range" id="hourSlider" min="1" max="24" value="8" step="1">
+                <input type="range" id="hourSlider" min="1" max="720" value="24" step="1">
                 <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-top: 5px;">
                     <span>1 ชม.</span>
-                    <span>12 ชม.</span>
-                    <span>24 ชม.</span>
+                    <span>15 วัน (360 ชม.)</span>
+                    <span>30 วัน (720 ชม.)</span>
                 </div>
             </div>
         </div>
@@ -66,8 +74,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const apikey = 'csbkEXCCJBRqM6DonhfyWrk5K1hbiCsp5VvdioLzSqQqVJFJqZ3mRSl7e1XL6t4l';
-        const apiUrl = 'https://api-gateway.gistda.or.th/api/2.0/resources/features/viirs/1day?api_key=' + apikey + '&limit=10000';
-        const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailandProvinces.geojson';
+	const apiUrl = 'https://api-gateway.gistda.or.th/api/2.0/resources/features/viirs/30days?api_key=' + apikey + '&limit=10000';
+        const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json';
 
         const map = L.map('map').setView([15.2, 102.5], 8);
 
@@ -166,16 +174,26 @@
             })
             .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้', err));
 
-        fetch(apiUrl)
+     const bbox = '101.1,14.1,104.0,16.5';
+        const bboxApiUrl = 'https://api-gateway.gistda.or.th/api/2.0/resources/features/viirs/30days?api_key=' + apikey + '&limit=10000&bbox=' + bbox;
+
+        fetch(bboxApiUrl)
             .then(response => {
                 if (!response.ok) throw new Error('Network response was not ok');
                 return response.json();
             })
             .then(data => {
+                let oldestDateObj = null;
+
                 data.features.forEach(feature => {
                     let dt = parseAcqDateTime(feature);
-                    if (dt > latestDateObj) {
-                        latestDateObj = dt;
+                    if (dt.getTime() > 0) {
+                        if (latestDateObj.getTime() === 0 || dt > latestDateObj) {
+                            latestDateObj = dt;
+                        }
+                        if (!oldestDateObj || dt < oldestDateObj) {
+                            oldestDateObj = dt;
+                        }
                     }
                 });
 
@@ -184,10 +202,11 @@
                     return targetProvincesThai.some(p => propStr.includes(p));
                 });
 
-                if (latestDateObj.getTime() > 0) {
-                    document.getElementById('lastUpdateDisplay').innerText = "วันที่ " + formatDateStr(latestDateObj) + " เวลา " + formatTimeStr(latestDateObj) + " (อ้างอิงระดับประเทศ)";
+                if (latestDateObj.getTime() > 0 && oldestDateObj) {
+                    let dateRangeStr = formatDateStr(oldestDateObj) + " ถึง " + formatDateStr(latestDateObj);
+                    document.getElementById('lastUpdateDisplay').innerText = "ช่วงข้อมูล สคพ.11 ที่ดึงได้: " + dateRangeStr;
                 } else {
-                    document.getElementById('lastUpdateDisplay').innerText = "ไม่พบข้อมูลในระบบ GISTDA";
+                    document.getElementById('lastUpdateDisplay').innerText = "ไม่พบข้อมูลในระบบ สทอภ.";
                 }
 
                 updateMap();
@@ -196,6 +215,8 @@
                 console.error('เกิดข้อผิดพลาดในการดึงข้อมูล', error);
                 document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูล";
             });
+
+
 
         function getTopLanduseHtml(provName, pLuCounts) {
             let luObj = pLuCounts[provName];
@@ -214,27 +235,38 @@
             let provLuCounts = { "นครราชสีมา": {}, "ชัยภูมิ": {}, "บุรีรัมย์": {}, "สุรินทร์": {} };
             
             let featuresToDisplay = [];
-            let timeRangeDisplay = "รอบ 24 ชั่วโมง";
+            let timeRangeDisplay = "";
             let hours = parseInt(document.getElementById('hourSlider').value);
 
             if (latestDateObj.getTime() > 0) {
+                let cutoffTime;
+                
                 if (currentMode === 'slider') {
                     const hoursInMs = hours * 60 * 60 * 1000;
-                    const cutoffTime = new Date(latestDateObj.getTime() - hoursInMs);
+                    cutoffTime = new Date(latestDateObj.getTime() - hoursInMs);
                     timeRangeDisplay = formatTimeStr(cutoffTime) + " ถึง " + formatTimeStr(latestDateObj);
-
-                    featuresToDisplay = allReo11Features.filter(feature => {
-                        let dt = parseAcqDateTime(feature);
-                        if (dt >= cutoffTime && dt <= latestDateObj) {
-                            countFeature(feature, hotspotCounts, landuseCounts, provLuCounts);
-                            return true;
-                        }
-                        return false;
-                    });
-                } else {
-                    featuresToDisplay = allReo11Features;
-                    featuresToDisplay.forEach(feature => countFeature(feature, hotspotCounts, landuseCounts, provLuCounts));
+                } else if (currentMode === '24hours') {
+                    const hoursInMs = 24 * 60 * 60 * 1000;
+                    cutoffTime = new Date(latestDateObj.getTime() - hoursInMs);
+                    timeRangeDisplay = "24 ชั่วโมงย้อนหลัง";
+                } else if (currentMode === '72hours') {
+                    const hoursInMs = 72 * 60 * 60 * 1000;
+                    cutoffTime = new Date(latestDateObj.getTime() - hoursInMs);
+                    timeRangeDisplay = "3 วันย้อนหลัง (72 ชั่วโมง)";
+                } else if (currentMode === '30days') {
+                    const hoursInMs = 30 * 24 * 60 * 60 * 1000;
+                    cutoffTime = new Date(latestDateObj.getTime() - hoursInMs);
+                    timeRangeDisplay = "30 วันย้อนหลัง";
                 }
+
+                featuresToDisplay = allReo11Features.filter(feature => {
+                    let dt = parseAcqDateTime(feature);
+                    if (dt >= cutoffTime && dt <= latestDateObj) {
+                        countFeature(feature, hotspotCounts, landuseCounts, provLuCounts);
+                        return true;
+                    }
+                    return false;
+                });
             }
 
             const filteredData = {
@@ -301,11 +333,16 @@
                 const div = L.DomUtil.create('div', 'legend-box');
                 let total = hotspotCounts["นครราชสีมา"] + hotspotCounts["ชัยภูมิ"] + hotspotCounts["บุรีรัมย์"] + hotspotCounts["สุรินทร์"];
                 
-                let modeText = currentMode === 'slider' ? '(ย้อนหลัง ' + hours + ' ชม.)' : '(รวม 24 ชม.)';
+                let modeText = '';
+                if (currentMode === 'slider') modeText = '(ย้อนหลัง ' + hours + ' ชม.)';
+                else if (currentMode === '24hours') modeText = '(รวม 24 ชม.)';
+                else if (currentMode === '72hours') modeText = '(รวม 3 วัน)';
+                else if (currentMode === '30days') modeText = '(รวม 30 วัน)';
+
                 let html = '<div class="legend-title">สรุปข้อมูล สคพ.11 ' + modeText + '</div>';
                 
-                if (latestDateObj.getTime() === 0) {
-                    html += '<div style="color:#d84315; font-weight:bold; margin-bottom:10px;">ไม่พบข้อมูลในระบบ</div>';
+                if (latestDateObj.getTime() === 0 || total === 0) {
+                    html += '<div style="color:#d84315; font-weight:bold; margin-bottom:10px;">ไม่พบข้อมูลจุดความร้อนในช่วงเวลานี้</div>';
                 } else {
                     if (currentMode === 'slider') {
                         html += 'ช่วงเวลา: <b>' + timeRangeDisplay + '</b><br>';
@@ -378,7 +415,7 @@
             radio.addEventListener('change', function(e) {
                 currentMode = e.target.value;
                 const sliderDiv = document.getElementById('sliderContainer');
-                if (currentMode === 'allday') {
+                if (currentMode !== 'slider') {
                     sliderDiv.style.opacity = '0.3';
                     sliderDiv.style.pointerEvents = 'none';
                 } else {
