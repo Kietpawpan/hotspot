@@ -378,6 +378,11 @@
             summaryControl = L.control({position: 'bottomright'});
             summaryControl.onAdd = function (map) {
                 const div = L.DomUtil.create('div', 'legend-box');
+                
+                // การแก้ไขปัญหาการเลื่อนหน้าจอบน iPad
+                L.DomEvent.disableClickPropagation(div);
+                L.DomEvent.disableScrollPropagation(div);
+                
                 let total = hotspotCounts["นครราชสีมา"] + hotspotCounts["ชัยภูมิ"] + hotspotCounts["บุรีรัมย์"] + hotspotCounts["สุรินทร์"];
                 
                 let modeText = '';
