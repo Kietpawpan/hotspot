@@ -24,6 +24,7 @@
         .legend-title:first-child { margin-top: 0; }
         .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
         input[type=range] { width: 100%; margin-top: 10px; accent-color: #4a148c; }
+        details summary::-webkit-details-marker { display:none; }
     </style>
 </head>
 <body>
@@ -225,6 +226,42 @@
             return `<div style="padding-left: 10px; font-size: 13px; color: #b91c1c; margin-bottom: 8px; margin-top: 2px;">↳ พบใน<b>${topLu}</b>มากที่สุด (${luObj[topLu]} จุด)</div>`;
         }
 
+        function getAmphoeStatsHtml(provName, pAmpCounts) {
+            let ampObj = pAmpCounts[provName];
+            let keys = Object.keys(ampObj);
+            if (keys.length === 0) return "";
+
+            keys.sort((a, b) => ampObj[b] - ampObj[a]);
+
+            let top5 = keys.slice(0, 5);
+            let bottom5 = [];
+            
+            if (keys.length > 5) {
+                bottom5 = keys.slice(-5).reverse();
+            }
+
+            let html = '<details style="margin-top: 5px; margin-bottom: 10px; cursor: pointer; background: #f8fafc; padding: 6px; border-radius: 6px; border: 1px solid #e2e8f0;">';
+            html += '<summary style="font-size: 13px; color: #0284c7; font-weight: bold; outline: none; display: flex; align-items: center;">📊 เรียงลำดับจุดความร้อนรายอำเภอ</summary>';
+            html += '<div style="padding-left: 5px; font-size: 12px; margin-top: 8px;">';
+
+            html += '<div style="color: #b91c1c; font-weight: bold;">🔥 5 ลำดับสูงสุด</div>';
+            top5.forEach((k, idx) => {
+                html += '<div style="margin-left: 10px; color: #333;">' + (idx + 1) + '. อ.' + k + ' (' + ampObj[k] + ' จุด)</div>';
+            });
+
+            if (bottom5.length > 0) {
+                html += '<div style="color: #15803d; font-weight: bold; margin-top: 8px;">📉 5 ลำดับต่ำสุด (ที่พบจุดความร้อน)</div>';
+                bottom5.forEach((k, idx) => {
+                    html += '<div style="margin-left: 10px; color: #333;">' + (idx + 1) + '. อ.' + k + ' (' + ampObj[k] + ' จุด)</div>';
+                });
+            } else {
+                 html += '<div style="color: #64748b; margin-top: 5px; font-style: italic;">* พบจุดความร้อนในพื้นที่ไม่เกิน 5 อำเภอ</div>';
+            }
+
+            html += '</div></details>';
+            return html;
+        }
+
         function updateMap() {
             if (hotspotLayer) { map.removeLayer(hotspotLayer); }
             if (summaryControl) { map.removeControl(summaryControl); }
@@ -232,6 +269,7 @@
             let hotspotCounts = { "นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0 };
             let landuseCounts = {};
             let provLuCounts = { "นครราชสีมา": {}, "ชัยภูมิ": {}, "บุรีรัมย์": {}, "สุรินทร์": {} };
+            let provAmphoeCounts = { "นครราชสีมา": {}, "ชัยภูมิ": {}, "บุรีรัมย์": {}, "สุรินทร์": {} };
             
             let featuresToDisplay = [];
             let timeRangeDisplay = "";
@@ -261,7 +299,7 @@
                 featuresToDisplay = allReo11Features.filter(feature => {
                     let dt = parseAcqDateTime(feature);
                     if (dt >= cutoffTime && dt <= latestDateObj) {
-                        countFeature(feature, hotspotCounts, landuseCounts, provLuCounts);
+                        countFeature(feature, hotspotCounts, landuseCounts, provLuCounts, provAmphoeCounts);
                         return true;
                     }
                     return false;
@@ -273,7 +311,6 @@
                 features: featuresToDisplay
             };
 
-            // เรียกใช้ MarkerCluster แทน geoJSON ปกติ
             hotspotLayer = L.markerClusterGroup({
                 maxClusterRadius: 40,
                 spiderfyOnMaxZoom: true,
@@ -335,7 +372,6 @@
                 }
             });
 
-            // นำจุดทั้งหมดใส่เข้ากลุ่ม Cluster แล้วแสดงบนแผนที่
             hotspotLayer.addLayer(geoJsonLayer);
             map.addLayer(hotspotLayer);
 
@@ -362,15 +398,19 @@
                     
                     html += '<b>นครราชสีมา:</b> ' + hotspotCounts["นครราชสีมา"] + ' จุด<br>';
                     html += getTopLanduseHtml("นครราชสีมา", provLuCounts);
+                    html += getAmphoeStatsHtml("นครราชสีมา", provAmphoeCounts);
                     
                     html += '<b>ชัยภูมิ:</b> ' + hotspotCounts["ชัยภูมิ"] + ' จุด<br>';
                     html += getTopLanduseHtml("ชัยภูมิ", provLuCounts);
+                    html += getAmphoeStatsHtml("ชัยภูมิ", provAmphoeCounts);
                     
                     html += '<b>บุรีรัมย์:</b> ' + hotspotCounts["บุรีรัมย์"] + ' จุด<br>';
                     html += getTopLanduseHtml("บุรีรัมย์", provLuCounts);
+                    html += getAmphoeStatsHtml("บุรีรัมย์", provAmphoeCounts);
                     
                     html += '<b>สุรินทร์:</b> ' + hotspotCounts["สุรินทร์"] + ' จุด<br>';
                     html += getTopLanduseHtml("สุรินทร์", provLuCounts);
+                    html += getAmphoeStatsHtml("สุรินทร์", provAmphoeCounts);
                 }
 
                 html += '<div class="legend-title">รวมแยกตามประเภทพื้นที่</div>';
@@ -394,7 +434,7 @@
             summaryControl.addTo(map);
         }
 
-        function countFeature(feature, counts, luCounts, pLuCounts) {
+        function countFeature(feature, counts, luCounts, pLuCounts, pAmpCounts) {
             let props = feature.properties || {};
             let propStr = JSON.stringify(props);
             let matchedProv = targetProvincesThai.find(p => propStr.includes(p));
@@ -411,6 +451,13 @@
                     pLuCounts[matchedProv][landuse] = 0;
                 }
                 pLuCounts[matchedProv][landuse]++;
+
+                let amp = props.amphoe_t || props.ap_tn || props.amphoe || "ไม่ระบุ";
+                amp = String(amp).replace(/^อ\./, '').trim(); 
+                if (!pAmpCounts[matchedProv][amp]) {
+                    pAmpCounts[matchedProv][amp] = 0;
+                }
+                pAmpCounts[matchedProv][amp]++;
             }
         }
 
