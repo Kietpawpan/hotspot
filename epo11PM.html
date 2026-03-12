@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>รายงานสถานการณ์ฝุ่นละออง PM2.5 สคพ.11</title>
+    <title>รายงานสถานการณ์ฝุ่นละออง PM2.5 สคพ.11.</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
@@ -27,34 +27,33 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-         .btn-clean {
-    display: inline-flex;
-    align-items: center;
-    padding: 10px 24px;
-    background-color: #ffffff;
-    color: #374151;
-    text-decoration: none;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-family: sans-serif;
-    font-size: 15px;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  }
-  .btn-clean:hover {
-    border-color: #3b82f6;
-    color: #3b82f6;
-    background-color: #f8fafc;
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
-  }
-  .btn-clean svg {
-    margin-right: 8px;
-    width: 18px;
-    height: 18px;
-    fill: currentColor;
-  }
-
+        .btn-clean {
+            display: inline-flex;
+            align-items: center;
+            padding: 10px 24px;
+            background-color: #ffffff;
+            color: #374151;
+            text-decoration: none;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-family: sans-serif;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        .btn-clean:hover {
+            border-color: #3b82f6;
+            color: #3b82f6;
+            background-color: #f8fafc;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+        }
+        .btn-clean svg {
+            margin-right: 8px;
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans p-4">
@@ -76,11 +75,22 @@
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
             ดาวน์โหลดข้อมูลฝุ่น PM2.5 ประจำวัน
         </a>
-          </div>
+    </div>
 </header>
 
     <main class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 hidden" id="main-content">
         
+        <div class="md:col-span-3 bg-purple-50 p-6 rounded-xl shadow-md border-2 border-purple-400">
+            <h3 class="text-xl font-bold mb-3 text-purple-800 flex items-center gap-2">
+                🤖 ผู้ช่วย AI ร่างข้อแนะนำ (สำหรับ ผอ.สคพ.11)
+            </h3>
+            <p class="text-sm text-purple-600 mb-4">ดึงข้อมูลจุดความร้อนและฝุ่น PM2.5 ล่าสุดมาประมวลผลเป็นร่างข้อความสำหรับส่งเข้า LINE กลุ่มศูนย์บัญชาการ</p>
+            <button id="btnAnalyze" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-lg flex justify-center items-center gap-2">
+                ✨ ประมวลผลข้อมูลด้วย Gemini API
+            </button>
+            <div id="aiResult" class="mt-4 text-sm md:text-base text-gray-800 bg-white p-5 rounded-lg border border-purple-200 shadow-inner hidden">
+            </div>
+        </div>
         <div class="md:col-span-2 space-y-4">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4" id="province-cards"></div>
 
@@ -145,7 +155,7 @@
 
 
 <div class="md:col-span-3 bg-white p-4 rounded-xl shadow-md">
-            <h3 class="text-xl font-bold mb-4 text-center">กราฟอัตราการระบายอากาศ (Ventilation Rate) พื้นที่ สคพ.11</h3>
+            <h3 class="text-xl font-bold mb-4 text-center">กราฟอัตราการระบายอากาศ (Ventilation Rate) พื้นที่ สคพ.11.</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="border rounded-lg p-3 text-center bg-gray-50">
                     <h4 class="font-bold mb-2 text-purple-800">จ.นครราชสีมา</h4>
@@ -174,16 +184,16 @@
             </div>
         </div>
 
-
-
     </main>
 
 <footer class="mt-8 mb-4 text-center text-sm text-gray-500 font-medium">
-        &copy; 2569 สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 11 (นครราชสีมา) <epo11@pcd.go.th>
+        &copy; 2569 สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 11. (นครราชสีมา) <epo11@pcd.go.th>
     </footer>
 
   <script>
         Chart.register(ChartDataLabels);
+        
+        let globalDashboardData = []; // ตัวแปรสำหรับเก็บข้อมูลไปให้ AI ประมวลผล
 
         function getAqiClass(value) {
             if (isNaN(value)) return 'bg-gray-300 text-gray-700';
@@ -216,11 +226,11 @@
             document.getElementById('report-date').innerText = `ประจำวัน${dayName}ที่ ${day} ${monthName} ${year} เวลา 07.00 น.`;
         }
 
-// ดึงข้อมูลจาก Google Sheet
+        // ดึงข้อมูลจาก Google Sheet
         window.onload = function() {
             updateDateText();
             
-            const apiUrl = 'https://script.google.com/macros/s/AKfycbwSWmdAG3qKHJRSxTTvyV2Yr_Vbw3I6gOy2NwRUwsA8ajvFIUV6Kma2jLVLRYvIXJwD/exec';
+            const apiUrl = 'https://script.google.com/macros/s/AKfycbxwmusL6OTmjR1tV2h3iw9Y_1rDt3npFHkIzaCgrXOtIWNH7873IHWof1Ei19SBb5cZ/exec';
 
             fetch(apiUrl)
                 .then(response => {
@@ -230,6 +240,7 @@
                     return response.json();
                 })
                 .then(data => {
+                    globalDashboardData = data; // เก็บข้อมูลไว้ให้ AI ดึงไปใช้
                     renderDashboard(data);
                 })
                 .catch(error => {
@@ -670,9 +681,77 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
         window.addEventListener('load', () => {
             setTimeout(fetchWeatherData, 1000);
         });
+
+        // ==========================================
+        // ฟังก์ชันสั่งการ AI (เพิ่มใหม่)
+        // ==========================================
+        document.getElementById('btnAnalyze').addEventListener('click', async function() {
+            const resultDiv = document.getElementById('aiResult');
+            const btn = document.getElementById('btnAnalyze');
+            
+            resultDiv.style.display = 'block';
+            resultDiv.classList.remove('hidden');
+            resultDiv.innerHTML = '<div class="text-center text-purple-600 animate-pulse"><i>กำลังวิเคราะห์ข้อมูลและร่างข้อความสั่งการ กรุณารอสักครู่...</i></div>';
+            
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            // นำลิงก์ Web App URL ที่ได้จากการ Deploy Apps Script ที่มีฟังก์ชัน doPost (Gemini API) มาใส่ตรงนี้
+            const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbxwmusL6OTmjR1tV2h3iw9Y_1rDt3npFHkIzaCgrXOtIWNH7873IHWof1Ei19SBb5cZ/exec';
+
+            let contextData = "สถานการณ์คุณภาพอากาศและจุดความร้อนประจำวัน:\n";
+            let totalHotspots = 0;
+
+            if (globalDashboardData && globalDashboardData.length > 1) {
+                globalDashboardData.forEach((row, index) => {
+                    if (index > 0 && row[0]) { 
+                        const province = row[0]; 
+                        const pmToday = row[1];
+                        const hotspot = row[2] || 0;
+                        const daysOver2569 = row[8] || 0;
+                        
+                        if (["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"].includes(province)) {
+                            totalHotspots += parseInt(hotspot) || 0;
+                            contextData += `- ${province}: PM2.5 = ${pmToday} มคก./ลบ.ม. | จุดความร้อน ${hotspot} จุด | (เกินมาตรฐานสะสมปีนี้ ${daysOver2569} วัน)\n`;
+                        }
+                    }
+                });
+                contextData += `\nรวมจุดความร้อนทั้งหมดในพื้นที่ สคพ.11. : ${totalHotspots} จุด\n`;
+            } else {
+                contextData += "- ไม่มีข้อมูลหรือรอการอัปเดต\n";
+            }
+
+            const promptText = `สวมบทบาทเป็น ผอ.สคพ.11 แทนตนเองว่า สคพ.11 ใช้หางเสียงว่าครับตามความเหมาะสม เขียนข้อความส่งเข้ากลุ่ม LINE เครื่อข่ายผู้อำนวยการส่วนและผู้แทน ทสจ. 4 จังหวัด นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ เพื่อแจ้งสถานการณ์สิ่งแวดล้อมประจำวันและแนะมาตรการที่เหมาะสม \n
+ข้อมูลสถานการณ์ล่าสุด:\n${contextData}\n
+รูปแบบข้อความที่ต้องการ:
+1. ความยาวพอเหมาะกับการอ่านบนหน้าจอมือถือ มีการเว้นบรรทัดให้น่าอ่าน
+2. ใช้ Emoji ประกอบเพื่อให้ดูทันสมัยและลดความตึงเครียด
+3. แบ่งเนื้อหาเป็น "รายงานสถานการณ์" (สรุปทั้งจุดความร้อนและค่าฝุ่น) และ "คำแนะนำหรือข้อเสนอแนะทางวิชาการ"
+4. น้ำเสียงแสดงถึงความเป็นผู้นำที่กระตือรือร้น ให้เกียรติผู้ร่วมงานทุกคน และมุ่งเน้นผลสัมฤทธิ์\n
+รายละเอียดการมอบหมายงานให้ระบุชื่อจังหวัดให้ชัดเจน`;
+
+            try {
+                const response = await fetch(gasWebAppUrl, {
+                    method: 'POST',
+                    body: JSON.stringify({ prompt: promptText })
+                });
+                
+                const data = await response.json();
+                
+                if (data.result) {
+                    resultDiv.innerHTML = data.result.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+                } else {
+                    resultDiv.innerHTML = '<span class="text-red-600">เกิดข้อผิดพลาด: ' + (data.error || 'ไม่มีการส่งค่าผลลัพธ์กลับมา') + '</span>';
+                }
+            } catch (error) {
+                console.error('Error fetching AI result:', error);
+                resultDiv.innerHTML = '<span class="text-red-600">ไม่สามารถเชื่อมต่อระบบประมวลผล AI ได้ โปรดตรวจสอบว่าท่านได้ใส่ URL ของ Apps Script ตรงบรรทัด gasWebAppUrl ถูกต้องหรือไม่</span>';
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        });
         
 </script>
-</body>
-</html>
 </body>
 </html>
