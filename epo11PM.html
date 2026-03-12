@@ -84,7 +84,7 @@
             <h3 class="text-xl font-bold mb-3 text-purple-800 flex items-center gap-2">
                 🤖 ผู้ช่วย AI ร่างข้อแนะนำ (สำหรับ ผอ.สคพ.11)
             </h3>
-            <p class="text-sm text-purple-600 mb-4">ดึงข้อมูลจุดความร้อนและฝุ่น PM2.5 ล่าสุดมาประมวลผลเป็นร่างข้อความสำหรับส่งเข้า LINE กลุ่มศูนย์บัญชาการ</p>
+            <p class="text-sm text-purple-600 mb-4">ดึงข้อมูลจุดความร้อน ฝุ่น PM2.5 และสภาพอากาศล่าสุดมาประมวลผลเป็นร่างข้อความสำหรับส่งเข้า LINE กลุ่มศูนย์บัญชาการ</p>
             <button id="btnAnalyze" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-lg flex justify-center items-center gap-2">
                 ✨ ประมวลผลข้อมูลด้วย Gemini API
             </button>
@@ -193,7 +193,8 @@
   <script>
         Chart.register(ChartDataLabels);
         
-        let globalDashboardData = []; // ตัวแปรสำหรับเก็บข้อมูลไปให้ AI ประมวลผล
+        let globalDashboardData = []; // ตัวแปรสำหรับเก็บข้อมูลฝุ่นไปให้ AI ประมวลผล
+        let globalWeatherData = {}; // ตัวแปรสำหรับเก็บข้อมูลสภาพอากาศไปให้ AI ประมวลผล
 
         function getAqiClass(value) {
             if (isNaN(value)) return 'bg-gray-300 text-gray-700';
@@ -637,6 +638,15 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
                             
                             const windDirDisplay = weatherData.wd10m !== undefined ? getWindDirectionThai(weatherData.wd10m) : '-';
                             
+                            // เก็บข้อมูลสภาพอากาศไว้ในตัวแปร globalWeatherData เพื่อให้ AI นำไปใช้
+                            globalWeatherData[prov.name] = {
+                                cond: condText,
+                                temp: tc,
+                                rh: rh,
+                                windSpeed: windSpeedDisplay,
+                                windDir: windDirDisplay
+                            };
+                            
                             // สร้างไอคอนลูกศรชี้ทิศทางที่ลมพัดไป
                             let windArrowHtml = '';
                             if (weatherData.wd10m !== undefined) {
@@ -683,7 +693,7 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
         });
 
         // ==========================================
-        // ฟังก์ชันสั่งการ AI (เพิ่มใหม่)
+        // ฟังก์ชันสั่งการ AI (แก้ไขใหม่ให้รวมสภาพอากาศ)
         // ==========================================
         document.getElementById('btnAnalyze').addEventListener('click', async function() {
             const resultDiv = document.getElementById('aiResult');
@@ -691,7 +701,7 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
             
             resultDiv.style.display = 'block';
             resultDiv.classList.remove('hidden');
-            resultDiv.innerHTML = '<div class="text-center text-purple-600 animate-pulse"><i>กำลังวิเคราะห์ข้อมูลและร่างข้อความสั่งการ กรุณารอสักครู่...</i></div>';
+            resultDiv.innerHTML = '<div class="text-center text-purple-600 animate-pulse"><i>กำลังวิเคราะห์ข้อมูลฝุ่นและสภาพอากาศเพื่อร่างข้อความสั่งการ กรุณารอสักครู่...</i></div>';
             
             btn.disabled = true;
             btn.classList.add('opacity-50', 'cursor-not-allowed');
@@ -699,7 +709,7 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
             // นำลิงก์ Web App URL ที่ได้จากการ Deploy Apps Script ที่มีฟังก์ชัน doPost (Gemini API) มาใส่ตรงนี้
             const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbxwmusL6OTmjR1tV2h3iw9Y_1rDt3npFHkIzaCgrXOtIWNH7873IHWof1Ei19SBb5cZ/exec';
 
-            let contextData = "สถานการณ์คุณภาพอากาศและจุดความร้อนประจำวัน:\n";
+            let contextData = "ข้อมูลฝุ่นละอองและจุดความร้อน:\n";
             let totalHotspots = 0;
 
             if (globalDashboardData && globalDashboardData.length > 1) {
@@ -716,19 +726,39 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
                         }
                     }
                 });
-                contextData += `\nรวมจุดความร้อนทั้งหมดในพื้นที่ สคพ.11. : ${totalHotspots} จุด\n`;
+                contextData += `รวมจุดความร้อนทั้งหมดในพื้นที่ สคพ.11. : ${totalHotspots} จุด\n`;
             } else {
                 contextData += "- ไม่มีข้อมูลหรือรอการอัปเดต\n";
             }
 
-            const promptText = `สวมบทบาทเป็น ผอ.สคพ.11 ผู้ชาย แทนตนเองว่า สคพ.11 ไม่มีหางเสียง เขียนข้อความส่งเข้ากลุ่ม LINE ขึ้นต้นว่า เรียน ท่าน ผู้ประสานงาน ทสจ. 4 จังหวัด นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ เพื่อแจ้งสถานการณ์สิ่งแวดล้อมประจำวันและแนะมาตรการที่เหมาะสม \n
-ข้อมูลสถานการณ์ล่าสุด:\n${contextData}\n
+            // เพิ่มการรวบรวมข้อมูลสภาพอากาศ
+            let weatherContext = "\nข้อมูลสภาพอากาศปัจจุบันที่มีผลต่อการสะสมฝุ่น:\n";
+            const provinceList = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
+            provinceList.forEach(prov => {
+                if (globalWeatherData[prov]) {
+                    const w = globalWeatherData[prov];
+                    weatherContext += `- ${prov}: สภาพอากาศ ${w.cond} | อุณหภูมิ ${w.temp} °C | ความชื้น ${w.rh} % | ลม ${w.windDir} ความเร็ว ${w.windSpeed}\n`;
+                } else {
+                    weatherContext += `- ${prov}: ไม่มีข้อมูลสภาพอากาศ\n`;
+                }
+            });
+
+// สร้างตัวแปรวันที่ปัจจุบันแบบภาษาไทย
+            const today = new Date();
+            const monthsTh = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+            const formattedToday = `${today.getDate()} ${monthsTh[today.getMonth()]} ${today.getFullYear() + 543}`;
+
+            // ปรับแก้ Prompt ให้บังคับใส่วันที่ปัจจุบัน และใช้จุดท้ายคำย่อให้ถูกต้อง
+            const promptText = `สวมบทบาทเป็น ผอ.สคพ.11. ผู้ชาย แทนตนเองว่า สคพ.11. ไม่มีหางเสียง เขียนข้อความส่งเข้ากลุ่ม LINE ขึ้นต้นว่า เรียน ท่าน ผู้ประสานงาน ทสจ. 4 จังหวัด นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ เพื่อแจ้งสถานการณ์สิ่งแวดล้อมประจำวันและแนะมาตรการที่เหมาะสม \n
+ข้อมูลสถานการณ์ล่าสุด:
+${contextData}${weatherContext}\n
 รูปแบบข้อความที่ต้องการ:
-1. ความยาวพอเหมาะกับการอ่านบนหน้าจอมือถือ มีการเว้นบรรทัดให้น่าอ่าน
+1. ความยาวพอเหมาะกับการอ่านบนหน้าจอมือถือ
 2. ใช้ Emoji ประกอบเพื่อให้ดูทันสมัย
-3. แบ่งเนื้อหาเป็น "รายงานสถานการณ์" (สรุปทั้งจุดความร้อนและค่าฝุ่น) และ "คำแนะนำหรือข้อเสนอแนะทางวิชาการ"
-4. น้ำเสียงแสดงถึงความเป็นผู้นำที่กระตือรือร้น ให้เกียรติผู้ร่วมงานทุกคน และมุ่งเน้นผลสัมฤทธิ์ เป็นทางการ
-5. ลงท้ายว่า จึงเรียนมาเพื่อโปรดทราบ สคพ.11 (นครราชสีมา)\n
+3. แบ่งเนื้อหาเป็น "รายงานสถานการณ์ ณ วันที่ ${formattedToday}" และ "คำแนะนำหรือข้อเสนอแนะทางวิชาการ"
+4. สำคัญมาก: การรายงานสถานการณ์ในรายจังหวัด ให้ขึ้นต้นบรรทัดด้วยเครื่องหมายดอกจัน (*) หน้าชื่อจังหวัด และต้องเว้น 1 บรรทัดเพื่อคั่นระหว่างข้อมูลของแต่ละจังหวัดเสมอ
+5. น้ำเสียงแสดงถึงความเป็นผู้นำที่กระตือรือร้น ให้เกียรติผู้ร่วมงานทุกคน และมุ่งเน้นผลสัมฤทธิ์ เป็นทางการ
+6. ลงท้ายว่า จึงเรียนมาเพื่อโปรดทราบ สคพ.11. (นครราชสีมา)\n
 รายละเอียดการมอบหมายงานให้ระบุชื่อจังหวัดให้ชัดเจน`;
 
             try {
@@ -739,44 +769,48 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
                 
                 const data = await response.json();
                 
-if (data.result) {
-    // 1. นำผลลัพธ์มาแสดงผลบนหน้าจอ (แปลง \n เป็น <br> และแสดงตัวหนา)
-    resultDiv.innerHTML = data.result.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
-    
-    // 2. สร้างปุ่มคัดลอกต่อท้าย
-    resultDiv.innerHTML += `
-        <button id="copyToLineBtn" class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md flex justify-center items-center gap-2">
-            📋 คัดลอกข้อความไปที่ LINE
-        </button>
-    `;
+                if (data.result) {
+                    // 1. จัดการข้อความสำหรับแสดงผลบนหน้าเว็บ (คงเครื่องหมาย * ไว้ แปลงแค่ตัวหนาและเว้นบรรทัด)
+                    let cleanText = data.result
+                        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+                        .replace(/\n/g, '<br>');
+                    
+                    resultDiv.innerHTML = cleanText;
+                    
+                    // 2. สร้างปุ่มคัดลอกต่อท้าย
+                    resultDiv.innerHTML += `
+                        <button id="copyToLineBtn" class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md flex justify-center items-center gap-2">
+                            📋 คัดลอกข้อความไปที่ LINE
+                        </button>
+                    `;
 
-    // 3. ผูกคำสั่งคัดลอกกับปุ่ม
-    const copyBtn = document.getElementById('copyToLineBtn');
-    copyBtn.addEventListener('click', function() {
-        // ใช้ data.result ต้นฉบับเพื่อคงการเว้นบรรทัดของ AI ไว้
-        navigator.clipboard.writeText(data.result).then(() => {
-            // แจ้งเตือนเมื่อคัดลอกสำเร็จ
-            const originalText = copyBtn.innerHTML;
-            copyBtn.innerHTML = '✅ คัดลอกข้อความสำเร็จแล้ว!';
-            copyBtn.classList.replace('bg-green-600', 'bg-blue-600');
-            copyBtn.classList.replace('hover:bg-green-700', 'hover:bg-blue-700');
-            
-            // กลับคืนสภาพเดิมใน 2 วินาที
-            setTimeout(() => {
-                copyBtn.innerHTML = originalText;
-                copyBtn.classList.replace('bg-blue-600', 'bg-green-600');
-                copyBtn.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
-            }, 2000);
-        }).catch(err => {
-            console.error('คัดลอกไม่สำเร็จ:', err);
-            alert('เกิดข้อผิดพลาดในการคัดลอกข้อความ โปรดลองใหม่อีกครั้ง');
-        });
-    });
+                    // 3. จัดการข้อความสำหรับคัดลอกลง Clipboard (เอาสัญลักษณ์ ** ออกเท่านั้น เพื่อรักษา * หน้าจังหวัดไว้)
+                    let clipboardText = data.result.replace(/\*\*(.*?)\*\*/g, '$1');
 
-} else {
-    resultDiv.innerHTML = '<span class="text-red-600">เกิดข้อผิดพลาด: ' + (data.error || 'ไม่มีการส่งค่าผลลัพธ์กลับมา') + '</span>';
-}
-                         } catch (error) {
+                    // 4. ผูกคำสั่งคัดลอกกับปุ่ม
+                    const copyBtn = document.getElementById('copyToLineBtn');
+                    copyBtn.addEventListener('click', function() {
+                        navigator.clipboard.writeText(clipboardText).then(() => {
+                            const originalText = copyBtn.innerHTML;
+                            copyBtn.innerHTML = '✅ คัดลอกข้อความสำเร็จแล้ว!';
+                            copyBtn.classList.replace('bg-green-600', 'bg-blue-600');
+                            copyBtn.classList.replace('hover:bg-green-700', 'hover:bg-blue-700');
+                            
+                            setTimeout(() => {
+                                copyBtn.innerHTML = originalText;
+                                copyBtn.classList.replace('bg-blue-600', 'bg-green-600');
+                                copyBtn.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
+                            }, 2000);
+                        }).catch(err => {
+                            console.error('คัดลอกไม่สำเร็จ:', err);
+                            alert('เกิดข้อผิดพลาดในการคัดลอกข้อความ โปรดลองใหม่อีกครั้ง');
+                        });
+                    });
+
+                } else {
+                    resultDiv.innerHTML = '<span class="text-red-600">เกิดข้อผิดพลาด: ' + (data.error || 'ไม่มีการส่งค่าผลลัพธ์กลับมา') + '</span>';
+                }
+            } catch (error) {
                 console.error('Error fetching AI result:', error);
                 resultDiv.innerHTML = '<span class="text-red-600">ไม่สามารถเชื่อมต่อระบบประมวลผล AI ได้ โปรดตรวจสอบว่าท่านได้ใส่ URL ของ Apps Script ตรงบรรทัด gasWebAppUrl ถูกต้องหรือไม่</span>';
             } finally {
