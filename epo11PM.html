@@ -721,13 +721,14 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
                 contextData += "- ไม่มีข้อมูลหรือรอการอัปเดต\n";
             }
 
-            const promptText = `สวมบทบาทเป็น ผอ.สคพ.11 แทนตนเองว่า สคพ.11 ใช้หางเสียงว่าครับตามความเหมาะสม เขียนข้อความส่งเข้ากลุ่ม LINE เครื่อข่ายผู้อำนวยการส่วนและผู้แทน ทสจ. 4 จังหวัด นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ เพื่อแจ้งสถานการณ์สิ่งแวดล้อมประจำวันและแนะมาตรการที่เหมาะสม \n
+            const promptText = `สวมบทบาทเป็น ผอ.สคพ.11 ผู้ชาย แทนตนเองว่า สคพ.11 ไม่มีหางเสียง เขียนข้อความส่งเข้ากลุ่ม LINE ขึ้นต้นว่า เรียน ท่าน ผู้ประสานงาน ทสจ. 4 จังหวัด นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ เพื่อแจ้งสถานการณ์สิ่งแวดล้อมประจำวันและแนะมาตรการที่เหมาะสม \n
 ข้อมูลสถานการณ์ล่าสุด:\n${contextData}\n
 รูปแบบข้อความที่ต้องการ:
 1. ความยาวพอเหมาะกับการอ่านบนหน้าจอมือถือ มีการเว้นบรรทัดให้น่าอ่าน
-2. ใช้ Emoji ประกอบเพื่อให้ดูทันสมัยและลดความตึงเครียด
+2. ใช้ Emoji ประกอบเพื่อให้ดูทันสมัย
 3. แบ่งเนื้อหาเป็น "รายงานสถานการณ์" (สรุปทั้งจุดความร้อนและค่าฝุ่น) และ "คำแนะนำหรือข้อเสนอแนะทางวิชาการ"
-4. น้ำเสียงแสดงถึงความเป็นผู้นำที่กระตือรือร้น ให้เกียรติผู้ร่วมงานทุกคน และมุ่งเน้นผลสัมฤทธิ์\n
+4. น้ำเสียงแสดงถึงความเป็นผู้นำที่กระตือรือร้น ให้เกียรติผู้ร่วมงานทุกคน และมุ่งเน้นผลสัมฤทธิ์ เป็นทางการ
+5. ลงท้ายว่า จึงเรียนมาเพื่อโปรดทราบ สคพ.11 (นครราชสีมา)\n
 รายละเอียดการมอบหมายงานให้ระบุชื่อจังหวัดให้ชัดเจน`;
 
             try {
@@ -738,12 +739,44 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
                 
                 const data = await response.json();
                 
-                if (data.result) {
-                    resultDiv.innerHTML = data.result.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
-                } else {
-                    resultDiv.innerHTML = '<span class="text-red-600">เกิดข้อผิดพลาด: ' + (data.error || 'ไม่มีการส่งค่าผลลัพธ์กลับมา') + '</span>';
-                }
-            } catch (error) {
+if (data.result) {
+    // 1. นำผลลัพธ์มาแสดงผลบนหน้าจอ (แปลง \n เป็น <br> และแสดงตัวหนา)
+    resultDiv.innerHTML = data.result.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+    
+    // 2. สร้างปุ่มคัดลอกต่อท้าย
+    resultDiv.innerHTML += `
+        <button id="copyToLineBtn" class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md flex justify-center items-center gap-2">
+            📋 คัดลอกข้อความไปที่ LINE
+        </button>
+    `;
+
+    // 3. ผูกคำสั่งคัดลอกกับปุ่ม
+    const copyBtn = document.getElementById('copyToLineBtn');
+    copyBtn.addEventListener('click', function() {
+        // ใช้ data.result ต้นฉบับเพื่อคงการเว้นบรรทัดของ AI ไว้
+        navigator.clipboard.writeText(data.result).then(() => {
+            // แจ้งเตือนเมื่อคัดลอกสำเร็จ
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '✅ คัดลอกข้อความสำเร็จแล้ว!';
+            copyBtn.classList.replace('bg-green-600', 'bg-blue-600');
+            copyBtn.classList.replace('hover:bg-green-700', 'hover:bg-blue-700');
+            
+            // กลับคืนสภาพเดิมใน 2 วินาที
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.classList.replace('bg-blue-600', 'bg-green-600');
+                copyBtn.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
+            }, 2000);
+        }).catch(err => {
+            console.error('คัดลอกไม่สำเร็จ:', err);
+            alert('เกิดข้อผิดพลาดในการคัดลอกข้อความ โปรดลองใหม่อีกครั้ง');
+        });
+    });
+
+} else {
+    resultDiv.innerHTML = '<span class="text-red-600">เกิดข้อผิดพลาด: ' + (data.error || 'ไม่มีการส่งค่าผลลัพธ์กลับมา') + '</span>';
+}
+                         } catch (error) {
                 console.error('Error fetching AI result:', error);
                 resultDiv.innerHTML = '<span class="text-red-600">ไม่สามารถเชื่อมต่อระบบประมวลผล AI ได้ โปรดตรวจสอบว่าท่านได้ใส่ URL ของ Apps Script ตรงบรรทัด gasWebAppUrl ถูกต้องหรือไม่</span>';
             } finally {
