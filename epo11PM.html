@@ -692,8 +692,8 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
             setTimeout(fetchWeatherData, 1000);
         });
 
-        // ==========================================
-        // ฟังก์ชันสั่งการ AI (แก้ไขใหม่ให้รวมสภาพอากาศ)
+ // ==========================================
+        // ฟังก์ชันสั่งการ AI (แก้ไขใหม่ รวมสภาพอากาศ + คำนวณโควตาเป้าหมาย 5%)
         // ==========================================
         document.getElementById('btnAnalyze').addEventListener('click', async function() {
             const resultDiv = document.getElementById('aiResult');
@@ -701,15 +701,14 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
             
             resultDiv.style.display = 'block';
             resultDiv.classList.remove('hidden');
-            resultDiv.innerHTML = '<div class="text-center text-purple-600 animate-pulse"><i>กำลังวิเคราะห์ข้อมูลฝุ่นและสภาพอากาศเพื่อร่างข้อความสั่งการ กรุณารอสักครู่...</i></div>';
+            resultDiv.innerHTML = '<div class="text-center text-purple-600 animate-pulse"><i>กำลังวิเคราะห์ข้อมูลฝุ่น สภาพอากาศ และโควตาวันฝุ่นเกินมาตรฐาน... กรุณารอสักครู่</i></div>';
             
             btn.disabled = true;
             btn.classList.add('opacity-50', 'cursor-not-allowed');
 
-            // นำลิงก์ Web App URL ที่ได้จากการ Deploy Apps Script ที่มีฟังก์ชัน doPost (Gemini API) มาใส่ตรงนี้
             const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbxwmusL6OTmjR1tV2h3iw9Y_1rDt3npFHkIzaCgrXOtIWNH7873IHWof1Ei19SBb5cZ/exec';
 
-            let contextData = "ข้อมูลฝุ่นละอองและจุดความร้อน:\n";
+            let contextData = "ข้อมูลสถานการณ์รายจังหวัด:\n";
             let totalHotspots = 0;
 
             if (globalDashboardData && globalDashboardData.length > 1) {
@@ -718,48 +717,60 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
                         const province = row[0]; 
                         const pmToday = row[1];
                         const hotspot = row[2] || 0;
-                        const daysOver2569 = row[8] || 0;
+                        const daysOver68 = parseFloat(row[7]) || 0; // ข้อมูลปี 2568 (คอลัมน์ H)
+                        const daysOver69 = parseFloat(row[8]) || 0; // ข้อมูลปี 2569 (คอลัมน์ I)
                         
                         if (["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"].includes(province)) {
                             totalHotspots += parseInt(hotspot) || 0;
-                            contextData += `- ${province}: PM2.5 = ${pmToday} มคก./ลบ.ม. | จุดความร้อน ${hotspot} จุด | (เกินมาตรฐานสะสมปีนี้ ${daysOver2569} วัน)\n`;
+
+                            // คำนวณเป้าหมายลด 5% จากปี 2568
+                            const target69 = Math.floor(daysOver68 * 0.95);
+                            const remainingDays = target69 - daysOver69;
+                            
+                            // กำหนดข้อความแจ้งเตือนโควตา
+                            let quotaText = "";
+                            if (remainingDays > 0) {
+                                quotaText = `เหลือโควตาอีก ${remainingDays} วัน`;
+                            } else if (remainingDays === 0) {
+                                quotaText = `ไม่มีโควตาเหลือแล้ว ชนเพดานเป้าหมาย`;
+                            } else {
+                                quotaText = `เกินเป้าหมายแล้ว ${Math.abs(remainingDays)} วัน`;
+                            }
+
+                            // ข้อมูลสภาพอากาศ
+                            let weatherText = "ไม่มีข้อมูลสภาพอากาศ";
+                            if (globalWeatherData[province]) {
+                                const w = globalWeatherData[province];
+                                weatherText = `สภาพอากาศ: ${w.cond} | อุณหภูมิ ${w.temp} °C | ความชื้น ${w.rh} % | ลม${w.windDir} ความเร็ว ${w.windSpeed}`;
+                            }
+
+                            // จัดเตรียมข้อมูลของจังหวัดนี้โดยเว้นบรรทัดไว้ให้ AI นำไปใช้ตรงๆ
+                            contextData += `* ${province}: PM2.5 = ${pmToday} มคก./ลบ.ม. | จุดความร้อน ${hotspot} จุด | (${quotaText})\n  ${weatherText}\n\n`;
                         }
                     }
                 });
-                contextData += `รวมจุดความร้อนทั้งหมดในพื้นที่ สคพ.11. : ${totalHotspots} จุด\n`;
+                contextData += `ยอดรวมจุดความร้อนทั้งหมดในพื้นที่ สคพ.11. (4 จังหวัด) วันนี้ ${totalHotspots} จุด\n`;
             } else {
                 contextData += "- ไม่มีข้อมูลหรือรอการอัปเดต\n";
             }
 
-            // เพิ่มการรวบรวมข้อมูลสภาพอากาศ
-            let weatherContext = "\nข้อมูลสภาพอากาศปัจจุบันที่มีผลต่อการสะสมฝุ่น:\n";
-            const provinceList = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
-            provinceList.forEach(prov => {
-                if (globalWeatherData[prov]) {
-                    const w = globalWeatherData[prov];
-                    weatherContext += `- ${prov}: สภาพอากาศ ${w.cond} | อุณหภูมิ ${w.temp} °C | ความชื้น ${w.rh} % | ลม ${w.windDir} ความเร็ว ${w.windSpeed}\n`;
-                } else {
-                    weatherContext += `- ${prov}: ไม่มีข้อมูลสภาพอากาศ\n`;
-                }
-            });
-
-// สร้างตัวแปรวันที่ปัจจุบันแบบภาษาไทย
             const today = new Date();
             const monthsTh = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
             const formattedToday = `${today.getDate()} ${monthsTh[today.getMonth()]} ${today.getFullYear() + 543}`;
 
-            // ปรับแก้ Prompt ให้บังคับใส่วันที่ปัจจุบัน และใช้จุดท้ายคำย่อให้ถูกต้อง
             const promptText = `สวมบทบาทเป็น ผอ.สคพ.11. ผู้ชาย แทนตนเองว่า สคพ.11. ไม่มีหางเสียง เขียนข้อความส่งเข้ากลุ่ม LINE ขึ้นต้นว่า เรียน ท่าน ผู้ประสานงาน ทสจ. 4 จังหวัด นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ เพื่อแจ้งสถานการณ์สิ่งแวดล้อมประจำวันและแนะมาตรการที่เหมาะสม \n
-ข้อมูลสถานการณ์ล่าสุด:
-${contextData}${weatherContext}\n
+ข้อมูลสถานการณ์ล่าสุดที่ต้องรายงาน:
+${contextData}
+
 รูปแบบข้อความที่ต้องการ:
 1. ความยาวพอเหมาะกับการอ่านบนหน้าจอมือถือ
 2. ใช้ Emoji ประกอบเพื่อให้ดูทันสมัย
 3. แบ่งเนื้อหาเป็น "รายงานสถานการณ์ ณ วันที่ ${formattedToday}" และ "คำแนะนำหรือข้อเสนอแนะทางวิชาการ"
-4. สำคัญมาก: การรายงานสถานการณ์ในรายจังหวัด ให้ขึ้นต้นบรรทัดด้วยเครื่องหมายดอกจัน (*) หน้าชื่อจังหวัด และต้องเว้น 1 บรรทัดเพื่อคั่นระหว่างข้อมูลของแต่ละจังหวัดเสมอ
-5. น้ำเสียงแสดงถึงความเป็นผู้นำที่กระตือรือร้น ให้เกียรติผู้ร่วมงานทุกคน และมุ่งเน้นผลสัมฤทธิ์ เป็นทางการ
-6. ลงท้ายว่า จึงเรียนมาเพื่อโปรดทราบ สคพ.11. (นครราชสีมา)\n
-รายละเอียดการมอบหมายงานให้ระบุชื่อจังหวัดให้ชัดเจน`;
+4. สำคัญมาก: ในส่วนรายงานสถานการณ์ ให้ใช้รูปแบบข้อมูลรายจังหวัดที่จัดเตรียมไว้ให้ครบถ้วนทุกจังหวัด (ต้องมีทั้ง ค่าฝุ่น จุดความร้อน โควตาวันที่เหลือ และสภาพอากาศ) ห้ามตัดทอน
+5. ต้องขึ้นต้นด้วยดอกจัน (*) หน้าชื่อจังหวัด และเว้น 1 บรรทัดคั่นระหว่างจังหวัดเสมอ
+6. น้ำเสียงแสดงถึงความเป็นผู้นำที่กระตือรือร้น ให้เกียรติผู้ร่วมงานทุกคน และมุ่งเน้นผลสัมฤทธิ์ เป็นทางการ
+7. ลงท้ายว่า จึงเรียนมาเพื่อโปรดทราบ สคพ.11. (นครราชสีมา)\n
+รายละเอียดการมอบหมายงานในส่วนคำแนะนำ ให้ระบุชื่อจังหวัดให้ชัดเจน`;
 
             try {
                 const response = await fetch(gasWebAppUrl, {
@@ -770,7 +781,7 @@ ${contextData}${weatherContext}\n
                 const data = await response.json();
                 
                 if (data.result) {
-                    // 1. จัดการข้อความสำหรับแสดงผลบนหน้าเว็บ (คงเครื่องหมาย * ไว้ แปลงแค่ตัวหนาและเว้นบรรทัด)
+                    // 1. นำผลลัพธ์มาแสดงผลบนหน้าจอ (แปลง \n เป็น <br> และแสดงตัวหนา)
                     let cleanText = data.result
                         .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
                         .replace(/\n/g, '<br>');
@@ -784,7 +795,7 @@ ${contextData}${weatherContext}\n
                         </button>
                     `;
 
-                    // 3. จัดการข้อความสำหรับคัดลอกลง Clipboard (เอาสัญลักษณ์ ** ออกเท่านั้น เพื่อรักษา * หน้าจังหวัดไว้)
+                    // 3. จัดการข้อความสำหรับคัดลอกลง Clipboard (เอาแค่สัญลักษณ์ ** ออกเพื่อรักษา * หน้าจังหวัดไว้)
                     let clipboardText = data.result.replace(/\*\*(.*?)\*\*/g, '$1');
 
                     // 4. ผูกคำสั่งคัดลอกกับปุ่ม
@@ -819,6 +830,6 @@ ${contextData}${weatherContext}\n
             }
         });
         
-</script>
+    </script>
 </body>
 </html>
