@@ -85,6 +85,7 @@
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script>
         const nasaApiKey = '61454931fdc7c145936ad477ae95fd9a';
+        const longdoApiKey = 'bce812933744d2530d26f0fabb0017cf';
         const bbox = '101.0,14.0,104.5,16.5';
         
         const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json';
@@ -336,16 +337,49 @@
                     let popupContent = "<div style='font-size: 14px;'>";
                     popupContent += "<div style='background-color:#4a148c; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>รายละเอียดจุดความร้อน (NASA)</b></div>";
                     popupContent += "<b>พิกัด:</b> " + lat + "  " + lon + "<br>";
+                    popupContent += "<b>ตำบล:</b> <span class='tb-name' style='color:#0284c7; font-weight:bold;'>กำลังค้นหา...</span><br>";
+                    popupContent += "<b>อำเภอ:</b> <span class='ap-name' style='color:#0284c7; font-weight:bold;'>กำลังค้นหา...</span><br>";
                     popupContent += "<b>จังหวัด:</b> " + prov + "<br>";
                     popupContent += "<b>วันที่:</b> " + dateDisplay + "<br>";
                     popupContent += "<b>เวลา:</b> " + timeDisplay + " (เวลาประเทศไทย)<br>";
                     popupContent += "<b>ดาวเทียม:</b> " + satDisplay + "<br>";
-                    popupContent += "<b>ความเชื่อมั่น:</b> " + confDisplay + "<br>";
-                    popupContent += "<div style='color:#b91c1c; font-size:12px; margin-top:5px; margin-bottom:12px;'>* ไม่มีข้อมูลระดับอำเภอและตำบล</div>";
-                    popupContent += "<a href='" + googleMapsUrl + "' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 นำทางด้วย Google Maps</a>";
+                    popupContent += "<b>ความเชื่อมั่น:</b> " + confDisplay + "<br><br>";
+                    popupContent += "<a href='" + googleMapsUrl + "' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>";
                     popupContent += "</div>";
                     
                     layer.bindPopup(popupContent);
+
+                    layer.on('popupopen', function(e) {
+                        let popupNode = e.popup._contentNode;
+                        if (!popupNode) return;
+                        
+                        let tambonEl = popupNode.querySelector('.tb-name');
+                        let amphoeEl = popupNode.querySelector('.ap-name');
+                        
+                        if (tambonEl && tambonEl.innerText === 'กำลังค้นหา...') {
+                            // ดึงข้อมูลจาก API ของ Longdo Map เพื่อความถูกต้องของขอบเขตราชการไทย
+                            fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
+                            .then(res => res.json())
+                            .then(data => {
+                                if(data) {
+                                    let t = data.subdistrict || "-";
+                                    let a = data.district || "-";
+                                    
+                                    t = t.replace(/^ตำบล/g, '').replace(/^แขวง/g, '').trim();
+                                    a = a.replace(/^อำเภอ/g, '').replace(/^เขต/g, '').trim();
+                                    
+                                    tambonEl.innerText = t !== "-" ? t : "ไม่ระบุ";
+                                    amphoeEl.innerText = a !== "-" ? a : "ไม่ระบุ";
+                                } else {
+                                    tambonEl.innerText = "ไม่พบข้อมูล";
+                                    amphoeEl.innerText = "ไม่พบข้อมูล";
+                                }
+                            }).catch(() => {
+                                tambonEl.innerText = "ข้อผิดพลาด";
+                                amphoeEl.innerText = "ข้อผิดพลาด";
+                            });
+                        }
+                    });
                 }
             });
 
