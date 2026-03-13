@@ -37,3 +37,9 @@ We successfully integrated meteorological data from the Thai Meteorological Depa
 Environmental and Pollution Control Office 11 (Nakhon Ratchasima), Pollution Control Department, Thailand.
 
 For more information, see this [paper](https://kietpawpan.github.io/hotspot/paper.html) (in Thai).
+
+* Longdo Map API: https://map.longdo.com/console/
+* NASA API
+* TMD API
+* GISTDA API
+* Google App Script
