@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="./dist/output.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
     <style>
         .aqi-excellent { background-color: #00B0F0; color: white; }
         .aqi-good { background-color: #92D050; color: black; }
@@ -58,7 +59,7 @@
 </head>
 <body class="bg-gray-100 font-sans p-4">
 
-    <div id="loader">กำลังโหลดข้อมูลจาก Google Sheets...</div>
+    <div id="loader">กำลังโหลดข้อมูล...</div>
 
  <header class="bg-purple-800 text-white p-4 rounded-t-xl shadow-md text-center">
   <div class="flex justify-center items-center gap-6 mb-4">
@@ -193,6 +194,8 @@
         
         let globalDashboardData = []; // ตัวแปรสำหรับเก็บข้อมูลฝุ่นไปให้ AI ประมวลผล
         let globalWeatherData = {}; // ตัวแปรสำหรับเก็บข้อมูลสภาพอากาศไปให้ AI ประมวลผล
+	let globalNasaHotspots = {}; // ตัวแปรเก็บจุดความร้อนจาก NASA ให้ AI ใช้
+
 
         function getAqiClass(value) {
             if (isNaN(value)) return 'bg-gray-300 text-gray-700';
@@ -435,8 +438,8 @@
                         <div class="text-3xl font-black mt-2">${pmToday}</div>
                         <div class="text-xs">มคก./ลบ.ม.</div>
                         <div class="mt-2 text-sm bg-white bg-opacity-30 rounded px-2 py-1 w-full">
-                            จุดความร้อน: <span class="font-bold text-red-700">${hotspot}</span>
-                        </div>
+			จุดความร้อน (NASA 24 ชม.): <span id="hotspot-val-${province}" class="font-bold text-red-700">⏳ กำลังประมวลผล...</span>                        
+			</div>
                         ${quotaHtml}
                         <div class="mt-2 text-xs p-2 bg-white bg-opacity-60 rounded-lg text-black w-full text-left">
                             <span class="font-bold">คำแนะนำ:</span> ${healthAdvice}
@@ -686,9 +689,92 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
             }
         }
 
-        window.addEventListener('load', () => {
-            setTimeout(fetchWeatherData, 1000);
+	window.addEventListener('load', () => {
+    	setTimeout(fetchWeatherData, 1000);
+    	setTimeout(fetchNasaHotspots, 1500); // เรียกดึงข้อมูล NASA
+	});
+        
+
+// ====
+//  ดึงข้อมูล NASA
+	async function fetchNasaHotspots() {
+    const nasaApiKey = '61454931fdc7c145936ad477ae95fd9a';
+    const bbox = '101.0,14.0,104.5,16.5';
+    const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json';
+    const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
+    
+    try {
+        // ดึงข้อมูลขอบเขตจังหวัด
+        const bRes = await fetch(geojsonBoundariesUrl);
+        const bData = await bRes.json();
+        const boundaries = bData.features.filter(f => {
+            const propStr = JSON.stringify(f.properties);
+            return targetKeywords.some(keyword => propStr.includes(keyword));
         });
+
+        // ดึงข้อมูล NASA (Suomi-NPP 24 ชม. ล่าสุด)
+        const nRes = await fetch(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${nasaApiKey}/VIIRS_SNPP_NRT/${bbox}/1`);
+        const csvText = await nRes.text();
+        
+        let hotspotCounts = { "นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0 };
+        const lines = csvText.trim().split('\n');
+        
+        if (lines.length > 1 && lines[0].includes('latitude')) {
+            const headers = lines[0].split(',');
+            
+            // กรองข้อมูลย้อนหลัง 24 ชม.
+            let now = new Date();
+            let cutoffTime = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+
+            for(let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',');
+                if(values.length < headers.length) continue;
+                
+                let props = {};
+                headers.forEach((h, idx) => { props[h] = values[idx]; });
+                
+                const lat = parseFloat(props.latitude);
+                const lon = parseFloat(props.longitude);
+                
+                const dateParts = props.acq_date.split('-');
+                const timeStr = String(props.acq_time).padStart(4, '0');
+                const hours = parseInt(timeStr.substring(0, 2), 10);
+                const mins = parseInt(timeStr.substring(2, 4), 10);
+                const acqDateTime = new Date(Date.UTC(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10), hours, mins));
+                
+                if (acqDateTime >= cutoffTime) {
+                    let pt = turf.point([lon, lat]);
+                    for(let f of boundaries) {
+                        if(turf.booleanPointInPolygon(pt, f)) {
+                            const propStr = JSON.stringify(f.properties);
+                            if(propStr.includes("นครราชสีมา") || propStr.includes("Nakhon Ratchasima")) hotspotCounts["นครราชสีมา"]++;
+                            else if(propStr.includes("ชัยภูมิ") || propStr.includes("Chaiyaphum")) hotspotCounts["ชัยภูมิ"]++;
+                            else if(propStr.includes("บุรีรัมย์") || propStr.includes("Buri Ram") || propStr.includes("Buriram")) hotspotCounts["บุรีรัมย์"]++;
+                            else if(propStr.includes("สุรินทร์") || propStr.includes("Surin")) hotspotCounts["สุรินทร์"]++;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // อัปเดตตัวเลขบน UI และเก็บค่าไว้ให้ AI
+        for (const [prov, count] of Object.entries(hotspotCounts)) {
+            globalNasaHotspots[prov] = count;
+            const el = document.getElementById(`hotspot-val-${prov}`);
+            if (el) {
+                el.innerText = count + " จุด";
+            }
+        }
+        
+    } catch (error) {
+        console.error("Error fetching NASA data:", error);
+        ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"].forEach(prov => {
+            const el = document.getElementById(`hotspot-val-${prov}`);
+            if (el) el.innerText = "ไม่สามารถดึงข้อมูลได้";
+        });
+    }
+}
 
  // ==========================================
         // ฟังก์ชันสั่งการ AI (แก้ไขใหม่ รวมสภาพอากาศ + คำนวณโควตาเป้าหมาย 5%)
@@ -714,7 +800,7 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
                     if (index > 0 && row[0]) { 
                         const province = row[0]; 
                         const pmToday = row[1];
-                        const hotspot = row[2] || 0;
+                        const hotspot = globalNasaHotspots[province] !== undefined ? globalNasaHotspots[province] : 0;
                         const daysOver68 = parseFloat(row[7]) || 0; // ข้อมูลปี 2568 (คอลัมน์ H)
                         const daysOver69 = parseFloat(row[8]) || 0; // ข้อมูลปี 2569 (คอลัมน์ I)
                         
