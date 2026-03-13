@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: sans-serif; background-color: #f3f4f6; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -33,7 +34,6 @@
         .mode-selector input { margin-right: 8px; accent-color: #4a148c; transform: scale(1.2); }
         #sliderContainer { transition: opacity 0.3s ease; }
         
-        /* สไตล์สำหรับ Loading Spinner และ Map Wrapper */
         #map-wrapper { position: relative; }
         #loadingOverlay {
             position: absolute;
@@ -60,7 +60,7 @@
         }
 
         #map { height: 600px; width: 100%; border-radius: 8px; z-index: 10; }
-        .legend-box { background: white; padding: 10px 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; line-height: 1.6; max-height: 500px; overflow-y: auto; }
+        .legend-box { background: white; padding: 10px 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; line-height: 1.6; max-height: 500px; overflow-y: auto; width: 280px; }
         .legend-title { font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 10px; }
         .legend-title:first-child { margin-top: 0; }
         .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
@@ -275,15 +275,11 @@
                 }
 
                 updateMap();
-                
-                // ซ่อน Loading Spinner เมื่อทำงานเสร็จสมบูรณ์
                 document.getElementById('loadingOverlay').style.display = 'none';
             })
             .catch(error => {
                 console.error('เกิดข้อผิดพลาดในการดึงข้อมูล', error);
                 document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูล";
-                
-                // ซ่อน Loading Spinner หากเกิดข้อผิดพลาด
                 document.getElementById('loadingOverlay').style.display = 'none';
             });
 
@@ -491,8 +487,15 @@
                 if (luKeys.length === 0) {
                     html += '<div style="color:#64748b;">ไม่มีข้อมูล</div>';
                 } else {
+                    // เพิ่ม Container สำหรับกราฟโดนัท
+                    html += '<div style="height: 180px; margin-top: 10px; margin-bottom: 15px;"><canvas id="landuseChart"></canvas></div>';
+                    // แสดงตัวเลขรายละเอียดประกอบกราฟ
                     luKeys.forEach(key => {
-                        html += key + ': <b>' + landuseCounts[key] + '</b> จุด<br>';
+                        let dotColor = '#ccc';
+                        html += `<div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:3px;">
+                                    <span>${key}</span> 
+                                    <b>${landuseCounts[key]} จุด</b>
+                                 </div>`;
                     });
                 }
                 
@@ -505,6 +508,51 @@
                 return div;
             };
             summaryControl.addTo(map);
+
+            // คำสั่งสร้างและอัปเดตกราฟโดนัทหลังจากที่ Element ถูกสร้างลงในหน้าเว็บแล้ว
+            setTimeout(() => {
+                let chartCanvas = document.getElementById('landuseChart');
+                if (chartCanvas) {
+                    if (window.luChartInstance) {
+                        window.luChartInstance.destroy();
+                    }
+                    let luKeys = Object.keys(landuseCounts).sort((a, b) => landuseCounts[b] - landuseCounts[a]);
+                    let dataValues = luKeys.map(k => landuseCounts[k]);
+                    
+                    // กำหนดชุดสีสำหรับประเภทพื้นที่ต่างๆ
+                    let colors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#f43f5e'];
+                    
+                    window.luChartInstance = new Chart(chartCanvas, {
+                        type: 'doughnut',
+                        data: {
+                            labels: luKeys,
+                            datasets: [{
+                                data: dataValues,
+                                backgroundColor: colors.slice(0, luKeys.length),
+                                borderWidth: 1,
+                                borderColor: '#ffffff'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false // ซ่อน Label ของกราฟเพื่อประหยัดพื้นที่เนื่องจากเรามีตัวหนังสือแจ้งด้านล่างแล้ว
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return ' ' + context.label + ': ' + context.raw + ' จุด';
+                                        }
+                                    }
+                                }
+                            },
+                            cutout: '60%'
+                        }
+                    });
+                }
+            }, 100);
         }
 
         function countFeature(feature, counts, luCounts, pLuCounts, pAmpCounts) {
