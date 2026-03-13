@@ -305,14 +305,18 @@
                     let dateDisplay = "-";
                     let timeDisplay = "-";
                     
+                    const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+                    
                     if (dt) {
-                        let thDay = String(dt.getDate()).padStart(2, '0');
-                        let thMonth = String(dt.getMonth() + 1).padStart(2, '0');
-                        let thYear = dt.getFullYear() + 543;
-                        dateDisplay = thDay + "/" + thMonth + "/" + thYear;
+                        let thDate = new Date(dt.getTime() + (7 * 60 * 60 * 1000));
                         
-                        let thHours = String(dt.getHours()).padStart(2, '0');
-                        let thMins = String(dt.getMinutes()).padStart(2, '0');
+                        let thDay = thDate.getUTCDate();
+                        let thMonthName = thaiMonths[thDate.getUTCMonth()];
+                        let thYear = thDate.getUTCFullYear() + 543;
+                        dateDisplay = thDay + " " + thMonthName + " " + thYear;
+                        
+                        let thHours = String(thDate.getUTCHours()).padStart(2, '0');
+                        let thMins = String(thDate.getUTCMinutes()).padStart(2, '0');
                         timeDisplay = thHours + ":" + thMins + " น.";
                     }
                     
@@ -357,7 +361,6 @@
                         let amphoeEl = popupNode.querySelector('.ap-name');
                         
                         if (tambonEl && tambonEl.innerText === 'กำลังค้นหา...') {
-                            // ดึงข้อมูลจาก API ของ Longdo Map เพื่อความถูกต้องของขอบเขตราชการไทย
                             fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
                             .then(res => res.json())
                             .then(data => {
