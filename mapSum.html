@@ -14,10 +14,51 @@
         .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 20px; }
         .control-panel { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
         .status-box { font-size: 15px; color: #4a148c; margin-bottom: 15px; background: #e9d5ff; padding: 10px; border-radius: 6px; border: 1px solid #d8b4fe; }
+        
+        #alertBanner { 
+            display: none; 
+            background-color: #fee2e2; 
+            color: #b91c1c; 
+            padding: 12px 15px; 
+            border-radius: 8px; 
+            border: 1px solid #f87171; 
+            margin-bottom: 15px; 
+            font-size: 15px; 
+            text-align: center; 
+            box-shadow: 0 2px 4px rgba(220, 38, 38, 0.1);
+        }
+
         .mode-selector { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #cbd5e1; display: flex; flex-wrap: wrap; gap: 15px; }
         .mode-selector label { font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; }
         .mode-selector input { margin-right: 8px; accent-color: #4a148c; transform: scale(1.2); }
         #sliderContainer { transition: opacity 0.3s ease; }
+        
+        /* สไตล์สำหรับ Loading Spinner และ Map Wrapper */
+        #map-wrapper { position: relative; }
+        #loadingOverlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255, 255, 255, 0.85);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+        }
+        .spinner {
+            border: 5px solid #e2e8f0;
+            border-top: 5px solid #4a148c;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         #map { height: 600px; width: 100%; border-radius: 8px; z-index: 10; }
         .legend-box { background: white; padding: 10px 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; line-height: 1.6; max-height: 500px; overflow-y: auto; }
         .legend-title { font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 10px; }
@@ -31,6 +72,8 @@
     <div class="container">
         <h2>ระบบเฝ้าระวังจุดความร้อน VIIRS (สคพ.11)</h2>
         <div class="subtitle">ครอบคลุมพื้นที่ นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์</div>
+        
+        <div id="alertBanner"></div>
         
         <div class="control-panel">
             <div class="status-box">
@@ -71,15 +114,22 @@
             </div>
         </div>
 
-        <div id="map"></div>
+        <div id="map-wrapper">
+            <div id="loadingOverlay">
+                <div class="spinner"></div>
+                <div style="margin-top: 15px; font-weight: bold; color: #4a148c; font-size: 16px;">กำลังดาวน์โหลดข้อมูลจาก สทอภ. ...</div>
+            </div>
+            <div id="map"></div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script>
-        const apikey = 'csbkEXCCJBRqM6DonhfyWrk5K1hbiCsp5VvdioLzSqQqVJFJqZ3mRSl7e1XL6t4l';
+        const apikey = 'CU5IxlOrmXHghx67MB6tI9SZ5L9xEJFeypIuPPXt9tfjtHcmxdsAQXK9CjpyqlLG';
         const bbox = '101.1,14.1,104.0,16.5';
         const apiUrl = 'https://api-gateway.gistda.or.th/api/2.0/resources/features/viirs/30days?api_key=' + apikey + '&limit=10000&bbox=' + bbox;
+
         const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json';
 
         const map = L.map('map').setView([15.2, 102.5], 8);
@@ -207,15 +257,34 @@
                 if (latestDateObj.getTime() > 0 && oldestDateObj) {
                     let dateRangeStr = formatDateStr(oldestDateObj) + " ถึง " + formatDateStr(latestDateObj);
                     document.getElementById('lastUpdateDisplay').innerText = "ช่วงข้อมูล สคพ.11 ที่ดึงได้: " + dateRangeStr;
+                    
+                    let now = new Date();
+                    let hoursDiff = (now.getTime() - latestDateObj.getTime()) / (1000 * 60 * 60);
+                    let alertBanner = document.getElementById('alertBanner');
+                    
+                    if (hoursDiff > 24) {
+                        let delayHours = Math.floor(hoursDiff);
+                        alertBanner.innerHTML = "⚠️ <b>แจ้งเตือน:</b> ข้อมูลดาวเทียมล่าสุดล่าช้ากว่าเวลาปัจจุบัน <b>" + delayHours + " ชั่วโมง</b> (อาจเกิดจากระบบต้นทาง สทอภ. อยู่ระหว่างปรับปรุงข้อมูล)";
+                        alertBanner.style.display = "block";
+                    } else {
+                        alertBanner.style.display = "none";
+                    }
+
                 } else {
                     document.getElementById('lastUpdateDisplay').innerText = "ไม่พบข้อมูลในระบบ สทอภ.";
                 }
 
                 updateMap();
+                
+                // ซ่อน Loading Spinner เมื่อทำงานเสร็จสมบูรณ์
+                document.getElementById('loadingOverlay').style.display = 'none';
             })
             .catch(error => {
                 console.error('เกิดข้อผิดพลาดในการดึงข้อมูล', error);
                 document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูล";
+                
+                // ซ่อน Loading Spinner หากเกิดข้อผิดพลาด
+                document.getElementById('loadingOverlay').style.display = 'none';
             });
 
         function getTopLanduseHtml(provName, pLuCounts) {
@@ -379,7 +448,6 @@
             summaryControl.onAdd = function (map) {
                 const div = L.DomUtil.create('div', 'legend-box');
                 
-                // การแก้ไขปัญหาการเลื่อนหน้าจอบน iPad
                 L.DomEvent.disableClickPropagation(div);
                 L.DomEvent.disableScrollPropagation(div);
                 
