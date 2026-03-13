@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แผนที่จุดความร้อน VIIRS พื้นที่ สคพ.11 (Suomi-NPP)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #f3f4f6; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #4a148c; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 20px; }
+        .control-panel { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
+        .status-box { font-size: 15px; color: #4a148c; margin-bottom: 5px; background: #e9d5ff; padding: 10px; border-radius: 6px; border: 1px solid #d8b4fe; }
+        
+        #map-wrapper { position: relative; }
+        #loadingOverlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255, 255, 255, 0.85);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+        }
+        .spinner {
+            border: 5px solid #e2e8f0;
+            border-top: 5px solid #4a148c;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #map { height: 600px; width: 100%; border-radius: 8px; z-index: 10; }
+        .legend-box { background: white; padding: 10px 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; line-height: 1.6; max-height: 500px; overflow-y: auto; width: 280px; }
+        .legend-title { font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 10px; }
+        .legend-title:first-child { margin-top: 0; }
+        .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>ระบบเฝ้าระวังจุดความร้อน VIIRS (สคพ.11)</h2>
+        <div class="subtitle">ครอบคลุมพื้นที่ นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ (ข้อมูล NASA FIRMS เฉพาะดาวเทียม Suomi-NPP)</div>
+        
+        <div class="control-panel">
+            <div class="status-box">
+                🛰️ <b>สถานะข้อมูล:</b> <span id="lastUpdateDisplay" style="color: #b91c1c; font-weight: bold;">กำลังดาวน์โหลดและประมวลผลข้อมูล NASA...</span>
+            </div>
+            
+            <div id="sliderContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
+                <label for="hourSlider" style="font-size: 16px;">
+                    <b>แสดงจุดความร้อนย้อนหลัง: </b> 
+                    <span id="hourValueDisplay" style="color: #d84315; font-weight: bold; font-size: 1.2em;">24</span> 
+                    <b> ชั่วโมง</b> <span style="font-size: 14px; color: #64748b;">(นับจากเวลาปัจจุบัน)</span>
+                </label>
+                <input type="range" id="hourSlider" min="1" max="24" value="24" step="1" style="width: 100%; margin-top: 10px; accent-color: #4a148c;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-top: 5px;">
+                    <span>1 ชม.</span>
+                    <span>24 ชม.</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="map-wrapper">
+            <div id="loadingOverlay">
+                <div class="spinner"></div>
+                <div style="margin-top: 15px; font-weight: bold; color: #4a148c; font-size: 16px;">กำลังวิเคราะห์ข้อมูลเชิงพื้นที่...</div>
+            </div>
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <script>
+        const nasaApiKey = '61454931fdc7c145936ad477ae95fd9a';
+        const bbox = '101.0,14.0,104.5,16.5';
+        
+        const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json';
+
+        const map = L.map('map').setView([15.2, 102.5], 8);
+
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap'
+        });
+
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: '© Esri'
+        });
+
+        osmLayer.addTo(map);
+
+        const baseMaps = {
+            "แผนที่ถนน (OSM)": osmLayer,
+            "ภาพถ่ายดาวเทียม (Esri)": satelliteLayer
+        };
+        L.control.layers(baseMaps).addTo(map);
+
+        const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
+        const targetProvincesThai = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
+        
+        let boundaryGeoJSON = null;
+        let hotspotLayer;
+        let summaryControl;
+        let globalFeatures = [];
+        let currentTimeframe = 24;
+
+        fetch(geojsonBoundariesUrl)
+            .then(res => res.json())
+            .then(data => {
+                boundaryGeoJSON = {
+                    type: "FeatureCollection",
+                    features: data.features.filter(f => {
+                        const propStr = JSON.stringify(f.properties);
+                        return targetKeywords.some(keyword => propStr.includes(keyword));
+                    })
+                };
+
+                const boundaryLayer = L.geoJSON(boundaryGeoJSON, {
+                    style: {
+                        color: "#4a148c", 
+                        weight: 5,         
+                        opacity: 1,        
+                        fillOpacity: 0.05,
+                        dashArray: ''
+                    }
+                }).addTo(map);
+
+                if (boundaryGeoJSON.features.length > 0) {
+                    map.fitBounds(boundaryLayer.getBounds());
+                }
+
+                fetchNasaData();
+            })
+            .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้', err));
+
+        function fetchNasaData() {
+            const sources = ['VIIRS_SNPP_NRT'];
+            const fetchPromises = sources.map(source => 
+                fetch(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${nasaApiKey}/${source}/${bbox}/1`)
+                .then(res => res.text())
+            );
+
+            Promise.all(fetchPromises)
+                .then(results => {
+                    let allFeatures = [];
+                    let apiError = null;
+
+                    results.forEach((csvText) => {
+                        const lines = csvText.trim().split('\n');
+                        
+                        if (lines.length > 0 && !lines[0].includes('latitude')) {
+                            apiError = lines[0];
+                            return;
+                        }
+
+                        if (lines.length < 2) return;
+
+                        const headers = lines[0].split(',');
+                        for(let i = 1; i < lines.length; i++) {
+                            const values = lines[i].split(',');
+                            if(values.length < headers.length) continue;
+                            
+                            let props = {};
+                            headers.forEach((h, idx) => { props[h] = values[idx]; });
+                            
+                            const lat = parseFloat(props.latitude);
+                            const lon = parseFloat(props.longitude);
+                            
+                            const dateParts = props.acq_date.split('-');
+                            const timeStr = String(props.acq_time).padStart(4, '0');
+                            const hours = parseInt(timeStr.substring(0, 2), 10);
+                            const mins = parseInt(timeStr.substring(2, 4), 10);
+                            const acqDateTime = new Date(Date.UTC(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10), hours, mins));
+                            props.parsed_datetime = acqDateTime;
+
+                            let pt = turf.point([lon, lat]);
+                            let provName = null;
+                            
+                            for(let f of boundaryGeoJSON.features) {
+                                if(turf.booleanPointInPolygon(pt, f)) {
+                                    const propStr = JSON.stringify(f.properties);
+                                    if(propStr.includes("นครราชสีมา") || propStr.includes("Nakhon Ratchasima")) provName = "นครราชสีมา";
+                                    else if(propStr.includes("ชัยภูมิ") || propStr.includes("Chaiyaphum")) provName = "ชัยภูมิ";
+                                    else if(propStr.includes("บุรีรัมย์") || propStr.includes("Buri Ram") || propStr.includes("Buriram")) provName = "บุรีรัมย์";
+                                    else if(propStr.includes("สุรินทร์") || propStr.includes("Surin")) provName = "สุรินทร์";
+                                    break;
+                                }
+                            }
+
+                            if(provName) {
+                                props.prov_name = provName;
+                                allFeatures.push({
+                                    type: "Feature",
+                                    geometry: { type: "Point", coordinates: [lon, lat] },
+                                    properties: props
+                                });
+                            }
+                        }
+                    });
+
+                    if (apiError && allFeatures.length === 0) {
+                        document.getElementById('lastUpdateDisplay').innerText = "⚠️ แจ้งเตือนจาก NASA API: " + apiError;
+                        document.getElementById('loadingOverlay').style.display = 'none';
+                        return;
+                    }
+
+                    globalFeatures = allFeatures;
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    applyTimeFilter();
+                })
+                .catch(error => {
+                    console.error('เกิดข้อผิดพลาด', error);
+                    document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูล NASA FIRMS";
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                });
+        }
+
+        function applyTimeFilter() {
+            let filteredFeatures = [];
+            let hotspotCounts = { "นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0 };
+            let totalSpots = 0;
+
+            let now = new Date();
+            let cutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
+
+            globalFeatures.forEach(feature => {
+                if (feature.properties.parsed_datetime >= cutoffTime) {
+                    filteredFeatures.push(feature);
+                    hotspotCounts[feature.properties.prov_name]++;
+                    totalSpots++;
+                }
+            });
+
+            if (totalSpots === 0 && globalFeatures.length === 0) {
+                document.getElementById('lastUpdateDisplay').innerText = "ไม่พบจุดความร้อนในรอบ " + currentTimeframe + " ชม. ล่าสุด";
+            } else {
+                document.getElementById('lastUpdateDisplay').innerText = "แสดงข้อมูลรอบ " + currentTimeframe + " ชม. ล่าสุดสำเร็จ (เฉพาะดาวเทียม Suomi-NPP)";
+            }
+
+            renderMap(filteredFeatures, hotspotCounts, totalSpots);
+        }
+
+        document.getElementById('hourSlider').addEventListener('input', function(e) {
+            currentTimeframe = parseInt(e.target.value);
+            document.getElementById('hourValueDisplay').innerText = currentTimeframe;
+            applyTimeFilter();
+        });
+
+        function renderMap(features, counts, total) {
+            if (hotspotLayer) { map.removeLayer(hotspotLayer); }
+            if (summaryControl) { map.removeControl(summaryControl); }
+
+            const filteredData = {
+                type: "FeatureCollection",
+                features: features
+            };
+
+            hotspotLayer = L.markerClusterGroup({
+                maxClusterRadius: 40,
+                spiderfyOnMaxZoom: true,
+                showCoverageOnHover: false,
+                zoomToBoundsOnClick: true
+            });
+
+            const geoJsonLayer = L.geoJSON(filteredData, {
+                pointToLayer: function (feature, latlng) {
+                    let props = feature.properties || {};
+                    let conf = props.confidence || "";
+                    let confStr = String(conf).trim().toLowerCase();
+                    let markerColor = "#ffc107"; 
+                    
+                    if (confStr === 'h' || confStr === 'high') {
+                        markerColor = "#dc3545"; 
+                    } else if (confStr === 'n' || confStr === 'nominal') {
+                        markerColor = "#fd7e14"; 
+                    }
+
+                    return L.circleMarker(latlng, {
+                        radius: 6,
+                        fillColor: markerColor,
+                        color: "#fff",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.9
+                    });
+                },
+                onEachFeature: function (feature, layer) {
+                    let props = feature.properties || {};
+                    let dt = props.parsed_datetime;
+                    let dateDisplay = "-";
+                    let timeDisplay = "-";
+                    
+                    if (dt) {
+                        let thDay = String(dt.getDate()).padStart(2, '0');
+                        let thMonth = String(dt.getMonth() + 1).padStart(2, '0');
+                        let thYear = dt.getFullYear() + 543;
+                        dateDisplay = thDay + "/" + thMonth + "/" + thYear;
+                        
+                        let thHours = String(dt.getHours()).padStart(2, '0');
+                        let thMins = String(dt.getMinutes()).padStart(2, '0');
+                        timeDisplay = thHours + ":" + thMins + " น.";
+                    }
+                    
+                    let lat = props.latitude || "-";
+                    let lon = props.longitude || "-";
+                    let prov = props.prov_name || "-";
+                    
+                    let conf = props.confidence || "-";
+                    let confStr = String(conf).trim().toLowerCase();
+                    let confDisplay = conf;
+                    if (confStr === 'h' || confStr === 'high') confDisplay = "สูง (High)";
+                    else if (confStr === 'n' || confStr === 'nominal') confDisplay = "ปานกลาง (Nominal)";
+                    else if (confStr === 'l' || confStr === 'low') confDisplay = "ต่ำ (Low)";
+                    
+                    let satellite = props.satellite || "-";
+                    let satDisplay = satellite;
+                    if (satellite === 'N') satDisplay = "Suomi-NPP";
+                    else if (satellite === '1') satDisplay = "NOAA-20";
+
+                    let googleMapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lon;
+                    
+                    let popupContent = "<div style='font-size: 14px;'>";
+                    popupContent += "<div style='background-color:#4a148c; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>รายละเอียดจุดความร้อน (NASA)</b></div>";
+                    popupContent += "<b>พิกัด:</b> " + lat + "  " + lon + "<br>";
+                    popupContent += "<b>จังหวัด:</b> " + prov + "<br>";
+                    popupContent += "<b>วันที่:</b> " + dateDisplay + "<br>";
+                    popupContent += "<b>เวลา:</b> " + timeDisplay + " (เวลาประเทศไทย)<br>";
+                    popupContent += "<b>ดาวเทียม:</b> " + satDisplay + "<br>";
+                    popupContent += "<b>ความเชื่อมั่น:</b> " + confDisplay + "<br>";
+                    popupContent += "<div style='color:#b91c1c; font-size:12px; margin-top:5px; margin-bottom:12px;'>* ไม่มีข้อมูลระดับอำเภอและตำบล</div>";
+                    popupContent += "<a href='" + googleMapsUrl + "' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 นำทางด้วย Google Maps</a>";
+                    popupContent += "</div>";
+                    
+                    layer.bindPopup(popupContent);
+                }
+            });
+
+            hotspotLayer.addLayer(geoJsonLayer);
+            map.addLayer(hotspotLayer);
+
+            summaryControl = L.control({position: 'bottomright'});
+            summaryControl.onAdd = function (map) {
+                const div = L.DomUtil.create('div', 'legend-box');
+                L.DomEvent.disableClickPropagation(div);
+                L.DomEvent.disableScrollPropagation(div);
+                
+                let html = '<div class="legend-title">สรุปข้อมูล สคพ.11 (ย้อนหลัง ' + currentTimeframe + ' ชม.)</div>';
+                
+                if (total === 0) {
+                    html += '<div style="color:#d84315; font-weight:bold; margin-bottom:10px;">ไม่พบจุดความร้อนในพื้นที่</div>';
+                } else {
+                    html += 'รวมพบ: <b>' + total + '</b> จุด<br><br>';
+                    html += '<b>นครราชสีมา:</b> ' + counts["นครราชสีมา"] + ' จุด<br>';
+                    html += '<b>ชัยภูมิ:</b> ' + counts["ชัยภูมิ"] + ' จุด<br>';
+                    html += '<b>บุรีรัมย์:</b> ' + counts["บุรีรัมย์"] + ' จุด<br>';
+                    html += '<b>สุรินทร์:</b> ' + counts["สุรินทร์"] + ' จุด<br>';
+                }
+                
+                html += '<div class="legend-title" style="margin-top:15px;">ระดับความเชื่อมั่น</div>';
+                html += '<div><span class="dot" style="background:#dc3545;"></span> สูง (High)</div>';
+                html += '<div><span class="dot" style="background:#fd7e14;"></span> ปานกลาง (Nominal)</div>';
+                html += '<div><span class="dot" style="background:#ffc107;"></span> ต่ำ (Low)</div>';
+                
+                div.innerHTML = html;
+                return div;
+            };
+            summaryControl.addTo(map);
+        }
+
+    </script>
+</body>
+</html>
