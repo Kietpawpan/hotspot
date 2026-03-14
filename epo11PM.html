@@ -630,54 +630,65 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
                             const dateString = dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
                             const displayTime = `${dateString} เวลา ${timeString} น.`;
                             
-                            // ดึงค่าสภาพอากาศ
-                            const condText = weatherData.cond !== undefined ? getWeatherCondition(weatherData.cond) : '-';
-                            const tc = weatherData.tc !== undefined ? weatherData.tc : '-';
-                            const rh = weatherData.rh !== undefined ? weatherData.rh : '-';
-                            
-                            // ดึงค่าลม
-                            let windSpeedDisplay = '-';
-                            if (weatherData.ws10m !== undefined) {
-                                const kmh = (weatherData.ws10m * 3.6).toFixed(1);
-                                windSpeedDisplay = `${kmh} กม./ชม.`;
-                            }
-                            
-                            const windDirDisplay = weatherData.wd10m !== undefined ? getWindDirectionThai(weatherData.wd10m) : '-';
-                            
-                            // เก็บข้อมูลสภาพอากาศไว้ในตัวแปร globalWeatherData เพื่อให้ AI นำไปใช้
-                            globalWeatherData[prov.name] = {
-                                cond: condText,
-                                temp: tc,
-                                rh: rh,
-                                windSpeed: windSpeedDisplay,
-                                windDir: windDirDisplay
-                            };
-                            
-                            // สร้างไอคอนลูกศรชี้ทิศทางที่ลมพัดไป
-                            let windArrowHtml = '';
-                            if (weatherData.wd10m !== undefined) {
-                                // บวก 180 องศาเพื่อให้ลูกศรชี้ไปในทิศที่ลมจะพัดไป
-                                const rotation = (weatherData.wd10m + 180) % 360;
-                                windArrowHtml = `<svg style="transform: rotate(${rotation}deg);" class="inline-block w-5 h-5 ml-1 text-blue-600 font-bold drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 19V5m-7 7l7-7 7 7"></path></svg>`;
-                            }
-                            
-                            document.getElementById(`weather-${prov.name}`).innerHTML = `
-                                <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
-                                <div class="text-xs text-center text-gray-500 mb-3 bg-white py-1 rounded border border-gray-200 shadow-sm">
-                                    อัปเดตข้อมูล: <span class="font-bold text-blue-700">${displayTime}</span>
-                                </div>
-                                <div class="text-sm space-y-2">
-                                    <div class="flex justify-between"><span>🌤️ สภาพอากาศ:</span> <span class="font-semibold text-blue-700">${condText}</span></div>
-                                    <div class="flex justify-between"><span>🌡️ อุณหภูมิ:</span> <span class="font-semibold">${tc} °C</span></div>
-                                    <div class="flex justify-between"><span>💧 ความชื้น:</span> <span class="font-semibold">${rh} %</span></div>
-                                    <div class="flex justify-between"><span>🌬️ ความเร็วลม:</span> <span class="font-semibold">${windSpeedDisplay}</span></div>
-                                    <div class="flex justify-between items-center">
-                                        <span>🧭 ทิศทางลม:</span> 
-                                        <span class="font-semibold text-right flex items-center justify-end">
-                                            ${windDirDisplay} ${windArrowHtml}
-                                        </span>
-                                    </div>
-                                </div>
+// ดึงค่าสภาพอากาศ
+const condText = weatherData.cond !== undefined ? getWeatherCondition(weatherData.cond) : '-';
+const tc = weatherData.tc !== undefined ? weatherData.tc : '-';
+const rh = weatherData.rh !== undefined ? weatherData.rh : '-';
+
+
+// เปลี่ยนค่าเริ่มต้นโอกาสเกิดฝน (pop) หรือ ปริมาณฝน (rain) จาก '-' เป็น '0 %'
+let rainChanceDisplay = '0 %';
+
+if (weatherData.pop !== undefined) {
+    rainChanceDisplay = `${weatherData.pop} %`;
+} else if (weatherData.rain !== undefined) {
+    rainChanceDisplay = `ปริมาณ ${weatherData.rain} มม.`;
+}
+
+// ดึงค่าลม
+let windSpeedDisplay = '-';
+if (weatherData.ws10m !== undefined) {
+    const kmh = (weatherData.ws10m * 3.6).toFixed(1);
+    windSpeedDisplay = `${kmh} กม./ชม.`;
+}
+
+const windDirDisplay = weatherData.wd10m !== undefined ? getWindDirectionThai(weatherData.wd10m) : '-';
+
+// เก็บข้อมูลสภาพอากาศไว้ในตัวแปร globalWeatherData เพื่อให้ผู้ช่วยนำไปใช้ (เพิ่ม rainChance)
+globalWeatherData[prov.name] = {
+    cond: condText,
+    temp: tc,
+    rh: rh,
+    windSpeed: windSpeedDisplay,
+    windDir: windDirDisplay,
+    rainChance: rainChanceDisplay
+};
+
+// สร้างไอคอนลูกศรชี้ทิศทางที่ลมพัดไป
+let windArrowHtml = '';
+if (weatherData.wd10m !== undefined) {
+    const rotation = (weatherData.wd10m + 180) % 360;
+    windArrowHtml = `<svg style="transform: rotate(${rotation}deg);" class="inline-block w-5 h-5 ml-1 text-blue-600 font-bold drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 19V5m-7 7l7-7 7 7"></path></svg>`;
+}
+
+document.getElementById(`weather-${prov.name}`).innerHTML = `
+    <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
+    <div class="text-xs text-center text-gray-500 mb-3 bg-white py-1 rounded border border-gray-200 shadow-sm">
+        อัปเดตข้อมูล: <span class="font-bold text-blue-700">${displayTime}</span>
+    </div>
+    <div class="text-sm space-y-2">
+        <div class="flex justify-between"><span>🌤️ สภาพอากาศ:</span> <span class="font-semibold text-blue-700">${condText}</span></div>
+        <div class="flex justify-between"><span>🌡️ อุณหภูมิ:</span> <span class="font-semibold">${tc} °C</span></div>
+        <div class="flex justify-between"><span>💧 ความชื้น:</span> <span class="font-semibold">${rh} %</span></div>
+        <div class="flex justify-between"><span>🌧️ โอกาสเกิดฝน:</span> <span class="font-semibold text-blue-600">${rainChanceDisplay}</span></div>
+        <div class="flex justify-between"><span>🌬️ ความเร็วลม:</span> <span class="font-semibold">${windSpeedDisplay}</span></div>
+        <div class="flex justify-between items-center">
+            <span>🧭 ทิศทางลม:</span> 
+            <span class="font-semibold text-right flex items-center justify-end">
+                ${windDirDisplay} ${windArrowHtml}
+            </span>
+        </div>
+    </div>
                             `;
                         } else {
                             throw new Error('รูปแบบข้อมูลผิดพลาด');
@@ -771,12 +782,16 @@ async function fetchNasaHotspots() {
                                 quotaText = `เกินเป้าหมายแล้ว ${Math.abs(remainingDays)} วัน`;
                             }
 
-                            // ข้อมูลสภาพอากาศ
-                            let weatherText = "ไม่มีข้อมูลสภาพอากาศ";
-                            if (globalWeatherData[province]) {
-                                const w = globalWeatherData[province];
-                                weatherText = `สภาพอากาศ: ${w.cond} | อุณหภูมิ ${w.temp} °C | ความชื้น ${w.rh} % | ลม${w.windDir} ความเร็ว ${w.windSpeed}`;
-                            }
+// ข้อมูลสภาพอากาศ
+let weatherText = "ไม่มีข้อมูลสภาพอากาศ";
+if (globalWeatherData[province]) {
+    const w = globalWeatherData[province];
+    weatherText = `สภาพอากาศ: ${w.cond} | อุณหภูมิ ${w.temp} °C | ความชื้น ${w.rh} % | โอกาสเกิดฝน ${w.rainChance} | ลม${w.windDir} ความเร็ว ${w.windSpeed}`;
+}
+
+
+
+
 
                             // จัดเตรียมข้อมูลของจังหวัดนี้โดยเว้นบรรทัดไว้ให้ AI นำไปใช้ตรงๆ
                             contextData += `* ${province}: PM2.5 = ${pmToday} มคก./ลบ.ม. | (${quotaText}) | จุดความร้อน ${hotspot} จุด\n  ${weatherText}\n\n`;
@@ -804,12 +819,11 @@ ${contextData}
 1. ความยาวพอเหมาะกับการอ่านบนหน้าจอมือถือ
 2. ใช้ Emoji ประกอบเพื่อให้ดูทันสมัย
 3. แบ่งเนื้อหาเป็น "รายงานสถานการณ์ ณ วันที่ ${formattedToday}" และ "คำแนะนำหรือข้อเสนอแนะทางวิชาการ"
-4. สำคัญมาก: ในส่วนรายงานสถานการณ์ ให้ใช้รูปแบบข้อมูลรายจังหวัดที่จัดเตรียมไว้ให้ครบถ้วนทุกจังหวัด (ต้องมีทั้ง ค่าฝุ่น จุดความร้อน โควตาวันที่ค่าฝุ่นเกินมาตรฐานที่เหลือ สภาพอากาศ และสรุปแนวโน้มการระบายอากาศ) ห้ามตัดทอน
+4. สำคัญมาก: ในส่วนรายงานสถานการณ์ ให้ใช้รูปแบบข้อมูลรายจังหวัดที่จัดเตรียมไว้ให้ครบถ้วนทุกจังหวัด (ต้องมีทั้ง ค่าฝุ่น จุดความร้อน โควตาวันที่ค่าฝุ่นเกินมาตรฐานที่เหลือ สภาพอากาศ โอกาสเกิดฝน และสรุปแนวโน้มการระบายอากาศ) ห้ามตัดทอน
 5. ต้องขึ้นต้นด้วยดอกจัน (*) หน้าชื่อจังหวัด และเว้น 1 บรรทัดคั่นระหว่างจังหวัดเสมอ
 6. น้ำเสียงแสดงถึงความเป็นผู้นำที่กระตือรือร้น ให้เกียรติผู้ร่วมงานทุกคน และมุ่งเน้นผลสัมฤทธิ์ เป็นทางการ
 7. ลงท้ายว่า จึงเรียนมาเพื่อโปรดทราบ สคพ.11 (นครราชสีมา)\n
 รายละเอียดการมอบหมายงานในส่วนคำแนะนำ ให้ระบุชื่อจังหวัดให้ชัดเจน`;
-
             try {
                 const response = await fetch(gasWebAppUrl, {
                     method: 'POST',
