@@ -535,9 +535,14 @@
                     plugins: { datalabels: datalabelsOptions }
                 }
             });
-        }
+         // เพิ่ม 2 บรรทัดนี้เพื่อให้ดึงข้อมูลหลังจากสร้างการ์ดบนหน้าจอเสร็จแล้ว
+            fetchWeatherData();
+            fetchNasaHotspots();
+        } // ปิดฟังก์ชัน renderDashboard
 
-        function showError(error) {
+
+     
+       function showError(error) {
             document.getElementById('loader').innerHTML = "เกิดข้อผิดพลาดในการดึงข้อมูล โปรดตรวจสอบ Google Sheets";
             console.error(error);
         }
@@ -689,17 +694,11 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
             }
         }
 
-	window.addEventListener('load', () => {
-    	setTimeout(fetchWeatherData, 1000);
-    	setTimeout(fetchNasaHotspots, 1500); // เรียกดึงข้อมูล NASA
-	});
-        
-
 // ====
 //  ดึงข้อมูล NASA
-	async function fetchNasaHotspots() {
+async function fetchNasaHotspots() {
     const nasaApiKey = '61454931fdc7c145936ad477ae95fd9a';
-    const bbox = '101.0,14.0,104.5,16.5';
+    const bbox = '101.0,14.0,104.5,16.8'; // ปรับทิศเหนือเป็น 16.8 เพื่อให้คลุมตอนบนสุดของ จ.ชัยภูมิ
     const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json';
     const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
     
@@ -712,8 +711,8 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
             return targetKeywords.some(keyword => propStr.includes(keyword));
         });
 
-        // ดึงข้อมูล NASA (Suomi-NPP 24 ชม. ล่าสุด)
-        const nRes = await fetch(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${nasaApiKey}/VIIRS_SNPP_NRT/${bbox}/1`);
+        // เปลี่ยนตัวเลขท้าย URL เป็น /2 เพื่อเอาข้อมูลคาบเกี่ยวของเมื่อวานช่วงหลังเที่ยงคืนมาด้วย
+        const nRes = await fetch(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${nasaApiKey}/VIIRS_SNPP_NRT/${bbox}/2`);
         const csvText = await nRes.text();
         
         let hotspotCounts = { "นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0 };
@@ -722,7 +721,7 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
         if (lines.length > 1 && lines[0].includes('latitude')) {
             const headers = lines[0].split(',');
             
-            // กรองข้อมูลย้อนหลัง 24 ชม.
+            // กรองข้อมูลย้อนหลัง 24 ชม. ตามเวลาจริง
             let now = new Date();
             let cutoffTime = new Date(now.getTime() - (24 * 60 * 60 * 1000));
 
