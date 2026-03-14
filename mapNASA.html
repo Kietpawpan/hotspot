@@ -87,29 +87,18 @@
                     <b>แสดงจุดความร้อนย้อนหลัง: </b>
                     <span style="font-size: 14px; color: #64748b;">(นับจากเวลาปัจจุบัน)</span>
                 </label>
-                <div style="display: flex; gap: 20px; align-items: center; font-size: 16px; margin-top: 10px;">
+                <div style="display: flex; gap: 15px; align-items: center; font-size: 15px; margin-top: 10px; flex-wrap: wrap;">
                     <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="radio" name="timeframe" value="12" class="time-radio" style="margin-right: 8px; width: 18px; height: 18px; accent-color: #4a148c;"> 12 ชม.
+                        <input type="radio" name="timeFilter" value="24-all" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;" checked> 24 ชม.
                     </label>
                     <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="radio" name="timeframe" value="24" class="time-radio" style="margin-right: 8px; width: 18px; height: 18px; accent-color: #4a148c;" checked> 24 ชม.
-                    </label>
-                   </div>
-            </div>
-
-            <div id="timeOfDayContainer" style="margin-top: 15px; display: none; padding-top: 15px; border-top: 1px dotted #cbd5e1;">
-                <label style="font-size: 15px; margin-bottom: 10px; display: block; color: #4a148c;">
-                    <b>เลือกรอบเวลา (เฉพาะ 12 ชม.):</b>
-                </label>
-                <div style="display: flex; gap: 20px; align-items: center; font-size: 15px;">
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="radio" name="timeOfDay" value="all" class="tod-radio" style="margin-right: 8px; width: 16px; height: 16px; accent-color: #4a148c;" checked> ทั้งหมด
+                        <input type="radio" name="timeFilter" value="12-all" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 12 ชม.
                     </label>
                     <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="radio" name="timeOfDay" value="morning" class="tod-radio" style="margin-right: 8px; width: 16px; height: 16px; accent-color: #4a148c;"> รอบเช้า (00:00 - 11:59 น.)
+                        <input type="radio" name="timeFilter" value="12-morning" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> รอบเช้า (00:00 - 11:59 น.)
                     </label>
                     <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="radio" name="timeOfDay" value="afternoon" class="tod-radio" style="margin-right: 8px; width: 16px; height: 16px; accent-color: #4a148c;"> รอบบ่าย (12:00 - 23:59 น.)
+                        <input type="radio" name="timeFilter" value="12-afternoon" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> รอบบ่าย (12:00 - 23:59 น.)
                     </label>
                 </div>
             </div>
@@ -127,9 +116,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script>
-        const nasaApiKey = '61454931fdc7c145936ad477ae95fd9a';
+        const gasWebappUrl = 'https://script.google.com/macros/s/AKfycbwauoX4D4hwP-G3V1CVcQ5z7ttImLfOKNnKhihFlZYGWovoDlaHAdO8EJiPAx5YRgxG/exec';
         const longdoApiKey = 'bce812933744d2530d26f0fabb0017cf';
-        const bbox = '101.0,14.0,104.5,16.5';
         
         // เพิ่มตัวแปรแคชสำหรับเก็บข้อมูลที่อยู่
         const addressCache = {};
@@ -163,7 +151,7 @@
         let hotspotLayer;
         let summaryControl;
         let globalFeatures = [];
-        let currentTimeframe = 48;
+        let currentTimeframe = 24;
         let currentTimeOfDay = 'all';
 
         fetch(geojsonBoundariesUrl)
@@ -196,27 +184,19 @@
             .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้', err));
 
         function fetchNasaData() {
-            const sources = ['VIIRS_SNPP_NRT'];
-            const fetchPromises = sources.map(source => 
-                fetch(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${nasaApiKey}/${source}/${bbox}/2`)
+            fetch(gasWebappUrl)
                 .then(res => res.text())
-            );
-
-            Promise.all(fetchPromises)
-                .then(results => {
+                .then(csvText => {
                     let allFeatures = [];
                     let apiError = null;
 
-                    results.forEach((csvText) => {
-                        const lines = csvText.trim().split('\n');
-                        
-                        if (lines.length > 0 && !lines[0].includes('latitude')) {
-                            apiError = lines[0];
-                            return;
-                        }
+                    const lines = csvText.trim().split('\n');
+                    
+                    if (lines.length > 0 && !lines[0].includes('latitude')) {
+                        apiError = lines[0];
+                    }
 
-                        if (lines.length < 2) return;
-
+                    if (!apiError && lines.length >= 2) {
                         const headers = lines[0].split(',');
                         for(let i = 1; i < lines.length; i++) {
                             const values = lines[i].split(',');
@@ -258,10 +238,10 @@
                                 });
                             }
                         }
-                    });
+                    }
 
                     if (apiError && allFeatures.length === 0) {
-                        document.getElementById('lastUpdateDisplay').innerText = "⚠️ แจ้งเตือนจาก NASA API: " + apiError;
+                        document.getElementById('lastUpdateDisplay').innerText = "⚠️ แจ้งเตือนจากระบบส่วนกลาง: " + apiError;
                         document.getElementById('loadingOverlay').style.display = 'none';
                         return;
                     }
@@ -272,7 +252,7 @@
                 })
                 .catch(error => {
                     console.error('เกิดข้อผิดพลาด', error);
-                    document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูล NASA FIRMS";
+                    document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูลส่วนกลาง";
                     document.getElementById('loadingOverlay').style.display = 'none';
                 });
         }
@@ -331,25 +311,9 @@
         document.querySelectorAll('.time-radio').forEach(radio => {
             radio.addEventListener('change', function() {
                 if(this.checked) {
-                    currentTimeframe = parseInt(this.value);
-                    
-                    if (currentTimeframe === 12) {
-                        document.getElementById('timeOfDayContainer').style.display = 'block';
-                    } else {
-                        document.getElementById('timeOfDayContainer').style.display = 'none';
-                        document.querySelector('input[name="timeOfDay"][value="all"]').checked = true;
-                        currentTimeOfDay = 'all';
-                    }
-                    
-                    applyTimeFilter();
-                }
-            });
-        });
-
-        document.querySelectorAll('.tod-radio').forEach(radio => {
-            radio.addEventListener('change', function() {
-                if(this.checked) {
-                    currentTimeOfDay = this.value;
+                    const parts = this.value.split('-');
+                    currentTimeframe = parseInt(parts[0]);
+                    currentTimeOfDay = parts[1];
                     applyTimeFilter();
                 }
             });
