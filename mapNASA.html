@@ -131,6 +131,9 @@
         const longdoApiKey = 'bce812933744d2530d26f0fabb0017cf';
         const bbox = '101.0,14.0,104.5,16.5';
         
+        // เพิ่มตัวแปรแคชสำหรับเก็บข้อมูลที่อยู่
+        const addressCache = {};
+        
         const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json';
 
         const map = L.map('map').setView([15.2, 102.5], 8);
@@ -427,7 +430,7 @@
                     if (satellite === 'N') satDisplay = "Suomi-NPP";
                     else if (satellite === '1') satDisplay = "NOAA-20";
 
-             let googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;                 
+             let googleMapsUrl = `http://googleusercontent.com/maps.google.com/?q=${lat},${lon}`;                 
 
                     let popupContent = "<div style='font-size: 14px;'>";
                     popupContent += "<div style='background-color:#4a148c; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>รายละเอียดจุดความร้อน (NASA)</b></div>";
@@ -450,28 +453,39 @@
                         
                         let tambonEl = popupNode.querySelector('.tb-name');
                         let amphoeEl = popupNode.querySelector('.ap-name');
+                        let cacheKey = lat + "_" + lon;
                         
                         if (tambonEl && tambonEl.innerText === 'กำลังค้นหา...') {
-                            fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
-                            .then(res => res.json())
-                            .then(data => {
-                                if(data) {
-                                    let t = data.subdistrict || "-";
-                                    let a = data.district || "-";
-                                    
-                                    t = t.replace(/^ตำบล/g, '').replace(/^แขวง/g, '').trim();
-                                    a = a.replace(/^อำเภอ/g, '').replace(/^เขต/g, '').trim();
-                                    
-                                    tambonEl.innerText = t !== "-" ? t : "ไม่ระบุ";
-                                    amphoeEl.innerText = a !== "-" ? a : "ไม่ระบุ";
-                                } else {
-                                    tambonEl.innerText = "ไม่พบข้อมูล";
-                                    amphoeEl.innerText = "ไม่พบข้อมูล";
-                                }
-                            }).catch(() => {
-                                tambonEl.innerText = "ข้อผิดพลาด";
-                                amphoeEl.innerText = "ข้อผิดพลาด";
-                            });
+                            // ระบบเรียกใช้แคช
+                            if (addressCache[cacheKey]) {
+                                tambonEl.innerText = addressCache[cacheKey].tambon;
+                                amphoeEl.innerText = addressCache[cacheKey].amphoe;
+                            } else {
+                                fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
+                                .then(res => res.json())
+                                .then(data => {
+                                    if(data) {
+                                        let t = data.subdistrict || "-";
+                                        let a = data.district || "-";
+                                        
+                                        t = t.replace(/^ตำบล/g, '').replace(/^แขวง/g, '').trim();
+                                        a = a.replace(/^อำเภอ/g, '').replace(/^เขต/g, '').trim();
+                                        
+                                        let finalTambon = t !== "-" ? t : "ไม่ระบุ";
+                                        let finalAmphoe = a !== "-" ? a : "ไม่ระบุ";
+                                        
+                                        tambonEl.innerText = finalTambon;
+                                        amphoeEl.innerText = finalAmphoe;
+                                        addressCache[cacheKey] = { tambon: finalTambon, amphoe: finalAmphoe };
+                                    } else {
+                                        tambonEl.innerText = "ไม่พบข้อมูล";
+                                        amphoeEl.innerText = "ไม่พบข้อมูล";
+                                    }
+                                }).catch(() => {
+                                    tambonEl.innerText = "ข้อผิดพลาด";
+                                    amphoeEl.innerText = "ข้อผิดพลาด";
+                                });
+                            }
                         }
                     });
                 }
@@ -568,48 +582,47 @@ downloadControl.onAdd = function (map) {
                     let lat = props.latitude;
                     let lon = props.longitude;
                     let googleMapsUrl = `http://googleusercontent.com/maps.google.com/?q=${lat},${lon}`;
-
-                    let promise = fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
-                        .then(res => {
-                            if (!res.ok) throw new Error("API Error");
-                            return res.json();
-                        })
-                        .then(data => {
-                            let tambon = "ไม่พบข้อมูล";
-                            let amphoe = "ไม่พบข้อมูล";
-                            if(data) {
-                                tambon = (data.subdistrict || "ไม่พบข้อมูล").replace(/^(ตำบล|ต\.|แขวง)/g, '').trim();
-                                amphoe = (data.district || "ไม่พบข้อมูล").replace(/^(อำเภอ|อ\.|เขต)/g, '').trim();
-                            }
-                            return {
-                                "จังหวัด": props.prov_name,
-                                "อำเภอ": amphoe,
-                                "ตำบล": tambon,
-                                "ละติจูด": lat,
-                                "ลองจิจูด": lon,
-                                "วันที่": dateStr,
-                                "เวลา": timeStr,
-                                "ดาวเทียม": satDisplay,
-                                "ความเชื่อมั่น": confDisplay,
-                                "ลิงก์แผนที่": googleMapsUrl
-                            };
-                        })
-                        .catch(() => {
-                            return {
-                                "จังหวัด": props.prov_name,
-                                "อำเภอ": "ไม่พบข้อมูล",
-                                "ตำบล": "ไม่พบข้อมูล",
-                                "ละติจูด": lat,
-                                "ลองจิจูด": lon,
-                                "วันที่": dateStr,
-                                "เวลา": timeStr,
-                                "ดาวเทียม": satDisplay,
-                                "ความเชื่อมั่น": confDisplay,
-                                "ลิงก์แผนที่": googleMapsUrl
-                            };
-                        });
                     
-                    exportDataPromises.push(promise);
+                    let cacheKey = lat + "_" + lon;
+                    
+                    let buildRowData = (tambon, amphoe) => ({
+                        "จังหวัด": props.prov_name,
+                        "อำเภอ": amphoe,
+                        "ตำบล": tambon,
+                        "ละติจูด": lat,
+                        "ลองจิจูด": lon,
+                        "วันที่": dateStr,
+                        "เวลา": timeStr,
+                        "ดาวเทียม": satDisplay,
+                        "ความเชื่อมั่น": confDisplay,
+                        "ลิงก์แผนที่": googleMapsUrl
+                    });
+
+                    // ตรวจสอบแคชก่อนเรียก API
+                    if (addressCache[cacheKey]) {
+                        exportDataPromises.push(Promise.resolve(buildRowData(addressCache[cacheKey].tambon, addressCache[cacheKey].amphoe)));
+                    } else {
+                        let promise = fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
+                            .then(res => {
+                                if (!res.ok) throw new Error("API Error");
+                                return res.json();
+                            })
+                            .then(data => {
+                                let tambon = "ไม่พบข้อมูล";
+                                let amphoe = "ไม่พบข้อมูล";
+                                if(data) {
+                                    tambon = (data.subdistrict || "ไม่พบข้อมูล").replace(/^(ตำบล|ต\.|แขวง)/g, '').trim();
+                                    amphoe = (data.district || "ไม่พบข้อมูล").replace(/^(อำเภอ|อ\.|เขต)/g, '').trim();
+                                }
+                                addressCache[cacheKey] = { tambon, amphoe };
+                                return buildRowData(tambon, amphoe);
+                            })
+                            .catch(() => {
+                                return buildRowData("ไม่พบข้อมูล", "ไม่พบข้อมูล");
+                            });
+                        
+                        exportDataPromises.push(promise);
+                    }
                 }
             });
 
