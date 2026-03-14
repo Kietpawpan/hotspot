@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: sans-serif; background-color: #f3f4f6; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -71,7 +72,9 @@
     </div>
 </div>
         </div>
-
+<button id="downloadBtn" style="width: 100%; margin-top: 15px; background-color: #16a34a; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    📥 ดาวน์โหลดข้อมูลจุดความร้อน (Excel)
+</button>
         <div id="map-wrapper">
             <div id="loadingOverlay">
                 <div class="spinner"></div>
@@ -427,6 +430,120 @@ let cutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
             summaryControl.addTo(map);
         }
 
-    </script>
+document.getElementById('downloadBtn').addEventListener('click', async function() {
+    if (!globalFeatures || globalFeatures.length === 0) {
+        alert("ไม่พบข้อมูลจุดความร้อนในระบบ")
+        return
+    }
+
+    let btn = document.getElementById('downloadBtn')
+    let originalText = btn.innerHTML
+    btn.innerHTML = "⏳ กำลังดึงข้อมูลพื้นที่ กรุณารอสักครู่..."
+    btn.disabled = true
+    btn.style.backgroundColor = "#94a3b8"
+
+    try {
+        let now = new Date()
+        if (globalFeatures.length > 0) {
+            let maxTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()))
+            now = new Date(maxTime)
+        }
+        
+        let exportCutoffTime = new Date(now.getTime() - (12 * 60 * 60 * 1000))
+        let exportDataPromises = []
+        const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
+
+        globalFeatures.forEach(feature => {
+            if (feature.properties.parsed_datetime >= exportCutoffTime) {
+                let props = feature.properties
+                let dt = props.parsed_datetime
+                let thDate = new Date(dt.getTime() + (7 * 60 * 60 * 1000))
+                
+                let dateStr = thDate.getUTCDate() + " " + thaiMonths[thDate.getUTCMonth()] + " " + (thDate.getUTCFullYear() + 543)
+                let timeStr = String(thDate.getUTCHours()).padStart(2, '0') + ":" + String(thDate.getUTCMinutes()).padStart(2, '0') + " น."
+
+                let confStr = String(props.confidence).trim().toLowerCase()
+                let confDisplay = props.confidence
+                if (confStr === 'h' || confStr === 'high') confDisplay = "สูง"
+                else if (confStr === 'n' || confStr === 'nominal') confDisplay = "ปานกลาง"
+                else if (confStr === 'l' || confStr === 'low') confDisplay = "ต่ำ"
+
+                let satDisplay = props.satellite === 'N' ? "Suomi-NPP" : (props.satellite === '1' ? "NOAA-20" : props.satellite)
+                let lat = props.latitude
+                let lon = props.longitude
+                let googleMapsUrl = `http://googleusercontent.com/maps.google.com/?q=${lat},${lon}`
+
+                let promise = fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
+                    .then(res => {
+                        if (!res.ok) throw new Error("API Error")
+                        return res.json()
+                    })
+                    .then(data => {
+                        let tambon = "ไม่พบข้อมูล"
+                        let amphoe = "ไม่พบข้อมูล"
+                        if(data) {
+                            tambon = (data.subdistrict || "ไม่พบข้อมูล").replace(/^(ตำบล|ต\.|แขวง)/g, '').trim()
+                            amphoe = (data.district || "ไม่พบข้อมูล").replace(/^(อำเภอ|อ\.|เขต)/g, '').trim()
+                        }
+                        return {
+                            "จังหวัด": props.prov_name,
+                            "อำเภอ": amphoe,
+                            "ตำบล": tambon,
+                            "ละติจูด": lat,
+                            "ลองจิจูด": lon,
+                            "วันที่": dateStr,
+                            "เวลา": timeStr,
+                            "ดาวเทียม": satDisplay,
+                            "ความเชื่อมั่น": confDisplay,
+                            "ลิงก์แผนที่": googleMapsUrl
+                        }
+                    })
+                    .catch(() => {
+                        return {
+                            "จังหวัด": props.prov_name,
+                            "อำเภอ": "ไม่พบข้อมูล",
+                            "ตำบล": "ไม่พบข้อมูล",
+                            "ละติจูด": lat,
+                            "ลองจิจูด": lon,
+                            "วันที่": dateStr,
+                            "เวลา": timeStr,
+                            "ดาวเทียม": satDisplay,
+                            "ความเชื่อมั่น": confDisplay,
+                            "ลิงก์แผนที่": googleMapsUrl
+                        }
+                    })
+                
+                exportDataPromises.push(promise)
+            }
+        })
+
+        if (exportDataPromises.length === 0) {
+            alert("ไม่มีข้อมูลจุดความร้อนในช่วง 12 ชม. ล่าสุด")
+            btn.innerHTML = originalText
+            btn.disabled = false
+            btn.style.backgroundColor = "#16a34a"
+            return
+        }
+
+        let exportData = await Promise.all(exportDataPromises)
+
+        let worksheet = XLSX.utils.json_to_sheet(exportData)
+        let workbook = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Hotspots_Report")
+        
+        let fileName = "จุดความร้อน_สคพ11_ย้อนหลัง12ชม.xlsx"
+        XLSX.writeFile(workbook, fileName)
+
+    } catch (error) {
+        console.error(error)
+        alert("เกิดข้อผิดพลาดในการดึงข้อมูลพื้นที่")
+    } finally {
+        btn.innerHTML = originalText
+        btn.disabled = false
+        btn.style.backgroundColor = "#16a34a"
+    }
+});
+
+ </script>
 </body>
 </html>
