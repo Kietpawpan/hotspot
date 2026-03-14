@@ -695,70 +695,22 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
         }
 
 // ====
-//  ดึงข้อมูล NASA
+// ดึงข้อมูล NASA ผ่าน Google Apps Script Proxy
 async function fetchNasaHotspots() {
-    const nasaApiKey = '61454931fdc7c145936ad477ae95fd9a';
-    const bbox = '101.0,14.0,104.5,16.8'; // ปรับทิศเหนือเป็น 16.8 เพื่อให้คลุมตอนบนสุดของ จ.ชัยภูมิ
-    const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json';
-    const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
+    // ใช้ URL ของ Web App ที่ท่านระบุ พร้อมเติม ?action=hotspots ต่อท้าย
+    const GAS_HOTSPOT_PROXY = 'https://script.google.com/macros/s/AKfycbxTFxjX2DYs1DZ2aRazIdkhzzGq-ltOa60N5hU_GiAsH9OIbPmayc23aCzA6efFRk_O/exec?action=hotspots';
     
     try {
-        // ดึงข้อมูลขอบเขตจังหวัด
-        const bRes = await fetch(geojsonBoundariesUrl);
-        const bData = await bRes.json();
-        const boundaries = bData.features.filter(f => {
-            const propStr = JSON.stringify(f.properties);
-            return targetKeywords.some(keyword => propStr.includes(keyword));
-        });
+        const response = await fetch(GAS_HOTSPOT_PROXY);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
 
-        // เปลี่ยนตัวเลขท้าย URL เป็น /2 เพื่อเอาข้อมูลคาบเกี่ยวของเมื่อวานช่วงหลังเที่ยงคืนมาด้วย
-        const nRes = await fetch(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${nasaApiKey}/VIIRS_SNPP_NRT/${bbox}/2`);
-        const csvText = await nRes.text();
-        
-        let hotspotCounts = { "นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0 };
-        const lines = csvText.trim().split('\n');
-        
-        if (lines.length > 1 && lines[0].includes('latitude')) {
-            const headers = lines[0].split(',');
-            
-            // กรองข้อมูลย้อนหลัง 24 ชม. ตามเวลาจริง
-            let now = new Date();
-            let cutoffTime = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-
-            for(let i = 1; i < lines.length; i++) {
-                const values = lines[i].split(',');
-                if(values.length < headers.length) continue;
-                
-                let props = {};
-                headers.forEach((h, idx) => { props[h] = values[idx]; });
-                
-                const lat = parseFloat(props.latitude);
-                const lon = parseFloat(props.longitude);
-                
-                const dateParts = props.acq_date.split('-');
-                const timeStr = String(props.acq_time).padStart(4, '0');
-                const hours = parseInt(timeStr.substring(0, 2), 10);
-                const mins = parseInt(timeStr.substring(2, 4), 10);
-                const acqDateTime = new Date(Date.UTC(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10), hours, mins));
-                
-                if (acqDateTime >= cutoffTime) {
-                    let pt = turf.point([lon, lat]);
-                    for(let f of boundaries) {
-                        if(turf.booleanPointInPolygon(pt, f)) {
-                            const propStr = JSON.stringify(f.properties);
-                            if(propStr.includes("นครราชสีมา") || propStr.includes("Nakhon Ratchasima")) hotspotCounts["นครราชสีมา"]++;
-                            else if(propStr.includes("ชัยภูมิ") || propStr.includes("Chaiyaphum")) hotspotCounts["ชัยภูมิ"]++;
-                            else if(propStr.includes("บุรีรัมย์") || propStr.includes("Buri Ram") || propStr.includes("Buriram")) hotspotCounts["บุรีรัมย์"]++;
-                            else if(propStr.includes("สุรินทร์") || propStr.includes("Surin")) hotspotCounts["สุรินทร์"]++;
-                            break;
-                        }
-                    }
-                }
-            }
+        if (data.error) {
+            throw new Error(data.error);
         }
-        
+
         // อัปเดตตัวเลขบน UI และเก็บค่าไว้ให้ AI
-        for (const [prov, count] of Object.entries(hotspotCounts)) {
+        for (const [prov, count] of Object.entries(data)) {
             globalNasaHotspots[prov] = count;
             const el = document.getElementById(`hotspot-val-${prov}`);
             if (el) {
@@ -767,14 +719,13 @@ async function fetchNasaHotspots() {
         }
         
     } catch (error) {
-        console.error("Error fetching NASA data:", error);
+        console.error("Error fetching NASA data via proxy:", error);
         ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"].forEach(prov => {
             const el = document.getElementById(`hotspot-val-${prov}`);
             if (el) el.innerText = "ไม่สามารถดึงข้อมูลได้";
         });
     }
 }
-
  // ==========================================
         // ฟังก์ชันสั่งการ AI (แก้ไขใหม่ รวมสภาพอากาศ + คำนวณโควตาเป้าหมาย 5%)
         // ==========================================
