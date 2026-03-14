@@ -58,18 +58,18 @@
                 🛰️ <b>สถานะข้อมูล:</b> <span id="lastUpdateDisplay" style="color: #b91c1c; font-weight: bold;">กำลังดาวน์โหลดและประมวลผลข้อมูล NASA...</span>
             </div>
             
-            <div id="sliderContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
-                <label for="hourSlider" style="font-size: 16px;">
-                    <b>แสดงจุดความร้อนย้อนหลัง: </b> 
-                    <span id="hourValueDisplay" style="color: #d84315; font-weight: bold; font-size: 1.2em;">24</span> 
-                    <b> ชั่วโมง</b> <span style="font-size: 14px; color: #64748b;">(นับจากเวลาปัจจุบัน)</span>
-                </label>
-                <input type="range" id="hourSlider" min="1" max="24" value="24" step="1" style="width: 100%; margin-top: 10px; accent-color: #4a148c;">
-                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-top: 5px;">
-                    <span>1 ชม.</span>
-                    <span>24 ชม.</span>
-                </div>
-            </div>
+           <div id="sliderContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
+    <label for="hourSlider" style="font-size: 16px;">
+        <b>แสดงจุดความร้อนย้อนหลัง: </b>&nbsp;
+        <span id="hourValueDisplay" style="color: #d84315; font-weight: bold; font-size: 1.2em;">48</span>&nbsp;
+        <b> ชั่วโมง</b> <span style="font-size: 14px; color: #64748b;">(นับจากเวลาปัจจุบัน)</span>
+    </label>
+    <input type="range" id="hourSlider" min="1" max="48" value="48" step="1" style="width: 100%; margin-top: 10px; accent-color: #4a148c;">
+    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-top: 5px;">
+        <span>1 ชม.</span>
+        <span>48 ชม.</span>
+    </div>
+</div>
         </div>
 
         <div id="map-wrapper">
@@ -117,7 +117,7 @@
         let hotspotLayer;
         let summaryControl;
         let globalFeatures = [];
-        let currentTimeframe = 24;
+        let currentTimeframe = 48;
 
         fetch(geojsonBoundariesUrl)
             .then(res => res.json())
@@ -151,7 +151,7 @@
         function fetchNasaData() {
             const sources = ['VIIRS_SNPP_NRT'];
             const fetchPromises = sources.map(source => 
-                fetch(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${nasaApiKey}/${source}/${bbox}/1`)
+                fetch(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${nasaApiKey}/${source}/${bbox}/2`)
                 .then(res => res.text())
             );
 
@@ -231,12 +231,21 @@
         }
 
         function applyTimeFilter() {
-            let filteredFeatures = [];
-            let hotspotCounts = { "นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0 };
-            let totalSpots = 0;
+ let filteredFeatures = [];
+let hotspotCounts = {};
+hotspotCounts["นครราชสีมา"] = 0;
+hotspotCounts["ชัยภูมิ"] = 0;
+hotspotCounts["บุรีรัมย์"] = 0;
+hotspotCounts["สุรินทร์"] = 0;
+let totalSpots = 0;
 
-            let now = new Date();
-            let cutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
+let now = new Date();
+if (globalFeatures.length > 0) {
+    let maxTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()));
+    now = new Date(maxTime);
+}
+
+let cutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
 
             globalFeatures.forEach(feature => {
                 if (feature.properties.parsed_datetime >= cutoffTime) {
