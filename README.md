@@ -46,7 +46,7 @@
 ผู้อำนวยการสำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 11 (นครราชสีมา) กรมควบคุมมลพิษ
 
 ## 📄 ลิขสิทธิ์ (License)
-โปรเจกต์นี้จัดทำขึ้นเพื่อเป็นวิทยาทานและต้นแบบสำหรับการบริหารจัดการสิ่งแวดล้อม สามารถนำไปพัฒนาต่อยอดได้ตามความเหมาะสม
+โครงการนี้จัดทำขึ้นเพื่อเป็นวิทยาทานและต้นแบบสำหรับการบริหารจัดการสิ่งแวดล้อม สามารถนำไปพัฒนาต่อยอดได้ตามความเหมาะสม
 
 # PM2.5 Air Quality & Weather Dashboard - EPO11
 A real-time web-based dashboard for monitoring PM2.5 air quality hotspots and weather conditions in the lower Northeastern region of Thailand (Nakhon Ratchasima, Chaiyaphum, Buriram, and Surin)
