@@ -200,7 +200,7 @@
             <div class="bg-white p-6 rounded-xl shadow-2xl w-11/12 max-w-sm border-t-4 border-purple-600">
                 <h3 class="text-lg font-bold text-purple-800 mb-4 text-center">🔒 กรุณาใส่รหัสผ่าน</h3>
                 <p class="text-sm text-gray-600 mb-4 text-center">เพื่อยืนยันสิทธิ์การใช้งานผู้ช่วย AI</p>
-                <input type="password" id="aiPasswordInput" inputmode="numeric" pattern="[0-9]*" class="w-full border-2 border-purple-300 rounded-lg p-3 text-center text-xl tracking-widest focus:outline-none focus:border-purple-600 mb-2" placeholder="******">
+<input type="password" id="aiPasswordInput" class="w-full border-2 border-purple-300 rounded-lg p-3 text-center text-xl tracking-widest focus:outline-none focus:border-purple-600 mb-2" placeholder="รหัสผ่าน">
                 <div id="passwordError" class="text-red-500 text-sm text-center mb-4 hidden">รหัสผ่านไม่ถูกต้อง โปรดลองอีกครั้ง</div>
                 <div class="flex gap-3 mt-2">
                     <button id="btnCancelPassword" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-200">ยกเลิก</button>
@@ -212,7 +212,7 @@
     </main>
 
     <footer class="mt-8 mb-4 text-center text-sm text-gray-500 font-medium">
-        &copy; 2569 สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 11 (นครราชสีมา) <epo11@pcd.go.th>
+        &copy; 2569 สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 11 (นครราชสีมา) epo11@pcd.go.th
     </footer>
 
     <script>
@@ -879,46 +879,18 @@ async function fetchNasaHotspots() {
                 contextData += "- ไม่มีข้อมูลหรือรอการอัปเดต\n";
             }
 
-            const today = new Date();
-            const monthsTh = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-            const formattedToday = `${today.getDate()} ${monthsTh[today.getMonth()]} ${today.getFullYear() + 543}`;
-
-            const promptText = `สวมบทบาทเป็น ผอ.สคพ.11 ผู้ชาย แทนตนเองว่า สคพ.11 ไม่มีหางเสียง เขียนข้อความส่งเข้ากลุ่ม LINE ขึ้นต้นว่า เรียน ท่าน ผู้ประสานงาน ทสจ. 4 จังหวัด นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ เพื่อแจ้งสถานการณ์สิ่งแวดล้อมประจำวันและแนะมาตรการที่เหมาะสม \n
-ข้อมูลสถานการณ์ล่าสุดที่ต้องรายงาน:
-${contextData}
-
-ภาพกราฟอัตราการระบายอากาศ (VR) ของทั้ง 4 จังหวัด:
-(ระบบได้แนบไฟล์ภาพกราฟของ นครราชสีมา ชัยภูมิ บุรีรัมย์ และสุรินทร์ มาให้พิจารณาตามลำดับ โปรดวิเคราะห์แนวโน้มการระบายอากาศจากกราฟเพื่อประกอบการร่างคำแนะนำด้วย)
-
-รูปแบบข้อความที่ต้องการ:
-1. ความยาวพอเหมาะกับการอ่านบนหน้าจอมือถือ
-2. ใช้ Emoji ประกอบเพื่อให้ดูทันสมัย โดยยึดเกณฑ์สีดังนี้:
-- 0-15.0: สีฟ้า (ดีมาก) 😊
-- 15.1-25.0: สีเขียว (ดี) 🙂
-- 25.1-37.5: สีเหลือง (ปานกลาง) 😐
-- 37.6-75.0: สีส้ม (เริ่มมีผลกระทบ) ⚠️ (ใช้ Emoji ฉุกเฉินและน้ำเสียงเร่งด่วน)
-- 75.1 ขึ้นไป: สีแดง (มีผลกระทบ) 🚨 (ใช้ Emoji ฉุกเฉินและน้ำเสียงภาวะวิกฤตเด็ดขาด)
-
-3. แบ่งเนื้อหาเป็น "รายงานสถานการณ์ ณ วันที่ ${formattedToday}" และ "คำแนะนำหรือข้อเสนอแนะทางวิชาการ"
-4. สำคัญมาก: ในส่วนรายงานสถานการณ์ ให้ใช้รูปแบบข้อมูลรายจังหวัดที่จัดเตรียมไว้ให้ครบถ้วนทุกจังหวัด ให้นำข้อมูลเหล่านี้มาสรุปเป็นข้อเสนอแนะของแต่ละจังหวัดด้วย หากมี 'ข้อควรระวัง' เรื่องแนวโน้มฝุ่น ให้เน้นย้ำให้ ทสจ. ทราบเพื่อเตรียมยกระดับมาตรการล่วงหน้า ห้ามตัดทอน
-5. ต้องขึ้นต้นด้วยดอกจัน (*) หน้าชื่อจังหวัด และเว้น 1 บรรทัดคั่นระหว่างจังหวัดเสมอ
-6. น้ำเสียงแสดงถึงความเป็นผู้นำที่กระตือรือร้น ให้เกียรติผู้ร่วมงานทุกคน และมุ่งเน้นผลสัมฤทธิ์ เป็นทางการ แต่ถ้ามีค่าฝุ่นเป็นสีส้มขึ้นไป (ตั้งแต่ 37.6 ขึ้นไป) น้ำเสียงแสดงถึงความเร่งด่วน เด็ดขาด เป็นผู้นำในภาวะวิกฤต
-7. ลงท้ายว่า จึงเรียนมาเพื่อโปรดทราบ\n\n นายมนตรี  เกียรติเผ่าพันธ์\nผอ.สคพ.11\n  
-รายละเอียดการมอบหมายงานในส่วนคำแนะนำ ให้ระบุชื่อจังหวัดให้ชัดเจน`;
-            
             try {
                 const response = await fetch(gasWebAppUrl, {
                     method: 'POST',
                     body: JSON.stringify({ 
-                        prompt: promptText,
-                        password: password // แนบรหัสผ่านไปตรวจสอบที่ GAS
+                        contextData: contextData, // ส่งไปแค่ข้อมูลดิบ
+                        password: password // ส่งรหัสผ่านไปตรวจสอบ
                     })
                 });
                 
                 const data = await response.json();
 
-  
-		// ตรวจสอบกรณีรหัสผ่านผิด
+        // ตรวจสอบกรณีรหัสผ่านผิด
                 if (data.error === "Unauthorized") {
                     // ซ่อนข้อความกำลังโหลดให้หมดจด
                     resultDiv.style.display = 'none';
