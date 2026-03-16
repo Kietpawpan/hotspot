@@ -51,7 +51,7 @@
 # PM2.5 Air Quality & Weather Dashboard - EPO11
 A real-time web-based dashboard for monitoring PM2.5 air quality hotspots and weather conditions in the lower Northeastern region of Thailand (Nakhon Ratchasima, Chaiyaphum, Buriram, and Surin)
 
-This project, EPO11-PM ([https://esc.mnre.go.th/f4.php](https://kietpawpan.github.io/hotspot/epo11PM.html)), was developed to provide clear visual data actionable health advisories and meteorological context for the public and relevant agencies.
+This project, EPO11-PM, was developed to provide clear visual data actionable health advisories and meteorological context for the public and relevant agencies.
 
 ## Features
 * **Real-time PM2.5 & Hotspots:** Fetches the latest PM2.5 and hotspot data via a Google Sheets API
