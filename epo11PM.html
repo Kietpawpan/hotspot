@@ -4,11 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>รายงานสถานการณ์ฝุ่นละออง PM2.5 สคพ.11</title>
-  <link rel="stylesheet" href="./dist/output.css">
+    <link rel="stylesheet" href="./dist/output.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 
     <style>
+        /* บังคับใช้ฟอนต์ Sarabun ทั้งหน้าเว็บ */
+        body {
+            font-family: 'Sarabun', sans-serif !important;
+        }
+        
         .aqi-excellent { background-color: #00B0F0; color: white; }
         .aqi-good { background-color: #92D050; color: black; }
         .aqi-moderate { background-color: #FFFF00; color: black; }
@@ -57,40 +67,30 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 font-sans p-4">
+<body class="bg-gray-100 p-4">
 
     <div id="loader">กำลังโหลดข้อมูล...</div>
 
- <header class="bg-purple-800 text-white p-4 rounded-t-xl shadow-md text-center">
-  <div class="flex justify-center items-center gap-6 mb-4">
-        <img src="img/mnre.PNG" alt="โลโก้กระทรวงทรัพยากรธรรมชาติและสิ่งแวดล้อม" class="w-20 h-20 md:w-28 md:h-28 object-contain drop-shadow-lg">
-        <img src="img/pcd.svg" alt="โลโก้กรมควบคุมมลพิษ" class="w-16 h-16 md:w-24 md:h-24 object-contain drop-shadow-lg">
-    </div>
+    <header class="bg-purple-800 text-white p-4 rounded-t-xl shadow-md text-center">
+        <div class="flex justify-center items-center gap-6 mb-4">
+            <img src="img/mnre.PNG" alt="โลโก้กระทรวงทรัพยากรธรรมชาติและสิ่งแวดล้อม" class="w-20 h-20 md:w-28 md:h-28 object-contain drop-shadow-lg">
+            <img src="img/pcd.svg" alt="โลโก้กรมควบคุมมลพิษ" class="w-16 h-16 md:w-24 md:h-24 object-contain drop-shadow-lg">
+        </div>
 
-    <h1 class="text-2xl font-bold">รานงานสถานการณ์ PM2.5</h1>
-    <h2 class="text-lg">สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 11 (นครราชสีมา)</h2>
-    <p id="report-date" class="mt-2 font-semibold text-yellow-300"></p>
-    
-    <div class="mt-4 flex flex-col md:flex-row justify-center items-center gap-3">
-        <a href="#" id="hazeDownloadBtnClean" class="btn-clean" target="_blank">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
-            ดาวน์โหลดข้อมูลฝุ่น PM2.5 ประจำวัน
-        </a>
-    </div>
-</header>
+        <h1 class="text-2xl font-bold">รายงานสถานการณ์ PM2.5</h1>
+        <h2 class="text-lg">สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 11 (นครราชสีมา)</h2>
+        <p id="report-date" class="mt-2 font-semibold text-yellow-300"></p>
+        
+        <div class="mt-4 flex flex-col md:flex-row justify-center items-center gap-3">
+            <a href="#" id="hazeDownloadBtnClean" class="btn-clean" target="_blank">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
+                ดาวน์โหลดข้อมูลฝุ่น PM2.5 ประจำวัน
+            </a>
+        </div>
+    </header>
 
     <main class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 hidden" id="main-content">
         
-        <div class="md:col-span-3 bg-purple-50 p-6 rounded-xl shadow-md border-2 border-purple-400">
-<h3 class="text-xl font-bold mb-3 text-purple-800 flex items-center gap-2">
-    ✨ ผู้ช่วย AI ร่างข้อแนะนำ (สำหรับ ผอ.สคพ.11)
-</h3>            <p class="text-sm text-purple-600 mb-4">ดึงข้อมูลจุดความร้อน ฝุ่น PM2.5 และสภาพอากาศล่าสุดมาประมวลผลเป็นร่างข้อความสำหรับส่งเข้า LINE กลุ่มศูนย์บัญชาการ</p>
-            <button id="btnAnalyze" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-lg flex justify-center items-center gap-2">
-                ✨ ประมวลผลข้อมูลด้วย Gemini API
-            </button>
-            <div id="aiResult" class="mt-4 text-sm md:text-base text-gray-800 bg-white p-5 rounded-lg border border-purple-200 shadow-inner hidden">
-            </div>
-        </div>
         <div class="md:col-span-2 space-y-4">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4" id="province-cards"></div>
 
@@ -130,6 +130,18 @@
             </div>
         </div>
 
+        <div class="md:col-span-3 bg-purple-50 p-6 rounded-xl shadow-md border-2 border-purple-400 mt-2">
+            <h3 class="text-xl font-bold mb-3 text-purple-800 flex items-center gap-2">
+                ✨ ผู้ช่วย AI ร่างข้อแนะนำ (สำหรับ ผอ.สคพ.11)
+            </h3>
+            <p class="text-sm text-purple-600 mb-4">ดึงข้อมูลจุดความร้อน ฝุ่น PM2.5 และสภาพอากาศล่าสุดมาประมวลผลเป็นร่างข้อความสำหรับส่งเข้า LINE กลุ่มศูนย์บัญชาการ</p>
+            <button id="btnAnalyze" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-lg flex justify-center items-center gap-2">
+                ✨ ประมวลผลข้อมูลด้วย Gemini API
+            </button>
+            <div id="aiResult" class="mt-4 text-sm md:text-base text-gray-800 bg-white p-5 rounded-lg border border-purple-200 shadow-inner hidden">
+            </div>
+        </div>
+
         <div class="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="bg-white p-4 rounded-xl shadow-md">
                 <h3 class="text-xl font-bold mb-2 text-center">จำนวนวันค่าฝุ่นเกินมาตรฐานสะสม</h3>
@@ -140,20 +152,22 @@
                 <canvas id="hotspotAccumChart" height="150"></canvas>
             </div>
 
-           <div class="bg-white p-4 rounded-xl shadow-md">
+            <div class="bg-white p-4 rounded-xl shadow-md">
                 <h3 class="text-xl font-bold mb-2 text-center">แผนที่จุดความร้อน (พื้นที่ สคพ.11)</h3>
-                 <a href="https://kietpawpan.github.io/hotspot/mapNASA.html" id="hazeDownloadBtnVR" class="btn-clean" target="_blank">
-  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
-  จุดความร้อนล่าสุด
-                 <a href="https://kietpawpan.github.io/hotspot/mapSum.html" id="hazeDownloadBtnVR" class="btn-clean" target="_blank">
-  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
-  จุดความร้อนย้อนหลัง 30 วัน
-</a>
+                <div class="flex flex-col sm:flex-row justify-center gap-3">
+                    <a href="https://kietpawpan.github.io/hotspot/mapNASA.html" class="btn-clean w-full sm:w-auto justify-center" target="_blank">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
+                        จุดความร้อนล่าสุด
+                    </a>
+                    <a href="https://kietpawpan.github.io/hotspot/mapSum.html" class="btn-clean w-full sm:w-auto justify-center" target="_blank">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
+                        จุดความร้อนย้อนหลัง 30 วัน
+                    </a>
+                </div>
             </div>
         </div>
 
-
-<div class="md:col-span-3 bg-white p-4 rounded-xl shadow-md">
+        <div class="md:col-span-3 bg-white p-4 rounded-xl shadow-md">
             <h3 class="text-xl font-bold mb-4 text-center">กราฟอัตราการระบายอากาศ (Ventilation Rate) พื้นที่ สคพ.11</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="border rounded-lg p-3 text-center bg-gray-50">
@@ -175,27 +189,38 @@
             </div>
         </div>
 
-
-<div class="md:col-span-3 bg-white p-4 rounded-xl shadow-md mt-4">
+        <div class="md:col-span-3 bg-white p-4 rounded-xl shadow-md mt-4">
             <h3 class="text-xl font-bold mb-4 text-center">สภาพอากาศที่มีผลต่อการสะสมของฝุ่นละออง (TMD API)</h3>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="weather-cards">
                 <div class="col-span-1 md:col-span-4 text-center p-4 text-gray-500">กำลังเชื่อมต่อข้อมูลจากกรมอุตุนิยมวิทยา...</div>
             </div>
         </div>
 
+        <div id="passwordModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50">
+            <div class="bg-white p-6 rounded-xl shadow-2xl w-11/12 max-w-sm border-t-4 border-purple-600">
+                <h3 class="text-lg font-bold text-purple-800 mb-4 text-center">🔒 กรุณาใส่รหัสผ่าน</h3>
+                <p class="text-sm text-gray-600 mb-4 text-center">เพื่อยืนยันสิทธิ์การใช้งานผู้ช่วย AI</p>
+                <input type="password" id="aiPasswordInput" inputmode="numeric" pattern="[0-9]*" class="w-full border-2 border-purple-300 rounded-lg p-3 text-center text-xl tracking-widest focus:outline-none focus:border-purple-600 mb-2" placeholder="******">
+                <div id="passwordError" class="text-red-500 text-sm text-center mb-4 hidden">รหัสผ่านไม่ถูกต้อง โปรดลองอีกครั้ง</div>
+                <div class="flex gap-3 mt-2">
+                    <button id="btnCancelPassword" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-200">ยกเลิก</button>
+                    <button id="btnConfirmPassword" class="flex-1 bg-purple-700 hover:bg-purple-800 text-white font-bold py-2 px-4 rounded-lg transition duration-200">ยืนยัน</button>
+                </div>
+            </div>
+        </div>
+
     </main>
 
-<footer class="mt-8 mb-4 text-center text-sm text-gray-500 font-medium">
+    <footer class="mt-8 mb-4 text-center text-sm text-gray-500 font-medium">
         &copy; 2569 สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 11 (นครราชสีมา) <epo11@pcd.go.th>
     </footer>
 
-  <script>
+    <script>
         Chart.register(ChartDataLabels);
         
         let globalDashboardData = []; // ตัวแปรสำหรับเก็บข้อมูลฝุ่นไปให้ AI ประมวลผล
         let globalWeatherData = {}; // ตัวแปรสำหรับเก็บข้อมูลสภาพอากาศไปให้ AI ประมวลผล
-	let globalNasaHotspots = {}; // ตัวแปรเก็บจุดความร้อนจาก NASA ให้ AI ใช้
-
+        let globalNasaHotspots = {}; // ตัวแปรเก็บจุดความร้อนจาก NASA ให้ AI ใช้
 
         function getAqiClass(value) {
             if (isNaN(value)) return 'bg-gray-300 text-gray-700';
@@ -438,8 +463,8 @@
                         <div class="text-3xl font-black mt-2">${pmToday}</div>
                         <div class="text-xs">มคก./ลบ.ม.</div>
                         <div class="mt-2 text-sm bg-white bg-opacity-30 rounded px-2 py-1 w-full">
-			จุดความร้อน (NASA 24 ชม.): <span id="hotspot-val-${province}" class="font-bold text-red-700">⏳ กำลังประมวลผล...</span>                        
-			</div>
+            จุดความร้อน (NASA 24 ชม.): <span id="hotspot-val-${province}" class="font-bold text-red-700">⏳ กำลังประมวลผล...</span>                        
+            </div>
                         ${quotaHtml}
                         <div class="mt-2 text-xs p-2 bg-white bg-opacity-60 rounded-lg text-black w-full text-left">
                             <span class="font-bold">คำแนะนำ:</span> ${healthAdvice}
@@ -535,13 +560,10 @@
                     plugins: { datalabels: datalabelsOptions }
                 }
             });
-         // เพิ่ม 2 บรรทัดนี้เพื่อให้ดึงข้อมูลหลังจากสร้างการ์ดบนหน้าจอเสร็จแล้ว
             fetchWeatherData();
             fetchNasaHotspots();
-        } // ปิดฟังก์ชัน renderDashboard
+        }
 
-
-     
        function showError(error) {
             document.getElementById('loader').innerHTML = "เกิดข้อผิดพลาดในการดึงข้อมูล โปรดตรวจสอบ Google Sheets";
             console.error(error);
@@ -737,26 +759,58 @@ async function fetchNasaHotspots() {
         });
     }
 }
- // ==========================================
-        // ฟังก์ชันสั่งการ AI (แก้ไขใหม่ รวมสภาพอากาศ + คำนวณโควตาเป้าหมาย 5% + มาตรการนโยบาย)
         // ==========================================
-        document.getElementById('btnAnalyze').addEventListener('click', async function() {
+        // ฟังก์ชันสั่งการ AI (อัปเดตใหม่ ส่งรหัสไปตรวจสอบที่ Backend)
+        // ==========================================
+
+        // เมื่อกดปุ่มประมวลผลหลัก ให้แสดงหน้าต่างรหัสผ่าน
+        document.getElementById('btnAnalyze').addEventListener('click', function() {
+            document.getElementById('aiPasswordInput').value = '';
+            document.getElementById('passwordError').classList.add('hidden');
+            document.getElementById('passwordModal').classList.remove('hidden');
+            // ทำให้เคอร์เซอร์ไปกะพริบรอที่ช่องกรอกอัตโนมัติ
+            setTimeout(() => document.getElementById('aiPasswordInput').focus(), 100);
+        });
+
+        // ปุ่มยกเลิกในหน้าต่างรหัสผ่าน
+        document.getElementById('btnCancelPassword').addEventListener('click', function() {
+            document.getElementById('passwordModal').classList.add('hidden');
+        });
+
+        // รองรับการกดปุ่ม Enter ในช่องกรอกรหัสผ่านเพื่อยืนยัน
+        document.getElementById('aiPasswordInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('btnConfirmPassword').click();
+            }
+        });
+
+        // ตรวจสอบเมื่อกดปุ่มยืนยันรหัสผ่าน
+        document.getElementById('btnConfirmPassword').addEventListener('click', async function() {
+            const inputVal = document.getElementById('aiPasswordInput').value;
+            
+            // ซ่อนหน้าต่างรหัสผ่านแล้วส่งข้อมูลไปประมวลผล
+            document.getElementById('passwordModal').classList.add('hidden');
+            await runAiAnalysis(inputVal);
+        });
+
+        // ฟังก์ชันประมวลผล AI (ส่งรหัสผ่านไปกับข้อมูล)
+        async function runAiAnalysis(password) {
             const resultDiv = document.getElementById('aiResult');
             const btn = document.getElementById('btnAnalyze');
             
             resultDiv.style.display = 'block';
             resultDiv.classList.remove('hidden');
-            resultDiv.innerHTML = '<div class="text-center text-purple-600 animate-pulse"><i>กำลังวิเคราะห์ข้อมูลฝุ่น สภาพอากาศ และโควตาวันฝุ่นเกินมาตรฐาน... กรุณารอสักครู่</i></div>';
+            resultDiv.innerHTML = '<div class="text-center text-purple-600 animate-pulse"><i>กำลังตรวจสอบสิทธิ์และวิเคราะห์ข้อมูล... กรุณารอสักครู่</i></div>';
             
             btn.disabled = true;
             btn.classList.add('opacity-50', 'cursor-not-allowed');
 
-            const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbwLbMYQYbsLxtk2umG5jQfnI0VV8Vzu1omCvdzh7zeAKceirA-NbL4hXJTSmn3v1VRR/exec';
+            const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbx6LPU5c6r2kd626gxxvtyx5niwyNPuAAtT4Wd79UAhGk3eO_tGrKbULeqKP1uwtShd/exec';
 
             let contextData = "ข้อมูลสถานการณ์รายจังหวัด:\n";
             let totalHotspots = 0;
 
-  if (globalDashboardData && globalDashboardData.length > 1) {
+            if (globalDashboardData && globalDashboardData.length > 1) {
                 globalDashboardData.forEach((row, index) => {
                     if (index > 0 && row[0]) { 
                         const province = row[0]; 
@@ -768,11 +822,9 @@ async function fetchNasaHotspots() {
                         if (["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"].includes(province)) {
                             totalHotspots += parseInt(hotspot) || 0;
 
-                            // คำนวณเป้าหมายลด 5% จากปี 2568
                             const target69 = Math.floor(daysOver68 * 0.95);
                             const remainingDays = target69 - daysOver69;
                             
-                            // กำหนดข้อความแจ้งเตือนโควตา
                             let quotaText = "";
                             if (remainingDays > 0) {
                                 quotaText = `เหลือโควตาอีก ${remainingDays} วัน`;
@@ -782,14 +834,12 @@ async function fetchNasaHotspots() {
                                 quotaText = `เกินเป้าหมายแล้ว ${Math.abs(remainingDays)} วัน`;
                             }
 
-                            // ข้อมูลสภาพอากาศ
                             let weatherText = "ไม่มีข้อมูลสภาพอากาศ";
                             if (globalWeatherData[province]) {
                                 const w = globalWeatherData[province];
                                 weatherText = `สภาพอากาศ: ${w.cond} | อุณหภูมิ ${w.temp} °C | ความชื้น ${w.rh} % | โอกาสเกิดฝน ${w.rainChance} | ลม${w.windDir} ความเร็ว ${w.windSpeed}`;
                             }
 
-                            // --- ส่วนที่ดึงข้อมูลย้อนหลังและสร้างคำแนะนำ ---
                             const pmVal = parseFloat(pmToday);
                             const dayMinus1Num = parseFloat(row[3]);
                             const dayMinus2Num = parseFloat(row[4]);
@@ -807,7 +857,6 @@ async function fetchNasaHotspots() {
                                 policyAdv = "สถานการณ์ปกติ: ดำเนินมาตรการเฝ้าระวังตามปกติ";
                             }
 
-                            // --- ตรรกะเตือนแนวโน้มฝุ่นสูงขึ้น ---
                             let trendWarning = "";
                             if (dayMinus2Num > 25.0 && dayMinus2Num <= 37.5 &&
                                 dayMinus1Num > 25.0 && dayMinus1Num <= 37.5 &&
@@ -816,7 +865,6 @@ async function fetchNasaHotspots() {
                                 trendWarning = "⚠️ แจ้งเตือนพิเศษ: แนวโน้มฝุ่นสูงขึ้นอย่างต่อเนื่อง ควรพิจารณายกระดับมาตรการป้องกันปัญหาฝุ่น PM2.5 ก่อนจะเริ่มมีผลกระทบต่อสุขภาพ";
                             }
 
-                            // จัดเตรียมข้อมูลของจังหวัดนี้โดยแนบแนวโน้มย้อนหลังไปให้ AI ด้วย
                             contextData += `* ${province}: PM2.5 = ${pmToday} มคก./ลบ.ม. (เมื่อวาน: ${dayMinus1Num}, สองวันก่อน: ${dayMinus2Num}) | (${quotaText}) | จุดความร้อน ${hotspot} จุด\n  ${weatherText}\n  คำแนะนำสุขภาพ: ${healthAdv}\n  แนวทาง/มาตรการ: ${policyAdv}\n`;
                             
                             if (trendWarning !== "") {
@@ -835,7 +883,7 @@ async function fetchNasaHotspots() {
             const monthsTh = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
             const formattedToday = `${today.getDate()} ${monthsTh[today.getMonth()]} ${today.getFullYear() + 543}`;
 
-const promptText = `สวมบทบาทเป็น ผอ.สคพ.11 ผู้ชาย แทนตนเองว่า สคพ.11 ไม่มีหางเสียง เขียนข้อความส่งเข้ากลุ่ม LINE ขึ้นต้นว่า เรียน ท่าน ผู้ประสานงาน ทสจ. 4 จังหวัด นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ เพื่อแจ้งสถานการณ์สิ่งแวดล้อมประจำวันและแนะมาตรการที่เหมาะสม \n
+            const promptText = `สวมบทบาทเป็น ผอ.สคพ.11 ผู้ชาย แทนตนเองว่า สคพ.11 ไม่มีหางเสียง เขียนข้อความส่งเข้ากลุ่ม LINE ขึ้นต้นว่า เรียน ท่าน ผู้ประสานงาน ทสจ. 4 จังหวัด นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ เพื่อแจ้งสถานการณ์สิ่งแวดล้อมประจำวันและแนะมาตรการที่เหมาะสม \n
 ข้อมูลสถานการณ์ล่าสุดที่ต้องรายงาน:
 ${contextData}
 
@@ -855,35 +903,56 @@ ${contextData}
 4. สำคัญมาก: ในส่วนรายงานสถานการณ์ ให้ใช้รูปแบบข้อมูลรายจังหวัดที่จัดเตรียมไว้ให้ครบถ้วนทุกจังหวัด ให้นำข้อมูลเหล่านี้มาสรุปเป็นข้อเสนอแนะของแต่ละจังหวัดด้วย หากมี 'ข้อควรระวัง' เรื่องแนวโน้มฝุ่น ให้เน้นย้ำให้ ทสจ. ทราบเพื่อเตรียมยกระดับมาตรการล่วงหน้า ห้ามตัดทอน
 5. ต้องขึ้นต้นด้วยดอกจัน (*) หน้าชื่อจังหวัด และเว้น 1 บรรทัดคั่นระหว่างจังหวัดเสมอ
 6. น้ำเสียงแสดงถึงความเป็นผู้นำที่กระตือรือร้น ให้เกียรติผู้ร่วมงานทุกคน และมุ่งเน้นผลสัมฤทธิ์ เป็นทางการ แต่ถ้ามีค่าฝุ่นเป็นสีส้มขึ้นไป (ตั้งแต่ 37.6 ขึ้นไป) น้ำเสียงแสดงถึงความเร่งด่วน เด็ดขาด เป็นผู้นำในภาวะวิกฤต
-7. ลงท้ายว่า จึงเรียนมาเพื่อโปรดทราบ\n\n สคพ.11 (นครราชสีมา)\n แต่ถ้ามีค่าฝุ่นเป็นสีส้มขึ้นไป (ตั้งแต่ 37.6 ขึ้นไป) ลงท้ายว่า จึงเรียนมาเพื่อโปรดทราบ\n\n ผอ.สคพ.11\n 
+7. ลงท้ายว่า จึงเรียนมาเพื่อโปรดทราบ\n\n ผอ.สคพ.11 (นครราชสีมา)\n  
 รายละเอียดการมอบหมายงานในส่วนคำแนะนำ ให้ระบุชื่อจังหวัดให้ชัดเจน`;
+            
             try {
                 const response = await fetch(gasWebAppUrl, {
                     method: 'POST',
-                    body: JSON.stringify({ prompt: promptText })
+                    body: JSON.stringify({ 
+                        prompt: promptText,
+                        password: password // แนบรหัสผ่านไปตรวจสอบที่ GAS
+                    })
                 });
                 
                 const data = await response.json();
+
+  
+		// ตรวจสอบกรณีรหัสผ่านผิด
+                if (data.error === "Unauthorized") {
+                    // ซ่อนข้อความกำลังโหลดให้หมดจด
+                    resultDiv.style.display = 'none';
+                    resultDiv.classList.add('hidden');
+                    
+                    // แสดงหน้าต่างรหัสผ่านและข้อความแจ้งเตือน
+                    document.getElementById('passwordModal').classList.remove('hidden');
+                    document.getElementById('passwordError').classList.remove('hidden');
+                    document.getElementById('passwordError').innerText = 'รหัสผ่านไม่ถูกต้อง โปรดลองอีกครั้ง';
+                    document.getElementById('aiPasswordInput').value = '';
+                    document.getElementById('aiPasswordInput').focus();
+                    
+                    // คืนค่าปุ่มหลักให้กลับมากดได้ปกติ
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    
+                    return;
+                }
                 
                 if (data.result) {
-                    // 1. นำผลลัพธ์มาแสดงผลบนหน้าจอ (แปลง \n เป็น <br> และแสดงตัวหนา)
                     let cleanText = data.result
                         .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
                         .replace(/\n/g, '<br>');
                     
                     resultDiv.innerHTML = cleanText;
                     
-                    // 2. สร้างปุ่มคัดลอกต่อท้าย
                     resultDiv.innerHTML += `
                         <button id="copyToLineBtn" class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md flex justify-center items-center gap-2">
                             📋 คัดลอกข้อความไปที่ LINE
                         </button>
                     `;
 
-                    // 3. จัดการข้อความสำหรับคัดลอกลง Clipboard (เอาแค่สัญลักษณ์ ** ออกเพื่อรักษา * หน้าจังหวัดไว้)
                     let clipboardText = data.result.replace(/\*\*(.*?)\*\*/g, '$1');
 
-                    // 4. ผูกคำสั่งคัดลอกกับปุ่ม
                     const copyBtn = document.getElementById('copyToLineBtn');
                     copyBtn.addEventListener('click', function() {
                         navigator.clipboard.writeText(clipboardText).then(() => {
@@ -908,13 +977,14 @@ ${contextData}
                 }
             } catch (error) {
                 console.error('Error fetching AI result:', error);
-                resultDiv.innerHTML = '<span class="text-red-600">ไม่สามารถเชื่อมต่อระบบประมวลผล AI ได้ โปรดตรวจสอบว่าท่านได้ใส่ URL ของ Apps Script ตรงบรรทัด gasWebAppUrl ถูกต้องหรือไม่</span>';
+                resultDiv.innerHTML = '<span class="text-red-600">ไม่สามารถเชื่อมต่อระบบประมวลผล AI ได้ โปรดตรวจสอบว่าท่านได้ใส่ URL ของ Apps Script ให้ถูกต้อง</span>';
             } finally {
-                btn.disabled = false;
-                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                if (document.getElementById('passwordModal').classList.contains('hidden')) {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
             }
-        });
-        
+        }
     </script>
 </body>
 </html>
