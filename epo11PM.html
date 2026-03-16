@@ -232,7 +232,7 @@
         window.onload = function() {
             updateDateText();
             
-            const apiUrl = 'https://script.google.com/macros/s/AKfycbwnLYBWbsM93_pf27QBE73Ku1fmt-Cklx_UPivydhJ6o_z8DW1uz6hmuw6l8l7E2cL6/exec';
+            const apiUrl = 'https://script.google.com/macros/s/AKfycbx6LPU5c6r2kd626gxxvtyx5niwyNPuAAtT4Wd79UAhGk3eO_tGrKbULeqKP1uwtShd/exec';
 
             fetch(apiUrl)
                 .then(response => {
@@ -709,7 +709,7 @@ document.getElementById(`weather-${prov.name}`).innerHTML = `
 // ดึงข้อมูล NASA ผ่าน Google Apps Script Proxy
 async function fetchNasaHotspots() {
     // เรียกใช้ GAS Proxy ที่ทำหน้าที่ประมวลผลแล้วส่งกลับมาแค่ตัวเลข
-    const GAS_HOTSPOT_PROXY = 'https://script.google.com/macros/s/AKfycbxTFxjX2DYs1DZ2aRazIdkhzzGq-ltOa60N5hU_GiAsH9OIbPmayc23aCzA6efFRk_O/exec?action=hotspots';
+    const GAS_HOTSPOT_PROXY = 'https://script.google.com/macros/s/AKfycbx6LPU5c6r2kd626gxxvtyx5niwyNPuAAtT4Wd79UAhGk3eO_tGrKbULeqKP1uwtShd/exec?action=hotspots';
     
     try {
         const response = await fetch(GAS_HOTSPOT_PROXY);
@@ -751,7 +751,7 @@ async function fetchNasaHotspots() {
             btn.disabled = true;
             btn.classList.add('opacity-50', 'cursor-not-allowed');
 
-            const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbwnLYBWbsM93_pf27QBE73Ku1fmt-Cklx_UPivydhJ6o_z8DW1uz6hmuw6l8l7E2cL6/exec';
+            const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbwLbMYQYbsLxtk2umG5jQfnI0VV8Vzu1omCvdzh7zeAKceirA-NbL4hXJTSmn3v1VRR/exec';
 
             let contextData = "ข้อมูลสถานการณ์รายจังหวัด:\n";
             let totalHotspots = 0;
