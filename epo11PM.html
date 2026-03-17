@@ -10,6 +10,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#6b21a8">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PM2.5 สคพ.11">
+    <link rel="apple-touch-icon" href="img/pcd.svg">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 
@@ -956,6 +964,20 @@ async function fetchNasaHotspots() {
                     btn.classList.remove('opacity-50', 'cursor-not-allowed');
                 }
             }
+        }
+    </script>
+
+<script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('Service Worker ทำงานสำเร็จ');
+                    })
+                    .catch(err => {
+                        console.log('Service Worker ทำงานล้มเหลว:', err);
+                    });
+            });
         }
     </script>
 </body>
