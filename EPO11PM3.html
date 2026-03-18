@@ -595,6 +595,11 @@
                     responsive: true, 
                     layout: { padding: { top: 25 } },
                     scales: { y: { beginAtZero: true } },
+
+
+
+
+
                     plugins: { datalabels: datalabelsOptions }
                 }
             });
@@ -606,19 +611,24 @@
                     labels: ['ย้อนหลัง 4 วัน', 'ย้อนหลัง 3 วัน', 'ย้อนหลัง 2 วัน', 'ย้อนหลัง 1 วัน', 'วันนี้'],
                     datasets: historyLineDatasets
                 },
-options: {
-                    responsive: true,
-                    layout: { padding: { top: 25, right: 20, left: 10, bottom: 10 } },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            // ปล่อยให้แกน Y ปรับสเกลอัตโนมัติตามข้อมูลจริง
-                            title: { display: true, text: 'PM2.5 (มคก./ลบ.ม.)', font: { family: 'Sarabun' } }
-                        },
-                        x: {
-                            ticks: { font: { family: 'Sarabun' } }
-                        }
-                    },
+		options: {
+ 			   responsive: true,
+   			 layout: { padding: { top: 25, right: 20, left: 10, bottom: 10 } },
+  			  scales: {
+        			y: {
+         			   // 1. เปลี่ยนเป็น false เพื่อให้กราฟซูมตามช่วงข้อมูลจริง (ไม่บังคับเริ่มที่ 0)
+          			  beginAtZero: false, 
+            
+           		 // 2. (แนะนำ) เพิ่มคำสั่ง grace เพื่อเว้นช่องว่างด้านบนและด้านล่างของเส้นกราฟ 10% 
+           		 // ทำให้เส้นไม่ไปชนขอบกราฟพอดีเป๊ะ ดูสบายตาขึ้น
+           		 grace: '10%', 
+
+           		 title: { display: true, text: 'PM2.5 (มคก./ลบ.ม.)', font: { family: 'Sarabun' } }
+      		  },
+        			x: {
+        		    ticks: { font: { family: 'Sarabun' } }
+       				 }
+  		  },
                     plugins: {
                         legend: { 
                             display: true, 
