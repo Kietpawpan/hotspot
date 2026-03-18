@@ -320,7 +320,9 @@
 
                 const pmTodayNum = parseFloat(row[2]);
                 const pmToday = isNaN(pmTodayNum) ? "N/A" : pmTodayNum;
-                const hotspot = row[3] || "-";
+
+		const hotspotFromSheet = row[3] || 0; 
+        	globalNasaHotspots[province] = hotspotFromSheet; // เก็บไว้ให้ AI ใช้ด้วย
                 
                 const dayMinus1Num = parseFloat(row[4]);
                 const dayMinus1 = isNaN(dayMinus1Num) ? "-" : dayMinus1Num;
@@ -473,22 +475,22 @@
                     `;
                 }
 
-                cardsContainer.innerHTML += `
-                    <div class="p-4 rounded-xl shadow-md text-center flex flex-col justify-start items-center ${currentAqiClass}">
-                        <h4 class="text-xl font-bold">${province}</h4>
-                        <div class="text-3xl font-black mt-2">${pmToday}</div>
-                        <div class="text-xs">มคก./ลบ.ม.</div>
-                        <div class="mt-2 text-sm bg-white bg-opacity-30 rounded px-2 py-1 w-full">
-            จุดความร้อน (NASA 24 ชม.): <span id="hotspot-val-${province}" class="font-bold text-red-700">⏳ กำลังประมวลผล...</span>                        
+  	cardsContainer.innerHTML += `
+            <div class="p-4 rounded-xl shadow-md text-center flex flex-col justify-start items-center ${currentAqiClass}">
+                <h4 class="text-xl font-bold">${province}</h4>
+                <div class="text-3xl font-black mt-2">${pmToday}</div>
+                <div class="text-xs">มคก./ลบ.ม.</div>
+                <div class="mt-2 text-sm bg-white bg-opacity-30 rounded px-2 py-1 w-full">
+                    จุดความร้อน (NASA 24 ชม.): <span id="hotspot-val-${province}" class="font-bold text-red-700">${hotspotFromSheet} จุด</span>                        
+                </div>
+                ${quotaHtml}
+                <div class="mt-2 text-xs p-2 bg-white bg-opacity-60 rounded-lg text-black w-full text-left">
+                    <span class="font-bold">คำแนะนำ:</span> ${healthAdvice}
+                </div>
+                ${riskAdviceHtml}
+                ${warningHtml}
             </div>
-                        ${quotaHtml}
-                        <div class="mt-2 text-xs p-2 bg-white bg-opacity-60 rounded-lg text-black w-full text-left">
-                            <span class="font-bold">คำแนะนำ:</span> ${healthAdvice}
-                        </div>
-                        ${riskAdviceHtml}
-                        ${warningHtml}
-                    </div>
-                `;
+        `;
 
                 historyTable.innerHTML += `
                     <tr>
@@ -676,7 +678,7 @@ options: {
             });
 
             fetchWeatherData();
-            fetchNasaHotspots();
+           // fetchNasaHotspots();
         }
 
        function showError(error) {
