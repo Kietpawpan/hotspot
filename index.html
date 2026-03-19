@@ -13,6 +13,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha3/0.8.0/sha3.min.js"></script>
 
     <style>
         /* บังคับใช้ฟอนต์ Sarabun ทั้งหน้าเว็บ */
@@ -68,9 +70,34 @@
         }
     </style>
 </head>
+
 <body class="bg-gray-100 p-4">
 
-    <div id="loader">กำลังโหลดข้อมูล...</div>
+    <div id="globalLoginModal" class="fixed inset-0 bg-purple-900 z-[100] flex justify-center items-center">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-11/12 max-w-md border-t-4 border-purple-600">
+            <div class="text-center mb-6">
+                <img src="img/pcd.svg" alt="โลโก้กรมควบคุมมลพิษ" class="w-20 h-20 mx-auto object-contain drop-shadow-md mb-2">
+                <h2 class="text-2xl font-bold text-purple-800">เข้าสู่ระบบ</h2>
+                <p class="text-gray-600 text-sm">OFFICIAL ONLY</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="loginUsername">ชื่อผู้ใช้งาน</label>
+                    <input type="text" id="loginUsername" class="w-full border-2 border-purple-300 rounded-lg p-3 focus:outline-none focus:border-purple-600" placeholder="Username">
+                </div>
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="loginPassword">รหัสผ่าน</label>
+                    <input type="password" id="loginPassword" class="w-full border-2 border-purple-300 rounded-lg p-3 focus:outline-none focus:border-purple-600" placeholder="Password">
+                </div>
+                <div id="loginError" class="text-red-500 text-sm text-center hidden">ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง</div>
+                <button id="btnLogin" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md">
+                    เข้าสู่ระบบ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loader" style="display: none;">กำลังโหลดข้อมูล...</div>
 
     <header class="bg-purple-800 text-white p-4 rounded-t-xl shadow-md text-center">
         <div class="flex justify-center items-center gap-6 mb-4">
@@ -260,8 +287,53 @@
             document.getElementById('report-date').innerText = `ประจำวัน${dayName}ที่ ${day} ${monthName} ${year} เวลา 07.00 น.`;
         }
 
-        // ดึงข้อมูลจาก Google Sheet
+
+        // --------------------------------------------------
+        // แทนที่ฟังก์ชัน window.onload เดิมด้วยโค้ดชุดนี้
+        // --------------------------------------------------
         window.onload = function() {
+            const btnLogin = document.getElementById('btnLogin');
+            const inputUser = document.getElementById('loginUsername');
+            const inputPass = document.getElementById('loginPassword');
+            
+            function attemptLogin() {
+                // ใส่ค่ารหัสผ่าน admin ที่ถูกแปลงเป็น SHA3-512 แล้วลงในเครื่องหมายคำพูดด้านล่าง
+                const validUserHash = "be2db9484b90a28ec64f5f412724a554d5f1d4c8ddbd745b7127fd2403909ec2404e2b703a09bdf9622cf2a479c46d9ce222b8b31ee2c76e7c1806a74785c704";
+                
+                // ใส่ค่ารหัสผ่าน 1234 ที่ถูกแปลงเป็น SHA3-512 แล้วลงในเครื่องหมายคำพูดด้านล่าง
+                const validPassHash = "0a743037efbc9fb828edea04589430ca95a40ab89d338035a9ac66206d89c611ce3f193022ea8b7f34528802912764cd5f5ccd0e0f9b97054a3b8ac782931571";
+                
+                // แปลงค่าที่กรอกมาให้เป็น SHA3-512 ก่อนเปรียบเทียบ
+                const hashedInputUser = sha3_512(inputUser.value);
+                const hashedInputPass = sha3_512(inputPass.value);
+                
+                if (hashedInputUser === validUserHash && hashedInputPass === validPassHash) {
+                    // ปิดหน้า Login แล้วแสดงหน้ากำลังโหลดข้อมูล
+                    document.getElementById('globalLoginModal').style.display = 'none';
+                    document.getElementById('loader').style.display = 'flex';
+                    
+                    // เรียกฟังก์ชันเริ่มดึงข้อมูล
+                    startLoadingData();
+                } else {
+                    document.getElementById('loginError').classList.remove('hidden');
+                }
+            }
+
+            btnLogin.addEventListener('click', attemptLogin);
+            
+            // รองรับการกดปุ่ม Enter ในช่องรหัสผ่าน
+            inputPass.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') attemptLogin();
+            });
+            inputUser.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') inputPass.focus();
+            });
+        };
+
+        // --------------------------------------------------
+        // นำโค้ดดึงข้อมูลเดิมทั้งหมดมาใส่ไว้ในฟังก์ชันนี้
+        // --------------------------------------------------
+        function startLoadingData() {
             updateDateText();
             
             const apiUrl = 'https://script.google.com/macros/s/AKfycby2OvLen-3AxfZH2mJ9f-63DClvUT5RuSbbNDuD1_T6SqStLKDYKVapnPOVj_ir_ogj-Q/exec';
@@ -274,14 +346,15 @@
                     return response.json();
                 })
                 .then(data => {
-                    globalDashboardData = data; // เก็บข้อมูลไว้ให้ AI ดึงไปใช้
+                    globalDashboardData = data; 
                     renderDashboard(data);
                 })
                 .catch(error => {
                     showError(error);
                 });
-        };
+        }
 
+     
         function renderDashboard(data) {
             document.getElementById('loader').style.display = 'none';
             document.getElementById('main-content').classList.remove('hidden');
@@ -321,8 +394,8 @@
                 const pmTodayNum = parseFloat(row[2]);
                 const pmToday = isNaN(pmTodayNum) ? "N/A" : pmTodayNum;
 
-		const hotspotFromSheet = row[3] || 0; 
-        	globalNasaHotspots[province] = hotspotFromSheet; // เก็บไว้ให้ AI ใช้ด้วย
+        const hotspotFromSheet = row[3] || 0; 
+        globalNasaHotspots[province] = hotspotFromSheet; // เก็บไว้ให้ AI ใช้ด้วย
                 
                 const dayMinus1Num = parseFloat(row[4]);
                 const dayMinus1 = isNaN(dayMinus1Num) ? "-" : dayMinus1Num;
@@ -475,7 +548,7 @@
                     `;
                 }
 
-  	cardsContainer.innerHTML += `
+    cardsContainer.innerHTML += `
             <div class="p-4 rounded-xl shadow-md text-center flex flex-col justify-start items-center ${currentAqiClass}">
                 <h4 class="text-xl font-bold">${province}</h4>
                 <div class="text-3xl font-black mt-2">${pmToday}</div>
@@ -595,11 +668,6 @@
                     responsive: true, 
                     layout: { padding: { top: 25 } },
                     scales: { y: { beginAtZero: true } },
-
-
-
-
-
                     plugins: { datalabels: datalabelsOptions }
                 }
             });
@@ -611,24 +679,24 @@
                     labels: ['ย้อนหลัง 4 วัน', 'ย้อนหลัง 3 วัน', 'ย้อนหลัง 2 วัน', 'ย้อนหลัง 1 วัน', 'วันนี้'],
                     datasets: historyLineDatasets
                 },
-		options: {
- 			   responsive: true,
-   			 layout: { padding: { top: 25, right: 20, left: 10, bottom: 10 } },
-  			  scales: {
-        			y: {
-         			   // 1. เปลี่ยนเป็น false เพื่อให้กราฟซูมตามช่วงข้อมูลจริง (ไม่บังคับเริ่มที่ 0)
-          			  beginAtZero: false, 
+        options: {
+               responsive: true,
+             layout: { padding: { top: 25, right: 20, left: 10, bottom: 10 } },
+              scales: {
+                    y: {
+                       // 1. เปลี่ยนเป็น false เพื่อให้กราฟซูมตามช่วงข้อมูลจริง (ไม่บังคับเริ่มที่ 0)
+                      beginAtZero: false, 
             
-           		 // 2. (แนะนำ) เพิ่มคำสั่ง grace เพื่อเว้นช่องว่างด้านบนและด้านล่างของเส้นกราฟ 10% 
-           		 // ทำให้เส้นไม่ไปชนขอบกราฟพอดีเป๊ะ ดูสบายตาขึ้น
-           		 grace: '10%', 
+             // 2. (แนะนำ) เพิ่มคำสั่ง grace เพื่อเว้นช่องว่างด้านบนและด้านล่างของเส้นกราฟ 10% 
+             // ทำให้เส้นไม่ไปชนขอบกราฟพอดีเป๊ะ ดูสบายตาขึ้น
+             grace: '10%', 
 
-           		 title: { display: true, text: 'PM2.5 (มคก./ลบ.ม.)', font: { family: 'Sarabun' } }
-      		  },
-        			x: {
-        		    ticks: { font: { family: 'Sarabun' } }
-       				 }
-  		  },
+             title: { display: true, text: 'PM2.5 (มคก./ลบ.ม.)', font: { family: 'Sarabun' } }
+              },
+                    x: {
+                 ticks: { font: { family: 'Sarabun' } }
+                 }
+          },
                     plugins: {
                         legend: { 
                             display: true, 
