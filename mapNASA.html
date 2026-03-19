@@ -499,7 +499,7 @@ showToast("อัปเดตข้อมูลจุดความร้อน
                     if (satellite === 'N') satDisplay = "Suomi-NPP";
                     else if (satellite === '1') satDisplay = "NOAA-20";
 
-             let googleMapsUrl = `http://googleusercontent.com/maps.google.com/?q=${lat},${lon}`;                 
+    		    let googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`; 
 
                     let popupContent = "<div style='font-size: 14px;'>";
                     popupContent += "<div style='background-color:#4a148c; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>รายละเอียดจุดความร้อน (NASA)</b></div>";
