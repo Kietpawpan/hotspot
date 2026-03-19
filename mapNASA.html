@@ -70,9 +70,46 @@
         .legend-title { font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 10px; }
         .legend-title:first-child { margin-top: 0; }
         .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
+
+
+#toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.toast {
+    min-width: 280px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    font-size: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    opacity: 0;
+    transform: translateX(100%);
+    animation: slideIn 0.3s forwards;
+}
+.toast.success { background-color: #16a34a; }
+.toast.error { background-color: #dc2626; }
+.toast.warning { background-color: #f59e0b; color: white; }
+.toast.info { background-color: #2563eb; }
+
+@keyframes slideIn {
+    to { opacity: 1; transform: translateX(0); }
+}
+@keyframes fadeOut {
+    to { opacity: 0; transform: translateX(100%); }
+}
+
     </style>
 </head>
 <body>
+<div id="toast-container"></div>
     <div class="container">
         <h2>ระบบเฝ้าระวังจุดความร้อน VIIRS (สคพ.11)</h2>
         <div class="subtitle">ครอบคลุมพื้นที่ นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ (ข้อมูล NASA FIRMS เฉพาะดาวเทียม Suomi-NPP)</div>
@@ -118,23 +155,59 @@
     <script>
         const gasWebappUrl = 'https://script.google.com/macros/s/AKfycbwauoX4D4hwP-G3V1CVcQ5z7ttImLfOKNnKhihFlZYGWovoDlaHAdO8EJiPAx5YRgxG/exec';
         const longdoApiKey = 'bce812933744d2530d26f0fabb0017cf';
+
+
         
         // เพิ่มตัวแปรแคชสำหรับเก็บข้อมูลที่อยู่
         const addressCache = {};
-        
-        const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json';
+
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+
+    let icon = 'ℹ️';
+    if (type === 'success') icon = '✅';
+    if (type === 'error') icon = '❌';
+    if (type === 'warning') icon = '⚠️';
+
+    toast.innerHTML = `<span style="margin-right:8px; font-size:16px;">${icon}</span> ${message}`;
+    container.appendChild(toast);
+
+    // หน่วงเวลา 3 วินาทีก่อนให้ข้อความเลื่อนหายไป
+    setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.3s forwards';
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
+    }, 3000);
+}
+    // ข้อมูลโพลีกอนขอบเขตประเทศไทยอ้างอิงจาก https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json ภายใต้ MIT License
+        const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/thailand.json';
 
         const map = L.map('map').setView([15.2, 102.5], 8);
 
-        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 18,
-            attribution: '© OpenStreetMap'
-        });
+       // const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      //      maxZoom: 18,
+       //     attribution: '© OpenStreetMap'
+  //      });
 
-        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 18,
-            attribution: '© Esri'
-        });
+const osmLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}&hl=th', {
+  maxZoom: 18,
+  attribution: '© Google Maps'
+});
+
+
+const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=th', {
+    maxZoom: 18,
+    attribution: '© Google Maps (Satellite)'
+});
+      //  const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      //      maxZoom: 18,
+      //      attribution: '© Esri'
+      //  });
 
         osmLayer.addTo(map);
 
@@ -240,16 +313,20 @@
                         }
                     }
 
-                    if (apiError && allFeatures.length === 0) {
-                        document.getElementById('lastUpdateDisplay').innerText = "⚠️ แจ้งเตือนจากระบบส่วนกลาง: " + apiError;
-                        document.getElementById('loadingOverlay').style.display = 'none';
-                        return;
-                    }
+  if (apiError && allFeatures.length === 0) {
+    document.getElementById('lastUpdateDisplay').innerText = "⚠️ แจ้งเตือนจากระบบส่วนกลาง: " + apiError;
+    document.getElementById('loadingOverlay').style.display = 'none';
+    // เอา showToast ออกจากตรงนี้
+    return;
+}
 
-                    globalFeatures = allFeatures;
-                    document.getElementById('loadingOverlay').style.display = 'none';
-                    applyTimeFilter();
-                })
+globalFeatures = allFeatures;
+document.getElementById('loadingOverlay').style.display = 'none';
+applyTimeFilter();
+// นำมาวางไว้ตรงนี้แทนครับ
+showToast("อัปเดตข้อมูลจุดความร้อนล่าสุดเรียบร้อยแล้ว", "success");
+
+                   })
                 .catch(error => {
                     console.error('เกิดข้อผิดพลาด', error);
                     document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูลส่วนกลาง";
@@ -498,7 +575,7 @@ downloadControl.onAdd = function (map) {
 
     btn.onclick = async function() {
         if (!globalFeatures || globalFeatures.length === 0) {
-            alert("ไม่พบข้อมูลจุดความร้อนในระบบ");
+showToast("ไม่พบข้อมูลจุดความร้อนในระบบ", "warning");
             return;
         }
 
@@ -591,7 +668,7 @@ downloadControl.onAdd = function (map) {
             });
 
             if (exportDataPromises.length === 0) {
-                alert("ไม่มีข้อมูลจุดความร้อนในช่วงเวลาที่เลือก");
+     showToast("ไม่มีข้อมูลจุดความร้อนในช่วงเวลาที่เลือก", "warning");
                 btn.innerHTML = '📥';
                 btn.classList.remove('loading');
                 btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
@@ -614,7 +691,7 @@ downloadControl.onAdd = function (map) {
 
         } catch (error) {
             console.error(error);
-            alert("เกิดข้อผิดพลาดในการดึงข้อมูลพื้นที่");
+showToast("เกิดข้อผิดพลาดในการดึงข้อมูลพื้นที่", "error");
         } finally {
             btn.innerHTML = '📥';
             btn.classList.remove('loading');
