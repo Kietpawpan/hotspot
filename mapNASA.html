@@ -217,25 +217,29 @@ function showToast(message, type = 'info') {
 
         const map = L.map('map').setView([15.2, 102.5], 8);
 
-       // const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      //      maxZoom: 18,
-       //     attribution: '© OpenStreetMap'
-  //      });
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+           maxZoom: 18,
+           attribution: '© OpenStreetMap'
+        });
 
+
+/*
 const osmLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}&hl=th', {
   maxZoom: 18,
   attribution: '© Google Maps'
 });
+*/
 
-
+/*
 const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=th', {
     maxZoom: 18,
     attribution: '© Google Maps (Satellite)'
 });
-      //  const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      //      maxZoom: 18,
-      //      attribution: '© Esri'
-      //  });
+*/
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+           maxZoom: 18,
+            attribution: '© Esri'
+        });
 
         osmLayer.addTo(map);
 
@@ -650,12 +654,7 @@ showToast("ไม่พบข้อมูลจุดความร้อนใ
                     let satDisplay = props.satellite === 'N' ? "Suomi-NPP" : (props.satellite === '1' ? "NOAA-20" : props.satellite);
                     let lat = props.latitude;
                     let lon = props.longitude;
-                    let googleMapsUrl = `http://googleusercontent.com/maps.google.com/?q=${lat},${lon}`;
-                    
-// Google Maps URL: googleusercontent.com/maps.google.com/?q=${lat},${lon} หากพบว่าลิงก์ไม่เสถียร 
-// สามารถปรับเป็น Standard URL เช่น:https://www.google.com/maps/search/?api=1&query=${lat},${lon}
-
-
+		    let googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;                    
                     let cacheKey = lat + "_" + lon;
                     
                     let buildRowData = (tambon, amphoe) => ({
