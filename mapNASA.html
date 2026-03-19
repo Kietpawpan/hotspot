@@ -119,6 +119,8 @@
                 🛰️ <b>สถานะข้อมูล:</b> <span id="lastUpdateDisplay" style="color: #b91c1c; font-weight: bold;">กำลังดาวน์โหลดและประมวลผลข้อมูล NASA...</span>
             </div>
             
+
+<!--
             <div id="timeSelectorContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
                 <label style="font-size: 16px; margin-bottom: 10px; display: block;">
                     <b>แสดงจุดความร้อนย้อนหลัง: </b>
@@ -140,6 +142,32 @@
                 </div>
             </div>
 
+-->
+
+<div id="timeSelectorContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
+    <label style="font-size: 16px; margin-bottom: 10px; display: block;">
+        <b>แสดงจุดความร้อนย้อนหลัง: </b>
+        <span style="font-size: 14px; color: #64748b;">(นับจากเวลาปัจจุบัน)</span>
+    </label>
+    <div style="display: flex; gap: 15px; align-items: center; font-size: 15px; margin-top: 10px; flex-wrap: wrap;">
+        <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="radio" name="timeFilter" value="24-all" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;" checked> 24 ชม.
+        </label>
+        <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="radio" name="timeFilter" value="12-morning" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 12 ชม. รอบเช้า (00:00 - 11:59 น.)
+        </label>
+        <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="radio" name="timeFilter" value="12-afternoon" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 12 ชม. รอบบ่าย (12:00 - 23:59 น.)
+        </label>
+    </div>
+</div>
+
+
+
+
+
+
+
         </div>
         <div id="map-wrapper">
             <div id="loadingOverlay">
@@ -154,9 +182,9 @@
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script>
         const gasWebappUrl = 'https://script.google.com/macros/s/AKfycbwauoX4D4hwP-G3V1CVcQ5z7ttImLfOKNnKhihFlZYGWovoDlaHAdO8EJiPAx5YRgxG/exec';
+
         const longdoApiKey = 'bce812933744d2530d26f0fabb0017cf';
-
-
+// ควรตรวจสอบว่า API Key ที่ใช้มีการจำกัดจำนวนครั้งต่อวันหรือไม่ เพราะหากมีจุดความร้อนจำนวนมากและการเรียกข้อมูลที่อยู่ (Address) เกิดขึ้นพร้อมกันตอนกดดาวน์โหลด อาจจะทำให้ติด Limit
         
         // เพิ่มตัวแปรแคชสำหรับเก็บข้อมูลที่อยู่
         const addressCache = {};
@@ -624,6 +652,10 @@ showToast("ไม่พบข้อมูลจุดความร้อนใ
                     let lon = props.longitude;
                     let googleMapsUrl = `http://googleusercontent.com/maps.google.com/?q=${lat},${lon}`;
                     
+// Google Maps URL: googleusercontent.com/maps.google.com/?q=${lat},${lon} หากพบว่าลิงก์ไม่เสถียร 
+// สามารถปรับเป็น Standard URL เช่น:https://www.google.com/maps/search/?api=1&query=${lat},${lon}
+
+
                     let cacheKey = lat + "_" + lon;
                     
                     let buildRowData = (tambon, amphoe) => ({
@@ -680,14 +712,38 @@ showToast("ไม่พบข้อมูลจุดความร้อนใ
             let workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Hotspots_Report");
             
-            let timeSuffix = "";
+            let timeSuffix = "_ย้อนหลัง_24_ชม";
             if (currentTimeframe === 12) {
                 if (currentTimeOfDay === 'morning') timeSuffix = "_รอบเช้า";
                 else if (currentTimeOfDay === 'afternoon') timeSuffix = "_รอบบ่าย";
             }
             
-            let fileName = "จุดความร้อน_สคพ11_ย้อนหลัง" + currentTimeframe + "ชม" + timeSuffix + ".xlsx";
-            XLSX.writeFile(workbook, fileName);
+        //    let fileName = "จุดความร้อน_สคพ11_ย้อนหลัง" + currentTimeframe + "ชม" + timeSuffix + ".xlsx";
+        //    XLSX.writeFile(workbook, fileName);
+
+
+// --- ส่วนการตั้งชื่อไฟล์ใหม่ ---
+let fileThaiDate = "";
+const fullThaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
+if (globalFeatures.length > 0) {
+    // ดึงวันที่จากจุดความร้อนล่าสุดที่มีในข้อมูล
+    let latestTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()));
+    let localDt = new Date(latestTime + (7 * 60 * 60 * 1000)); // ปรับเป็นเวลาไทย
+    
+    let d = localDt.getUTCDate();
+    let m = fullThaiMonths[localDt.getUTCMonth()];
+    let y = localDt.getUTCFullYear() + 543;
+    
+    fileThaiDate = `${d}${m}${y}_`; // ผลลัพธ์จะเป็น "19มีนาคม2569_"
+}
+
+let fileName = "จุดความร้อน_สคพ11_" + fileThaiDate + timeSuffix + ".xlsx";
+XLSX.writeFile(workbook, fileName);
+
+
+
+
 
         } catch (error) {
             console.error(error);
