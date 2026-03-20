@@ -10,28 +10,28 @@
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-.leaflet-control-download {
-    background-color: white;
-    border: 2px solid rgba(0,0,0,0.2);
-    background-clip: padding-box;
-    border-radius: 4px;
-    cursor: pointer;
-    width: 34px;
-    height: 34px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 18px;
-    box-shadow: 0 1px 5px rgba(0,0,0,0.65);
-    transition: background-color 0.2s;
-}
-.leaflet-control-download:hover {
-    background-color: #f4f4f4;
-}
-.leaflet-control-download.loading {
-    background-color: #e2e8f0;
-    cursor: wait;
-}
+        .leaflet-control-download {
+            background-color: white;
+            border: 2px solid rgba(0,0,0,0.2);
+            background-clip: padding-box;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 34px;
+            height: 34px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+            transition: background-color 0.2s;
+        }
+        .leaflet-control-download:hover {
+            background-color: #f4f4f4;
+        }
+        .leaflet-control-download.loading {
+            background-color: #e2e8f0;
+            cursor: wait;
+        }
 
         body { font-family: sans-serif; background-color: #f3f4f6; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -71,45 +71,53 @@
         .legend-title:first-child { margin-top: 0; }
         .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
 
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            min-width: 280px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            opacity: 0;
+            transform: translateX(100%);
+            animation: slideIn 0.3s forwards;
+        }
+        .toast.success { background-color: #16a34a; }
+        .toast.error { background-color: #dc2626; }
+        .toast.warning { background-color: #f59e0b; color: white; }
+        .toast.info { background-color: #2563eb; }
 
-#toast-container {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 99999;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-.toast {
-    min-width: 280px;
-    padding: 12px 20px;
-    border-radius: 8px;
-    color: white;
-    font-size: 15px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    display: flex;
-    align-items: center;
-    opacity: 0;
-    transform: translateX(100%);
-    animation: slideIn 0.3s forwards;
-}
-.toast.success { background-color: #16a34a; }
-.toast.error { background-color: #dc2626; }
-.toast.warning { background-color: #f59e0b; color: white; }
-.toast.info { background-color: #2563eb; }
+        @keyframes slideIn {
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateX(100%); }
+        }
 
-@keyframes slideIn {
-    to { opacity: 1; transform: translateX(0); }
-}
-@keyframes fadeOut {
-    to { opacity: 0; transform: translateX(100%); }
-}
-
+        @media (max-width: 600px) {
+            .legend-box {
+                width: 160px;
+                font-size: 12px;
+            }
+            #map {
+                height: 450px;
+            }
+        }
     </style>
 </head>
 <body>
-<div id="toast-container"></div>
+    <div id="toast-container"></div>
     <div class="container">
         <h2>ระบบเฝ้าระวังจุดความร้อน VIIRS (สคพ.11)</h2>
         <div class="subtitle">ครอบคลุมพื้นที่ นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ (ข้อมูล NASA FIRMS เฉพาะดาวเทียม Suomi-NPP)</div>
@@ -119,8 +127,6 @@
                 🛰️ <b>สถานะข้อมูล:</b> <span id="lastUpdateDisplay" style="color: #b91c1c; font-weight: bold;">กำลังดาวน์โหลดและประมวลผลข้อมูล NASA...</span>
             </div>
             
-
-<!--
             <div id="timeSelectorContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
                 <label style="font-size: 16px; margin-bottom: 10px; display: block;">
                     <b>แสดงจุดความร้อนย้อนหลัง: </b>
@@ -131,44 +137,15 @@
                         <input type="radio" name="timeFilter" value="24-all" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;" checked> 24 ชม.
                     </label>
                     <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="radio" name="timeFilter" value="12-all" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 12 ชม.
+                        <input type="radio" name="timeFilter" value="12-morning" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 12 ชม. รอบเช้า (00:00 - 11:59 น.)
                     </label>
                     <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="radio" name="timeFilter" value="12-morning" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> รอบเช้า (00:00 - 11:59 น.)
-                    </label>
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="radio" name="timeFilter" value="12-afternoon" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> รอบบ่าย (12:00 - 23:59 น.)
+                        <input type="radio" name="timeFilter" value="12-afternoon" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 12 ชม. รอบบ่าย (12:00 - 23:59 น.)
                     </label>
                 </div>
             </div>
-
--->
-
-<div id="timeSelectorContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
-    <label style="font-size: 16px; margin-bottom: 10px; display: block;">
-        <b>แสดงจุดความร้อนย้อนหลัง: </b>
-        <span style="font-size: 14px; color: #64748b;">(นับจากเวลาปัจจุบัน)</span>
-    </label>
-    <div style="display: flex; gap: 15px; align-items: center; font-size: 15px; margin-top: 10px; flex-wrap: wrap;">
-        <label style="display: flex; align-items: center; cursor: pointer;">
-            <input type="radio" name="timeFilter" value="24-all" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;" checked> 24 ชม.
-        </label>
-        <label style="display: flex; align-items: center; cursor: pointer;">
-            <input type="radio" name="timeFilter" value="12-morning" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 12 ชม. รอบเช้า (00:00 - 11:59 น.)
-        </label>
-        <label style="display: flex; align-items: center; cursor: pointer;">
-            <input type="radio" name="timeFilter" value="12-afternoon" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 12 ชม. รอบบ่าย (12:00 - 23:59 น.)
-        </label>
-    </div>
-</div>
-
-
-
-
-
-
-
         </div>
+        
         <div id="map-wrapper">
             <div id="loadingOverlay">
                 <div class="spinner"></div>
@@ -182,38 +159,35 @@
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script>
         const gasWebappUrl = 'https://script.google.com/macros/s/AKfycbwauoX4D4hwP-G3V1CVcQ5z7ttImLfOKNnKhihFlZYGWovoDlaHAdO8EJiPAx5YRgxG/exec';
-
         const longdoApiKey = 'bce812933744d2530d26f0fabb0017cf';
-// ควรตรวจสอบว่า API Key ที่ใช้มีการจำกัดจำนวนครั้งต่อวันหรือไม่ เพราะหากมีจุดความร้อนจำนวนมากและการเรียกข้อมูลที่อยู่ (Address) เกิดขึ้นพร้อมกันตอนกดดาวน์โหลด อาจจะทำให้ติด Limit
         
-        // เพิ่มตัวแปรแคชสำหรับเก็บข้อมูลที่อยู่
         const addressCache = {};
 
-function showToast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
 
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
 
-    let icon = 'ℹ️';
-    if (type === 'success') icon = '✅';
-    if (type === 'error') icon = '❌';
-    if (type === 'warning') icon = '⚠️';
+            let icon = 'ℹ️';
+            if (type === 'success') icon = '✅';
+            if (type === 'error') icon = '❌';
+            if (type === 'warning') icon = '⚠️';
 
-    toast.innerHTML = `<span style="margin-right:8px; font-size:16px;">${icon}</span> ${message}`;
-    container.appendChild(toast);
+            toast.innerHTML = `<span style="margin-right:8px; font-size:16px;">${icon}</span> ${message}`;
+            container.appendChild(toast);
 
-    // หน่วงเวลา 3 วินาทีก่อนให้ข้อความเลื่อนหายไป
-    setTimeout(() => {
-        toast.style.animation = 'fadeOut 0.3s forwards';
-        setTimeout(() => {
-            toast.remove();
-        }, 300);
-    }, 3000);
-}
-    // ข้อมูลโพลีกอนขอบเขตประเทศไทยอ้างอิงจาก https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json ภายใต้ MIT License
-        const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/thailand.json';
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s forwards';
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3000);
+        }
+                  
+// Use cutMap.html to cut the four provinces' boundary from https://raw.githubusercontent.com/cvibhagool/thailand-map/master/thailand-provinces.geojson
+    	 const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/REO11_boundary.geojson';
 
         const map = L.map('map').setView([15.2, 102.5], 8);
 
@@ -222,23 +196,9 @@ function showToast(message, type = 'info') {
            attribution: '© OpenStreetMap'
         });
 
-
-/*
-const osmLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}&hl=th', {
-  maxZoom: 18,
-  attribution: '© Google Maps'
-});
-*/
-
-/*
-const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=th', {
-    maxZoom: 18,
-    attribution: '© Google Maps (Satellite)'
-});
-*/
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
            maxZoom: 18,
-            attribution: '© Esri'
+           attribution: '© Esri'
         });
 
         osmLayer.addTo(map);
@@ -345,20 +305,18 @@ const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}
                         }
                     }
 
-  if (apiError && allFeatures.length === 0) {
-    document.getElementById('lastUpdateDisplay').innerText = "⚠️ แจ้งเตือนจากระบบส่วนกลาง: " + apiError;
-    document.getElementById('loadingOverlay').style.display = 'none';
-    // เอา showToast ออกจากตรงนี้
-    return;
-}
+                    if (apiError && allFeatures.length === 0) {
+                        document.getElementById('lastUpdateDisplay').innerText = "⚠️ แจ้งเตือนจากระบบส่วนกลาง: " + apiError;
+                        document.getElementById('loadingOverlay').style.display = 'none';
+                        return;
+                    }
 
-globalFeatures = allFeatures;
-document.getElementById('loadingOverlay').style.display = 'none';
-applyTimeFilter();
-// นำมาวางไว้ตรงนี้แทนครับ
-showToast("อัปเดตข้อมูลจุดความร้อนล่าสุดเรียบร้อยแล้ว", "success");
+                    globalFeatures = allFeatures;
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    applyTimeFilter();
+                    showToast("อัปเดตข้อมูลจุดความร้อนล่าสุดเรียบร้อยแล้ว", "success");
 
-                   })
+                })
                 .catch(error => {
                     console.error('เกิดข้อผิดพลาด', error);
                     document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูลส่วนกลาง";
@@ -503,14 +461,14 @@ showToast("อัปเดตข้อมูลจุดความร้อน
                     if (satellite === 'N') satDisplay = "Suomi-NPP";
                     else if (satellite === '1') satDisplay = "NOAA-20";
 
-    		    let googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`; 
+                    let googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=$${lat},${lon}`; 
 
                     let popupContent = "<div style='font-size: 14px;'>";
                     popupContent += "<div style='background-color:#4a148c; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>รายละเอียดจุดความร้อน (NASA)</b></div>";
                     popupContent += "<b>พิกัด:</b> " + lat + "  " + lon + "<br>";
                     popupContent += "<b>ตำบล:</b> <span class='tb-name' style='color:#0284c7; font-weight:bold;'>กำลังค้นหา...</span><br>";
                     popupContent += "<b>อำเภอ:</b> <span class='ap-name' style='color:#0284c7; font-weight:bold;'>กำลังค้นหา...</span><br>";
-                    popupContent += "<b>จังหวัด:</b> " + prov + "<br>";
+                    popupContent += "<b>จังหวัด:</b> <span class='pv-name' style='color:#0284c7; font-weight:bold;'>" + prov + "</span><br>";
                     popupContent += "<b>วันที่:</b> " + dateDisplay + "<br>";
                     popupContent += "<b>เวลา:</b> " + timeDisplay + " (เวลาประเทศไทย)<br>";
                     popupContent += "<b>ดาวเทียม:</b> " + satDisplay + "<br>";
@@ -526,13 +484,14 @@ showToast("อัปเดตข้อมูลจุดความร้อน
                         
                         let tambonEl = popupNode.querySelector('.tb-name');
                         let amphoeEl = popupNode.querySelector('.ap-name');
+                        let provinceEl = popupNode.querySelector('.pv-name'); 
                         let cacheKey = lat + "_" + lon;
                         
                         if (tambonEl && tambonEl.innerText === 'กำลังค้นหา...') {
-                            // ระบบเรียกใช้แคช
                             if (addressCache[cacheKey]) {
                                 tambonEl.innerText = addressCache[cacheKey].tambon;
                                 amphoeEl.innerText = addressCache[cacheKey].amphoe;
+                                provinceEl.innerText = addressCache[cacheKey].province; 
                             } else {
                                 fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
                                 .then(res => res.json())
@@ -540,29 +499,36 @@ showToast("อัปเดตข้อมูลจุดความร้อน
                                     if(data) {
                                         let t = data.subdistrict || "-";
                                         let a = data.district || "-";
+                                        let p = data.province || "-"; 
                                         
                                         t = t.replace(/^ตำบล/g, '').replace(/^แขวง/g, '').trim();
                                         a = a.replace(/^อำเภอ/g, '').replace(/^เขต/g, '').trim();
+                                        p = p.replace(/^จังหวัด/g, '').trim(); 
                                         
                                         let finalTambon = t !== "-" ? t : "ไม่ระบุ";
                                         let finalAmphoe = a !== "-" ? a : "ไม่ระบุ";
+                                        let finalProvince = p !== "-" ? p : prov; 
                                         
                                         tambonEl.innerText = finalTambon;
                                         amphoeEl.innerText = finalAmphoe;
-                                        addressCache[cacheKey] = { tambon: finalTambon, amphoe: finalAmphoe };
+                                        provinceEl.innerText = finalProvince;
+                                        
+                                        addressCache[cacheKey] = { tambon: finalTambon, amphoe: finalAmphoe, province: finalProvince };
                                     } else {
                                         tambonEl.innerText = "ไม่พบข้อมูล";
                                         amphoeEl.innerText = "ไม่พบข้อมูล";
+                                        provinceEl.innerText = prov;
                                     }
                                 }).catch(() => {
                                     tambonEl.innerText = "ข้อผิดพลาด";
                                     amphoeEl.innerText = "ข้อผิดพลาด";
+                                    provinceEl.innerText = prov;
                                 });
                             }
                         }
                     });
-                }
-            });
+                } 
+            }); 
 
             hotspotLayer.addLayer(geoJsonLayer);
             map.addLayer(hotspotLayer);
@@ -596,167 +562,159 @@ showToast("อัปเดตข้อมูลจุดความร้อน
             summaryControl.addTo(map);
         }
 
-const downloadControl = L.control({position: 'topright'});
+        const downloadControl = L.control({position: 'topright'});
 
-downloadControl.onAdd = function (map) {
-    const btn = L.DomUtil.create('div', 'leaflet-control-download');
-    btn.innerHTML = '📥';
-    btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
-    
-    L.DomEvent.disableClickPropagation(btn);
-
-    btn.onclick = async function() {
-        if (!globalFeatures || globalFeatures.length === 0) {
-showToast("ไม่พบข้อมูลจุดความร้อนในระบบ", "warning");
-            return;
-        }
-
-        btn.innerHTML = '⏳';
-        btn.classList.add('loading');
-        btn.title = 'กำลังดึงข้อมูลพื้นที่ กรุณารอสักครู่...';
-
-        try {
-            let now = new Date();
-            if (globalFeatures.length > 0) {
-                let maxTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()));
-                now = new Date(maxTime);
-            }
+        downloadControl.onAdd = function (map) {
+            const btn = L.DomUtil.create('div', 'leaflet-control-download');
+            btn.innerHTML = '📥';
+            btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
             
-            let exportCutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
-            let exportDataPromises = [];
-            const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+            L.DomEvent.disableClickPropagation(btn);
 
-            globalFeatures.forEach(feature => {
-                let dt = feature.properties.parsed_datetime;
-                
-                // คำนวณเพื่อกรองเวลาสำหรับการดาวน์โหลดให้ตรงกับสิ่งที่แสดงบนจอ
-                let localHour = (dt.getUTCHours() + 7) % 24;
-                let isMorning = localHour >= 0 && localHour < 12;
-                let isAfternoon = localHour >= 12 && localHour < 24;
-                
-                let matchTimeOfDay = true;
-                if (currentTimeOfDay === 'morning' && !isMorning) matchTimeOfDay = false;
-                if (currentTimeOfDay === 'afternoon' && !isAfternoon) matchTimeOfDay = false;
+            btn.onclick = async function() {
+                if (!globalFeatures || globalFeatures.length === 0) {
+                    showToast("ไม่พบข้อมูลจุดความร้อนในระบบ", "warning");
+                    return;
+                }
 
-                if (dt >= exportCutoffTime && matchTimeOfDay) {
-                    let props = feature.properties;
-                    let thDate = new Date(dt.getTime() + (7 * 60 * 60 * 1000));
+                btn.innerHTML = '⏳';
+                btn.classList.add('loading');
+                btn.title = 'กำลังดึงข้อมูลพื้นที่ กรุณารอสักครู่...';
+
+                try {
+                    let now = new Date();
+                    if (globalFeatures.length > 0) {
+                        let maxTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()));
+                        now = new Date(maxTime);
+                    }
                     
-                    let dateStr = thDate.getUTCDate() + " " + thaiMonths[thDate.getUTCMonth()] + " " + (thDate.getUTCFullYear() + 543);
-                    let timeStr = String(thDate.getUTCHours()).padStart(2, '0') + ":" + String(thDate.getUTCMinutes()).padStart(2, '0') + " น.";
+                    let exportCutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
+                    let exportDataPromises = [];
+                    const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 
-                    let confStr = String(props.confidence).trim().toLowerCase();
-                    let confDisplay = props.confidence;
-                    if (confStr === 'h' || confStr === 'high') confDisplay = "สูง";
-                    else if (confStr === 'n' || confStr === 'nominal') confDisplay = "ปานกลาง";
-                    else if (confStr === 'l' || confStr === 'low') confDisplay = "ต่ำ";
+                    globalFeatures.forEach(feature => {
+                        let dt = feature.properties.parsed_datetime;
+                        
+                        let localHour = (dt.getUTCHours() + 7) % 24;
+                        let isMorning = localHour >= 0 && localHour < 12;
+                        let isAfternoon = localHour >= 12 && localHour < 24;
+                        
+                        let matchTimeOfDay = true;
+                        if (currentTimeOfDay === 'morning' && !isMorning) matchTimeOfDay = false;
+                        if (currentTimeOfDay === 'afternoon' && !isAfternoon) matchTimeOfDay = false;
 
-                    let satDisplay = props.satellite === 'N' ? "Suomi-NPP" : (props.satellite === '1' ? "NOAA-20" : props.satellite);
-                    let lat = props.latitude;
-                    let lon = props.longitude;
-		    let googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;                    
-                    let cacheKey = lat + "_" + lon;
-                    
-                    let buildRowData = (tambon, amphoe) => ({
-                        "จังหวัด": props.prov_name,
-                        "อำเภอ": amphoe,
-                        "ตำบล": tambon,
-                        "ละติจูด": lat,
-                        "ลองจิจูด": lon,
-                        "วันที่": dateStr,
-                        "เวลา": timeStr,
-                        "ดาวเทียม": satDisplay,
-                        "ความเชื่อมั่น": confDisplay,
-                        "ลิงก์แผนที่": googleMapsUrl
+                        if (dt >= exportCutoffTime && matchTimeOfDay) {
+                            let props = feature.properties;
+                            let thDate = new Date(dt.getTime() + (7 * 60 * 60 * 1000));
+                            
+                            let dateStr = thDate.getUTCDate() + " " + thaiMonths[thDate.getUTCMonth()] + " " + (thDate.getUTCFullYear() + 543);
+                            let timeStr = String(thDate.getUTCHours()).padStart(2, '0') + ":" + String(thDate.getUTCMinutes()).padStart(2, '0') + " น.";
+
+                            let confStr = String(props.confidence).trim().toLowerCase();
+                            let confDisplay = props.confidence;
+                            if (confStr === 'h' || confStr === 'high') confDisplay = "สูง";
+                            else if (confStr === 'n' || confStr === 'nominal') confDisplay = "ปานกลาง";
+                            else if (confStr === 'l' || confStr === 'low') confDisplay = "ต่ำ";
+
+                            let satDisplay = props.satellite === 'N' ? "Suomi-NPP" : (props.satellite === '1' ? "NOAA-20" : props.satellite);
+                            let lat = props.latitude;
+                            let lon = props.longitude;
+                            let googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=$${lat},${lon}`;
+                            let cacheKey = lat + "_" + lon;
+                            
+                            let buildRowData = (tambon, amphoe, province) => ({
+                                "จังหวัด": province, 
+                                "อำเภอ": amphoe,
+                                "ตำบล": tambon,
+                                "ละติจูด": lat,
+                                "ลองจิจูด": lon,
+                                "วันที่": dateStr,
+                                "เวลา": timeStr,
+                                "ดาวเทียม": satDisplay,
+                                "ความเชื่อมั่น": confDisplay,
+                                "ลิงก์แผนที่": googleMapsUrl
+                            });
+
+                            if (addressCache[cacheKey]) {
+                                exportDataPromises.push(Promise.resolve(buildRowData(addressCache[cacheKey].tambon, addressCache[cacheKey].amphoe, addressCache[cacheKey].province)));
+                            } else {
+                                let promise = fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
+                                    .then(res => {
+                                        if (!res.ok) throw new Error("API Error");
+                                        return res.json();
+                                    })
+                                    .then(data => {
+                                        let tambon = "ไม่พบข้อมูล";
+                                        let amphoe = "ไม่พบข้อมูล";
+                                        let province = props.prov_name; 
+                                        if(data) {
+                                            tambon = (data.subdistrict || "ไม่พบข้อมูล").replace(/^(ตำบล|ต\.|แขวง)/g, '').trim();
+                                            amphoe = (data.district || "ไม่พบข้อมูล").replace(/^(อำเภอ|อ\.|เขต)/g, '').trim();
+                                            if (data.province) {
+                                                province = data.province.replace(/^จังหวัด/g, '').trim();
+                                            }
+                                        }
+                                        addressCache[cacheKey] = { tambon, amphoe, province };
+                                        return buildRowData(tambon, amphoe, province);
+                                    })
+                                    .catch(() => {
+                                        return buildRowData("ไม่พบข้อมูล", "ไม่พบข้อมูล", props.prov_name);
+                                    });
+                                
+                                exportDataPromises.push(promise);
+                            }
+                        }
                     });
 
-                    // ตรวจสอบแคชก่อนเรียก API
-                    if (addressCache[cacheKey]) {
-                        exportDataPromises.push(Promise.resolve(buildRowData(addressCache[cacheKey].tambon, addressCache[cacheKey].amphoe)));
-                    } else {
-                        let promise = fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
-                            .then(res => {
-                                if (!res.ok) throw new Error("API Error");
-                                return res.json();
-                            })
-                            .then(data => {
-                                let tambon = "ไม่พบข้อมูล";
-                                let amphoe = "ไม่พบข้อมูล";
-                                if(data) {
-                                    tambon = (data.subdistrict || "ไม่พบข้อมูล").replace(/^(ตำบล|ต\.|แขวง)/g, '').trim();
-                                    amphoe = (data.district || "ไม่พบข้อมูล").replace(/^(อำเภอ|อ\.|เขต)/g, '').trim();
-                                }
-                                addressCache[cacheKey] = { tambon, amphoe };
-                                return buildRowData(tambon, amphoe);
-                            })
-                            .catch(() => {
-                                return buildRowData("ไม่พบข้อมูล", "ไม่พบข้อมูล");
-                            });
-                        
-                        exportDataPromises.push(promise);
+                    if (exportDataPromises.length === 0) {
+                        showToast("ไม่มีข้อมูลจุดความร้อนในช่วงเวลาที่เลือก", "warning");
+                        btn.innerHTML = '📥';
+                        btn.classList.remove('loading');
+                        btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
+                        return;
                     }
+
+                    let exportData = await Promise.all(exportDataPromises);
+                    let worksheet = XLSX.utils.json_to_sheet(exportData);
+                    let workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "Hotspots_Report");
+                    
+                    let timeSuffix = "_ย้อนหลัง_24_ชม";
+                    if (currentTimeframe === 12) {
+                        if (currentTimeOfDay === 'morning') timeSuffix = "_รอบเช้า";
+                        else if (currentTimeOfDay === 'afternoon') timeSuffix = "_รอบบ่าย";
+                    }
+                    
+                    let fileThaiDate = "";
+                    const fullThaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
+                    if (globalFeatures.length > 0) {
+                        let latestTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()));
+                        let localDt = new Date(latestTime + (7 * 60 * 60 * 1000)); 
+                        
+                        let d = localDt.getUTCDate();
+                        let m = fullThaiMonths[localDt.getUTCMonth()];
+                        let y = localDt.getUTCFullYear() + 543;
+                        
+                        fileThaiDate = `${d}${m}${y}_`; 
+                    }
+
+                    let fileName = "จุดความร้อน_สคพ11_" + fileThaiDate + timeSuffix + ".xlsx";
+                    XLSX.writeFile(workbook, fileName);
+
+                } catch (error) {
+                    console.error(error);
+                    showToast("เกิดข้อผิดพลาดในการดึงข้อมูลพื้นที่", "error");
+                } finally {
+                    btn.innerHTML = '📥';
+                    btn.classList.remove('loading');
+                    btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
                 }
-            });
+            };
+            return btn;
+        };
 
-            if (exportDataPromises.length === 0) {
-     showToast("ไม่มีข้อมูลจุดความร้อนในช่วงเวลาที่เลือก", "warning");
-                btn.innerHTML = '📥';
-                btn.classList.remove('loading');
-                btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
-                return;
-            }
-
-            let exportData = await Promise.all(exportDataPromises);
-            let worksheet = XLSX.utils.json_to_sheet(exportData);
-            let workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Hotspots_Report");
-            
-            let timeSuffix = "_ย้อนหลัง_24_ชม";
-            if (currentTimeframe === 12) {
-                if (currentTimeOfDay === 'morning') timeSuffix = "_รอบเช้า";
-                else if (currentTimeOfDay === 'afternoon') timeSuffix = "_รอบบ่าย";
-            }
-            
-        //    let fileName = "จุดความร้อน_สคพ11_ย้อนหลัง" + currentTimeframe + "ชม" + timeSuffix + ".xlsx";
-        //    XLSX.writeFile(workbook, fileName);
-
-
-// --- ส่วนการตั้งชื่อไฟล์ใหม่ ---
-let fileThaiDate = "";
-const fullThaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-
-if (globalFeatures.length > 0) {
-    // ดึงวันที่จากจุดความร้อนล่าสุดที่มีในข้อมูล
-    let latestTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()));
-    let localDt = new Date(latestTime + (7 * 60 * 60 * 1000)); // ปรับเป็นเวลาไทย
-    
-    let d = localDt.getUTCDate();
-    let m = fullThaiMonths[localDt.getUTCMonth()];
-    let y = localDt.getUTCFullYear() + 543;
-    
-    fileThaiDate = `${d}${m}${y}_`; // ผลลัพธ์จะเป็น "19มีนาคม2569_"
-}
-
-let fileName = "จุดความร้อน_สคพ11_" + fileThaiDate + timeSuffix + ".xlsx";
-XLSX.writeFile(workbook, fileName);
-
-
-
-
-
-        } catch (error) {
-            console.error(error);
-showToast("เกิดข้อผิดพลาดในการดึงข้อมูลพื้นที่", "error");
-        } finally {
-            btn.innerHTML = '📥';
-            btn.classList.remove('loading');
-            btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
-        }
-    };
-    return btn;
-};
-
-downloadControl.addTo(map);
- </script>
+        downloadControl.addTo(map);
+    </script>
 </body>
 </html>
