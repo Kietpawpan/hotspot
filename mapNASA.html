@@ -674,17 +674,49 @@
                         return;
                     }
 
-                    let exportData = await Promise.all(exportDataPromises);
-                    let worksheet = XLSX.utils.json_to_sheet(exportData);
-                    let workbook = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(workbook, worksheet, "Hotspots_Report");
+			let exportData = await Promise.all(exportDataPromises);
                     
+                    // 1. ตั้งค่าคำต่อท้ายชื่อไฟล์และหัวรายงาน
                     let timeSuffix = "_ย้อนหลัง_24_ชม";
+                    let reportTitleTime = "ย้อนหลัง 24 ชม.";
                     if (currentTimeframe === 12) {
-                        if (currentTimeOfDay === 'morning') timeSuffix = "_รอบเช้า";
-                        else if (currentTimeOfDay === 'afternoon') timeSuffix = "_รอบบ่าย";
+                        if (currentTimeOfDay === 'morning') {
+                            timeSuffix = "_รอบเช้า";
+                            reportTitleTime = "รอบเช้า (00:00 - 11:59 น.)";
+                        } else if (currentTimeOfDay === 'afternoon') {
+                            timeSuffix = "_รอบบ่าย";
+                            reportTitleTime = "รอบบ่าย (12:00 - 23:59 น.)";
+                        }
                     }
+
+                    // 2. สร้างหัวกระดาษรายงาน (บรรทัดที่ 1 และ 2)
+                    let reportTitle = `รายงานจุดความร้อน VIIRS (Suomi-NPP) พื้นที่ สคพ.11 ข้อมูล${reportTitleTime}`;
+                    let worksheet = XLSX.utils.aoa_to_sheet([
+                        [reportTitle], // บรรทัดที่ 1: ชื่อรายงาน
+                        []             // บรรทัดที่ 2: เว้นว่าง
+                    ]);
+
+                    // 3. นำข้อมูลตารางไปต่อท้าย เริ่มที่บรรทัด A3
+                    XLSX.utils.sheet_add_json(worksheet, exportData, { origin: "A3" });
+
+                    // 4. จัดรูปแบบความกว้างคอลัมน์ให้อ่านง่าย
+                    worksheet['!cols'] = [
+                        { wch: 15 }, // A: จังหวัด
+                        { wch: 18 }, // B: อำเภอ
+                        { wch: 18 }, // C: ตำบล
+                        { wch: 12 }, // D: ละติจูด
+                        { wch: 12 }, // E: ลองจิจูด
+                        { wch: 18 }, // F: วันที่
+                        { wch: 12 }, // G: เวลา
+                        { wch: 15 }, // H: ดาวเทียม
+                        { wch: 15 }, // I: ความเชื่อมั่น
+                        { wch: 60 }  // J: ลิงก์แผนที่ (กว้างพิเศษ)
+                    ];
+
+                    let workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "Hotspots");
                     
+                    // 5. จัดการชื่อไฟล์ภาษาไทย
                     let fileThaiDate = "";
                     const fullThaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
@@ -701,7 +733,7 @@
 
                     let fileName = "จุดความร้อน_สคพ11_" + fileThaiDate + timeSuffix + ".xlsx";
                     XLSX.writeFile(workbook, fileName);
-
+       
                 } catch (error) {
                     console.error(error);
                     showToast("เกิดข้อผิดพลาดในการดึงข้อมูลพื้นที่", "error");
