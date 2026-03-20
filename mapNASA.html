@@ -564,188 +564,190 @@
 
         const downloadControl = L.control({position: 'topright'});
 
-        downloadControl.onAdd = function (map) {
-            const btn = L.DomUtil.create('div', 'leaflet-control-download');
-            btn.innerHTML = '📥';
-            btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
+downloadControl.onAdd = function (map) {
+    const btn = L.DomUtil.create('div', 'leaflet-control-download');
+    btn.innerHTML = '📥';
+    btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
+    
+    L.DomEvent.disableClickPropagation(btn);
+
+    // ฟังก์ชันช่วยหน่วงเวลา (Delay)
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    btn.onclick = async function() {
+        if (!globalFeatures || globalFeatures.length === 0) {
+            showToast("ไม่พบข้อมูลจุดความร้อนในระบบ", "warning");
+            return;
+        }
+
+        // ปรับแต่งปุ่มให้พร้อมแสดงข้อความเปอร์เซ็นต์
+        btn.classList.add('loading');
+        btn.style.width = '55px'; // ขยายปุ่มให้กว้างขึ้นเพื่อใส่ตัวเลข
+        btn.style.fontSize = '14px'; // ลดขนาดตัวอักษรลงนิดหน่อย
+        btn.style.fontWeight = 'bold';
+        btn.innerHTML = '0%'; // เริ่มต้นที่ 0%
+        
+        try {
+            let now = new Date();
+            if (globalFeatures.length > 0) {
+                let maxTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()));
+                now = new Date(maxTime);
+            }
             
-            L.DomEvent.disableClickPropagation(btn);
+            let exportCutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
+            const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 
-            btn.onclick = async function() {
-                if (!globalFeatures || globalFeatures.length === 0) {
-                    showToast("ไม่พบข้อมูลจุดความร้อนในระบบ", "warning");
-                    return;
-                }
+            // 1. คัดกรองจุดความร้อนที่เข้าเงื่อนไขเวลา
+            let targetFeatures = globalFeatures.filter(feature => {
+                let dt = feature.properties.parsed_datetime;
+                let localHour = (dt.getUTCHours() + 7) % 24;
+                let isMorning = localHour >= 0 && localHour < 12;
+                let isAfternoon = localHour >= 12 && localHour < 24;
+                
+                let matchTimeOfDay = true;
+                if (currentTimeOfDay === 'morning' && !isMorning) matchTimeOfDay = false;
+                if (currentTimeOfDay === 'afternoon' && !isAfternoon) matchTimeOfDay = false;
 
-                btn.innerHTML = '⏳';
-                btn.classList.add('loading');
-                btn.title = 'กำลังดึงข้อมูลพื้นที่ กรุณารอสักครู่...';
+                return dt >= exportCutoffTime && matchTimeOfDay;
+            });
 
-                try {
-                    let now = new Date();
-                    if (globalFeatures.length > 0) {
-                        let maxTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()));
-                        now = new Date(maxTime);
-                    }
-                    
-                    let exportCutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
-                    let exportDataPromises = [];
-                    const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+            if (targetFeatures.length === 0) {
+                showToast("ไม่มีข้อมูลจุดความร้อนในช่วงเวลาที่เลือก", "warning");
+                return; // ออกจากการทำงาน ซึ่งจะวิ่งไปที่ block finally ทันทีเพื่อคืนค่าปุ่มเดิม
+            }
 
-                    globalFeatures.forEach(feature => {
-                        let dt = feature.properties.parsed_datetime;
+            showToast(`กำลังเตรียมข้อมูล ${targetFeatures.length} จุด กรุณารอสักครู่...`, "info");
+            
+            let exportData = [];
+
+            // 2. ดึงข้อมูลทีละจุดพร้อมหน่วงเวลาเพื่อป้องกัน API Limit
+            for (let i = 0; i < targetFeatures.length; i++) {
+                let feature = targetFeatures[i];
+                let props = feature.properties;
+                let dt = props.parsed_datetime;
+                let thDate = new Date(dt.getTime() + (7 * 60 * 60 * 1000));
+                
+                let dateStr = thDate.getUTCDate() + " " + thaiMonths[thDate.getUTCMonth()] + " " + (thDate.getUTCFullYear() + 543);
+                let timeStr = String(thDate.getUTCHours()).padStart(2, '0') + ":" + String(thDate.getUTCMinutes()).padStart(2, '0') + " น.";
+
+                let confStr = String(props.confidence).trim().toLowerCase();
+                let confDisplay = props.confidence;
+                if (confStr === 'h' || confStr === 'high') confDisplay = "สูง";
+                else if (confStr === 'n' || confStr === 'nominal') confDisplay = "ปานกลาง";
+                else if (confStr === 'l' || confStr === 'low') confDisplay = "ต่ำ";
+
+                let satDisplay = props.satellite === 'N' ? "Suomi-NPP" : (props.satellite === '1' ? "NOAA-20" : props.satellite);
+                let lat = props.latitude;
+                let lon = props.longitude;
+                let googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=$$${lat},${lon}`;
+                let cacheKey = lat + "_" + lon;
+                
+                let buildRowData = (tambon, amphoe, province) => ({
+                    "จังหวัด": province, 
+                    "อำเภอ": amphoe,
+                    "ตำบล": tambon,
+                    "ละติจูด": lat,
+                    "ลองจิจูด": lon,
+                    "วันที่": dateStr,
+                    "เวลา": timeStr,
+                    "ดาวเทียม": satDisplay,
+                    "ความเชื่อมั่น": confDisplay,
+                    "ลิงก์แผนที่": googleMapsUrl
+                });
+
+                if (addressCache[cacheKey]) {
+                    exportData.push(buildRowData(addressCache[cacheKey].tambon, addressCache[cacheKey].amphoe, addressCache[cacheKey].province));
+                } else {
+                    try {
+                        let res = await fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`);
+                        if (!res.ok) throw new Error("API Error");
+                        let data = await res.json();
                         
-                        let localHour = (dt.getUTCHours() + 7) % 24;
-                        let isMorning = localHour >= 0 && localHour < 12;
-                        let isAfternoon = localHour >= 12 && localHour < 24;
-                        
-                        let matchTimeOfDay = true;
-                        if (currentTimeOfDay === 'morning' && !isMorning) matchTimeOfDay = false;
-                        if (currentTimeOfDay === 'afternoon' && !isAfternoon) matchTimeOfDay = false;
-
-                        if (dt >= exportCutoffTime && matchTimeOfDay) {
-                            let props = feature.properties;
-                            let thDate = new Date(dt.getTime() + (7 * 60 * 60 * 1000));
-                            
-                            let dateStr = thDate.getUTCDate() + " " + thaiMonths[thDate.getUTCMonth()] + " " + (thDate.getUTCFullYear() + 543);
-                            let timeStr = String(thDate.getUTCHours()).padStart(2, '0') + ":" + String(thDate.getUTCMinutes()).padStart(2, '0') + " น.";
-
-                            let confStr = String(props.confidence).trim().toLowerCase();
-                            let confDisplay = props.confidence;
-                            if (confStr === 'h' || confStr === 'high') confDisplay = "สูง";
-                            else if (confStr === 'n' || confStr === 'nominal') confDisplay = "ปานกลาง";
-                            else if (confStr === 'l' || confStr === 'low') confDisplay = "ต่ำ";
-
-                            let satDisplay = props.satellite === 'N' ? "Suomi-NPP" : (props.satellite === '1' ? "NOAA-20" : props.satellite);
-                            let lat = props.latitude;
-                            let lon = props.longitude;
-                            let googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=$${lat},${lon}`;
-                            let cacheKey = lat + "_" + lon;
-                            
-                            let buildRowData = (tambon, amphoe, province) => ({
-                                "จังหวัด": province, 
-                                "อำเภอ": amphoe,
-                                "ตำบล": tambon,
-                                "ละติจูด": lat,
-                                "ลองจิจูด": lon,
-                                "วันที่": dateStr,
-                                "เวลา": timeStr,
-                                "ดาวเทียม": satDisplay,
-                                "ความเชื่อมั่น": confDisplay,
-                                "ลิงก์แผนที่": googleMapsUrl
-                            });
-
-                            if (addressCache[cacheKey]) {
-                                exportDataPromises.push(Promise.resolve(buildRowData(addressCache[cacheKey].tambon, addressCache[cacheKey].amphoe, addressCache[cacheKey].province)));
-                            } else {
-                                let promise = fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
-                                    .then(res => {
-                                        if (!res.ok) throw new Error("API Error");
-                                        return res.json();
-                                    })
-                                    .then(data => {
-                                        let tambon = "ไม่พบข้อมูล";
-                                        let amphoe = "ไม่พบข้อมูล";
-                                        let province = props.prov_name; 
-                                        if(data) {
-                                            tambon = (data.subdistrict || "ไม่พบข้อมูล").replace(/^(ตำบล|ต\.|แขวง)/g, '').trim();
-                                            amphoe = (data.district || "ไม่พบข้อมูล").replace(/^(อำเภอ|อ\.|เขต)/g, '').trim();
-                                            if (data.province) {
-                                                province = data.province.replace(/^จังหวัด/g, '').trim();
-                                            }
-                                        }
-                                        addressCache[cacheKey] = { tambon, amphoe, province };
-                                        return buildRowData(tambon, amphoe, province);
-                                    })
-                                    .catch(() => {
-                                        return buildRowData("ไม่พบข้อมูล", "ไม่พบข้อมูล", props.prov_name);
-                                    });
-                                
-                                exportDataPromises.push(promise);
+                        let tambon = "ไม่พบข้อมูล";
+                        let amphoe = "ไม่พบข้อมูล";
+                        let province = props.prov_name; 
+                        if(data) {
+                            tambon = (data.subdistrict || "ไม่พบข้อมูล").replace(/^(ตำบล|ต\.|แขวง)/g, '').trim();
+                            amphoe = (data.district || "ไม่พบข้อมูล").replace(/^(อำเภอ|อ\.|เขต)/g, '').trim();
+                            if (data.province) {
+                                province = data.province.replace(/^จังหวัด/g, '').trim();
                             }
                         }
-                    });
-
-                    if (exportDataPromises.length === 0) {
-                        showToast("ไม่มีข้อมูลจุดความร้อนในช่วงเวลาที่เลือก", "warning");
-                        btn.innerHTML = '📥';
-                        btn.classList.remove('loading');
-                        btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
-                        return;
-                    }
-
-			let exportData = await Promise.all(exportDataPromises);
-                    
-                    // 1. ตั้งค่าคำต่อท้ายชื่อไฟล์และหัวรายงาน
-                    let timeSuffix = "_ย้อนหลัง_24_ชม";
-                    let reportTitleTime = "ย้อนหลัง 24 ชม.";
-                    if (currentTimeframe === 12) {
-                        if (currentTimeOfDay === 'morning') {
-                            timeSuffix = "_รอบเช้า";
-                            reportTitleTime = "รอบเช้า (00:00 - 11:59 น.)";
-                        } else if (currentTimeOfDay === 'afternoon') {
-                            timeSuffix = "_รอบบ่าย";
-                            reportTitleTime = "รอบบ่าย (12:00 - 23:59 น.)";
-                        }
-                    }
-
-                    // 2. สร้างหัวกระดาษรายงาน (บรรทัดที่ 1 และ 2)
-                    let reportTitle = `รายงานจุดความร้อน VIIRS (Suomi-NPP) พื้นที่ สคพ.11 ข้อมูล${reportTitleTime}`;
-                    let worksheet = XLSX.utils.aoa_to_sheet([
-                        [reportTitle], // บรรทัดที่ 1: ชื่อรายงาน
-                        []             // บรรทัดที่ 2: เว้นว่าง
-                    ]);
-
-                    // 3. นำข้อมูลตารางไปต่อท้าย เริ่มที่บรรทัด A3
-                    XLSX.utils.sheet_add_json(worksheet, exportData, { origin: "A3" });
-
-                    // 4. จัดรูปแบบความกว้างคอลัมน์ให้อ่านง่าย
-                    worksheet['!cols'] = [
-                        { wch: 15 }, // A: จังหวัด
-                        { wch: 18 }, // B: อำเภอ
-                        { wch: 18 }, // C: ตำบล
-                        { wch: 12 }, // D: ละติจูด
-                        { wch: 12 }, // E: ลองจิจูด
-                        { wch: 18 }, // F: วันที่
-                        { wch: 12 }, // G: เวลา
-                        { wch: 15 }, // H: ดาวเทียม
-                        { wch: 15 }, // I: ความเชื่อมั่น
-                        { wch: 60 }  // J: ลิงก์แผนที่ (กว้างพิเศษ)
-                    ];
-
-                    let workbook = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(workbook, worksheet, "Hotspots");
-                    
-                    // 5. จัดการชื่อไฟล์ภาษาไทย
-                    let fileThaiDate = "";
-                    const fullThaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-
-                    if (globalFeatures.length > 0) {
-                        let latestTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()));
-                        let localDt = new Date(latestTime + (7 * 60 * 60 * 1000)); 
+                        addressCache[cacheKey] = { tambon, amphoe, province };
+                        exportData.push(buildRowData(tambon, amphoe, province));
                         
-                        let d = localDt.getUTCDate();
-                        let m = fullThaiMonths[localDt.getUTCMonth()];
-                        let y = localDt.getUTCFullYear() + 543;
-                        
-                        fileThaiDate = `${d}${m}${y}_`; 
-                    }
+                        await delay(1100); 
 
-                    let fileName = "จุดความร้อน_สคพ11_" + fileThaiDate + timeSuffix + ".xlsx";
-                    XLSX.writeFile(workbook, fileName);
-       
-                } catch (error) {
-                    console.error(error);
-                    showToast("เกิดข้อผิดพลาดในการดึงข้อมูลพื้นที่", "error");
-                } finally {
-                    btn.innerHTML = '📥';
-                    btn.classList.remove('loading');
-                    btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
+                    } catch (err) {
+                        exportData.push(buildRowData("ไม่พบข้อมูล", "ไม่พบข้อมูล", props.prov_name));
+                    }
                 }
-            };
-            return btn;
-        };
 
+                // คำนวณเปอร์เซ็นต์และแสดงผลบนปุ่มสดๆ
+                let percent = Math.round(((i + 1) / targetFeatures.length) * 100);
+                btn.innerHTML = `${percent}%`;
+            }
+
+            // 3. เริ่มกระบวนการสร้างไฟล์ Excel และตกแต่งตาราง
+            let timeSuffix = "_ย้อนหลัง_24_ชม";
+            let reportTitleTime = "ย้อนหลัง 24 ชม.";
+            if (currentTimeframe === 12) {
+                if (currentTimeOfDay === 'morning') {
+                    timeSuffix = "_รอบเช้า";
+                    reportTitleTime = "รอบเช้า (00:00 - 11:59 น.)";
+                } else if (currentTimeOfDay === 'afternoon') {
+                    timeSuffix = "_รอบบ่าย";
+                    reportTitleTime = "รอบบ่าย (12:00 - 23:59 น.)";
+                }
+            }
+
+            let reportTitle = `รายงานจุดความร้อน VIIRS (Suomi-NPP) พื้นที่ สคพ.11 ข้อมูล${reportTitleTime}`;
+            let worksheet = XLSX.utils.aoa_to_sheet([
+                [reportTitle], 
+                []             
+            ]);
+
+            XLSX.utils.sheet_add_json(worksheet, exportData, { origin: "A3" });
+
+            worksheet['!cols'] = [
+                { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, 
+                { wch: 18 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 60 } 
+            ];
+
+            let workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Hotspots");
+            
+            let fileThaiDate = "";
+            const fullThaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
+            if (globalFeatures.length > 0) {
+                let latestTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()));
+                let localDt = new Date(latestTime + (7 * 60 * 60 * 1000)); 
+                let d = localDt.getUTCDate();
+                let m = fullThaiMonths[localDt.getUTCMonth()];
+                let y = localDt.getUTCFullYear() + 543;
+                fileThaiDate = `${d}${m}${y}_`; 
+            }
+
+            let fileName = "จุดความร้อน_สคพ11_" + fileThaiDate + timeSuffix + ".xlsx";
+            XLSX.writeFile(workbook, fileName);
+            showToast("ดาวน์โหลดไฟล์ Excel สำเร็จ", "success");
+
+        } catch (error) {
+            console.error(error);
+            showToast("เกิดข้อผิดพลาดในการสร้างไฟล์", "error");
+        } finally {
+            // คืนค่าปุ่มกลับสู่สภาพเดิมทั้งหมดหลังประมวลผลเสร็จ
+            btn.innerHTML = '📥';
+            btn.classList.remove('loading');
+            btn.style.width = '34px';
+            btn.style.fontSize = '18px';
+            btn.style.fontWeight = 'normal';
+            btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
+        }
+    };
+    return btn;
+};
         downloadControl.addTo(map);
     </script>
 </body>
