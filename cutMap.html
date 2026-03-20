@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>โปรแกรมตัดขอบเขตแผนที่ GeoJSON (ออฟไลน์)</title>
+    <style>
+        body { font-family: sans-serif; padding: 40px; background-color: #f3f4f6; text-align: center; }
+        .box { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px #cbd5e1; max-width: 600px; margin: 0 auto; }
+        button { background-color: #4a148c; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 8px; cursor: pointer; margin-top: 20px; }
+        button:hover { background-color: #380b6e; }
+        button:disabled { background-color: #94a3b8; cursor: not-allowed; }
+        #status { margin-top: 20px; font-size: 16px; color: #334155; line-height: 1.5; }
+        input[type="file"] { margin: 20px 0; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2 style="color: #4a148c;">เครื่องมือตัดขอบเขตแผนที่ สคพ.11 (ออฟไลน์)</h2>
+        <p>กรุณาเลือกไฟล์แผนที่ประเทศไทยที่ดาวน์โหลดไว้</p>
+
+	<input type="file" id="fileInput">
+        <br>
+        <button id="btn" onclick="processFile()" disabled>เริ่มตัดแผนที่และดาวน์โหลด</button>
+        <div id="status">รอการเลือกไฟล์...</div>
+    </div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const btn = document.getElementById('btn');
+            if (e.target.files.length > 0) {
+                btn.disabled = false;
+                document.getElementById('status').innerHTML = "ไฟล์พร้อมประมวลผล";
+            } else {
+                btn.disabled = true;
+                document.getElementById('status').innerHTML = "รอการเลือกไฟล์...";
+            }
+        });
+
+        function processFile() {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) return;
+
+            const btn = document.getElementById('btn');
+            const status = document.getElementById('status');
+            btn.disabled = true;
+            status.innerHTML = "<b>กำลังอ่านไฟล์...</b><br>อาจใช้เวลาสักครู่เนื่องจากไฟล์มีขนาดใหญ่";
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    status.innerHTML = "<b>กำลังประมวลผล...</b><br>คัดแยกเฉพาะพื้นที่ สคพ.11";
+                    const data = JSON.parse(e.target.result);
+                    
+                    const targets = ["Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Surin"];
+                    const filteredFeatures = data.features.filter(f => {
+                        const propStr = JSON.stringify(f.properties);
+                        return targets.some(t => propStr.includes(t));
+                    });
+
+                    const newData = {
+                        type: "FeatureCollection",
+                        features: filteredFeatures
+                    };
+
+                    const blob = new Blob([JSON.stringify(newData)], {type: "application/json"});
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = "REO11_boundary_highres.geojson";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    status.innerHTML = "<span style='color: #16a34a; font-weight: bold;'>สำเร็จ ดาวน์โหลดไฟล์ REO11_boundary_highres.geojson เรียบร้อยแล้ว</span>";
+                } catch(err) {
+                    status.innerHTML = "<span style='color: #dc2626; font-weight: bold;'>เกิดข้อผิดพลาด ไฟล์ไม่ถูกต้อง</span>";
+                    console.error(err);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = "ดำเนินการอีกครั้ง";
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
