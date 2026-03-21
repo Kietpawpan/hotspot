@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<!---ให้แสดงฟอนต์ไทยได้---->
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <link rel="stylesheet" href="css/ui.css">
+
+<!---ให้ Safari ตั้งชื่อแอพตามที่เรากำหนด แทนการตั้งชื่อตาม title tag---->
+    <meta name="apple-mobile-web-app-title" content="PM2.5 สคพ.11">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+
+<!---ใส่ภาพโมบายแอพ สำหรับ Add to Home Screen---->
+    <link rel="apple-touch-icon" href="https://kietpawpan.github.io/hotspot/img/PMicon.png">
+
+<!---ใส่ชื่อโมบายแอพ---->
+    <title>PM2.5 Control Center EPO11</title>
+
+<!---ใช้สไตล์ที่ถอดมา---->
+    <link rel="stylesheet" href="./dist/output.css">
+
+<!---ใช้ฟอนต์สารบรรณ---->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!---สร้าง chart ควรกำหนดเลขรุ่น เพื่อความเสถียร---->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+ 
+<!---ใช้ js เข้ารหัส SHA3-512 ที่เจาะยากที่สุดในปีที่พัฒนา 2569---->   
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha3/0.8.0/sha3.min.js"></script>
+
+  </head>
+
+<body class="bg-gray-100 p-4">
+
+    <div id="globalLoginModal" class="fixed inset-0 bg-purple-900 flex justify-center items-center" style="z-index: 10000 !important;">
+        
+  <div class="bg-white p-6 sm:p-10 rounded-xl shadow-2xl w-[95%] sm:w-11/12 min-w-[350px] max-w-xl border-t-4 border-purple-600">
+            <div class="text-center mb-6">
+                <img src="img/pcd.svg" alt="โลโก้กรมควบคุมมลพิษ" class="w-20 h-20 mx-auto object-contain drop-shadow-md mb-2">
+                <h2 class="text-2xl font-bold text-purple-800">เข้าสู่ระบบ</h2>
+                <p class="text-gray-600 text-sm">Login</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="loginUsername">ชื่อผู้ใช้งาน</label>
+                    <input type="text" id="loginUsername" class="w-full border-2 border-purple-300 rounded-lg p-3 focus:outline-none focus:border-purple-600" placeholder="Username">
+                </div>
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="loginPassword">รหัสผ่าน</label>
+                    <input type="password" id="loginPassword" class="w-full border-2 border-purple-300 rounded-lg p-3 focus:outline-none focus:border-purple-600" placeholder="Password">
+                </div>
+                <div id="loginError" class="text-red-500 text-sm text-center hidden">ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง</div>
+                <button id="btnLogin" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md">
+                    เข้าสู่ระบบ
+                </button>
+            </div>
+        </div>
+    </div>
+
+   
+    <div id="loader" style="display: none;">กำลังโหลดข้อมูล...</div>
+
+    <header class="bg-purple-800 text-white p-4 rounded-t-xl shadow-md text-center">
+        <div class="flex justify-center items-center gap-6 mb-4">
+            <img src="img/mnre.PNG" alt="โลโก้กระทรวงทรัพยากรธรรมชาติและสิ่งแวดล้อม" class="w-20 h-20 md:w-28 md:h-28 object-contain drop-shadow-lg">
+            <img src="img/pcd.svg" alt="โลโก้กรมควบคุมมลพิษ" class="w-16 h-16 md:w-24 md:h-24 object-contain drop-shadow-lg">
+        </div>
+
+        <h1 class="text-2xl font-bold">ศูนย์ควบคุมสถานการณ์ PM<sub>2.5</sub></h1>
+        <h2 class="text-lg">สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 11 (นครราชสีมา)</h2>
+        <p id="report-date" class="mt-2 font-semibold text-yellow-300"></p>
+        
+        <div class="mt-4 flex flex-col md:flex-row justify-center items-center gap-3">
+            <a href="#" id="hazeDownloadBtnClean" class="btn-clean" target="_blank">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
+                ดาวน์โหลดข้อมูลฝุ่น PM2.5 ประจำวัน
+            </a>
+        </div>
+    </header>
+
+    <main class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 hidden" id="main-content">
+        
+        <div class="md:col-span-2 space-y-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4" id="province-cards"></div>
+
+            <div class="bg-white p-4 rounded-xl shadow-md overflow-x-auto">
+                <h3 class="text-xl font-bold mb-2">รายงานสถานการณ์คุณภาพอากาศ PM2.5 (ย้อนหลัง)</h3>
+                <table class="w-full text-center border-collapse">
+                    <thead>
+                        <tr class="bg-purple-200">
+                            <th class="border p-2">จังหวัด</th>
+                            <th class="border p-2">ย้อนหลัง 4 วัน</th>
+                            <th class="border p-2">ย้อนหลัง 3 วัน</th>
+                            <th class="border p-2">ย้อนหลัง 2 วัน</th>
+                            <th class="border p-2">ย้อนหลัง 1 วัน</th>
+                            <th class="border p-2 bg-purple-400 text-white">วันนี้</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table"></tbody>
+                </table>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-md">
+                <h3 class="text-xl font-bold mb-2 text-center">เปรียบเทียบค่า PM2.5 วันปัจจุบัน</h3>
+                <canvas id="aqiChart" height="100"></canvas>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <div class="bg-purple-100 p-4 rounded-xl shadow-md border-2 border-purple-300">
+                <h3 class="text-xl font-bold text-center text-purple-800 mb-4">มาตรฐานคุณภาพอากาศ PM2.5</h3>
+                <div class="flex flex-col space-y-2">
+                    <div class="p-3 aqi-excellent rounded text-center"><p class="font-bold">0 - 15</p><p>ดีมาก</p></div>
+                    <div class="p-3 aqi-good rounded text-center"><p class="font-bold">15.1 - 25.0</p><p>ดี</p></div>
+                    <div class="p-3 aqi-moderate rounded text-center"><p class="font-bold">25.1 - 37.5</p><p>ปานกลาง</p></div>
+                    <div class="p-3 aqi-unhealthy-sensitive rounded text-center"><p class="font-bold">37.6 - 75.0</p><p>เริ่มมีผลกระทบ</p></div>
+                    <div class="p-3 aqi-unhealthy rounded text-center"><p class="font-bold">75.1 ขึ้นไป</p><p>มีผลกระทบ</p></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="md:col-span-3 bg-white p-4 rounded-xl shadow-md mt-4">
+            <h3 class="text-xl font-bold mb-2 text-center">แนวโน้มค่าฝุ่น PM2.5 ย้อนหลัง 4 วัน (4 จังหวัด)</h3>
+            <canvas id="historyLineChart" height="80"></canvas>
+        </div>
+
+        <div class="md:col-span-3 bg-purple-50 p-6 rounded-xl shadow-md border-2 border-purple-400 mt-2">
+            <h3 class="text-xl font-bold mb-3 text-purple-800 flex items-center gap-2">
+                ✨ ผู้ช่วย AI ร่างข้อแนะนำ (สำหรับ ผอ.สคพ.11)
+            </h3>
+            <p class="text-sm text-purple-600 mb-4">ดึงข้อมูลจุดความร้อน ฝุ่น PM2.5 และสภาพอากาศล่าสุดมาประมวลผลเป็นร่างข้อความสำหรับส่งเข้า LINE กลุ่มศูนย์บัญชาการ</p>
+            <button id="btnAnalyze" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-lg flex justify-center items-center gap-2">
+                ✨ ประมวลผลข้อมูลด้วย Gemini API
+            </button>
+            <div id="aiResult" class="mt-4 text-sm md:text-base text-gray-800 bg-white p-5 rounded-lg border border-purple-200 shadow-inner hidden">
+            </div>
+        </div>
+
+        <div class="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-white p-4 rounded-xl shadow-md">
+                <h3 class="text-xl font-bold mb-2 text-center">จำนวนวันค่าฝุ่นเกินมาตรฐานสะสม</h3>
+                <canvas id="daysOverChart" height="150"></canvas>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-md">
+                <h3 class="text-xl font-bold mb-2 text-center">จุดความร้อนสะสม</h3>
+                <canvas id="hotspotAccumChart" height="150"></canvas>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-md">
+                <h3 class="text-xl font-bold mb-2 text-center">แผนที่จุดความร้อน (พื้นที่ สคพ.11)</h3>
+                <div class="flex flex-col sm:flex-row justify-center gap-3">
+                    <a href="https://kietpawpan.github.io/hotspot/mapNASA.html" class="btn-clean w-full sm:w-auto justify-center" target="_blank">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
+                        จุดความร้อนล่าสุด
+                    </a>
+                    <a href="https://kietpawpan.github.io/hotspot/mapSum.html" class="btn-clean w-full sm:w-auto justify-center" target="_blank">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 16L7 11l1.41-1.41L11 12.17V4h2v8.17l2.59-2.58L17 11l-5 5zm-6 4v-2h12v2H6z"/></svg>
+                        จุดความร้อนย้อนหลัง 30 วัน
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="md:col-span-3 bg-white p-4 rounded-xl shadow-md">
+            <h3 class="text-xl font-bold mb-4 text-center">กราฟอัตราการระบายอากาศ (Ventilation Rate) พื้นที่ สคพ.11</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="border rounded-lg p-3 text-center bg-gray-50">
+                    <h4 class="font-bold mb-2 text-purple-800">จ.นครราชสีมา</h4>
+                    <img src="https://ozone.tmd.go.th/PM2.5/weather/Metgram/output/VR_daily/daily_VR_431201.png" alt="อัตราการระบายอากาศ จ.นครราชสีมา" class="w-full h-auto rounded shadow-sm">
+                </div>
+                <div class="border rounded-lg p-3 text-center bg-gray-50">
+                    <h4 class="font-bold mb-2 text-purple-800">จ.ชัยภูมิ</h4>
+                    <img src="https://ozone.tmd.go.th/PM2.5/weather/Metgram/output/VR_daily/daily_VR_403201.png" alt="อัตราการระบายอากาศ จ.ชัยภูมิ" class="w-full h-auto rounded shadow-sm">
+                </div>
+                <div class="border rounded-lg p-3 text-center bg-gray-50">
+                    <h4 class="font-bold mb-2 text-purple-800">จ.บุรีรัมย์</h4>
+                    <img src="https://ozone.tmd.go.th/PM2.5/weather/Metgram/output/VR_daily/daily_VR_436201.png" alt="อัตราการระบายอากาศ จ.บุรีรัมย์" class="w-full h-auto rounded shadow-sm">
+                </div>
+                <div class="border rounded-lg p-3 text-center bg-gray-50">
+                    <h4 class="font-bold mb-2 text-purple-800">จ.สุรินทร์</h4>
+                    <img src="https://ozone.tmd.go.th/PM2.5/weather/Metgram/output/VR_daily/daily_VR_432201.png" alt="อัตราการระบายอากาศ จ.สุรินทร์" class="w-full h-auto rounded shadow-sm">
+                </div>
+            </div>
+        </div>
+
+        <div class="md:col-span-3 bg-white p-4 rounded-xl shadow-md mt-4">
+            <h3 class="text-xl font-bold mb-4 text-center">สภาพอากาศที่มีผลต่อการสะสมของฝุ่นละออง (TMD API)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="weather-cards">
+                <div class="col-span-1 md:col-span-4 text-center p-4 text-gray-500">กำลังเชื่อมต่อข้อมูลจากกรมอุตุนิยมวิทยา...</div>
+            </div>
+        </div>
+
+        <div id="passwordModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50">
+            <div class="bg-white p-6 rounded-xl shadow-2xl w-11/12 max-w-sm border-t-4 border-purple-600">
+                <h3 class="text-lg font-bold text-purple-800 mb-4 text-center">🔒 กรุณาใส่รหัสผ่าน</h3>
+                <p class="text-sm text-gray-600 mb-4 text-center">เพื่อยืนยันสิทธิ์การใช้งานผู้ช่วย AI</p>
+<input type="password" id="aiPasswordInput" class="w-full border-2 border-purple-300 rounded-lg p-3 text-center text-xl tracking-widest focus:outline-none focus:border-purple-600 mb-2" placeholder="รหัสผ่าน">
+                <div id="passwordError" class="text-red-500 text-sm text-center mb-4 hidden">รหัสผ่านไม่ถูกต้อง โปรดลองอีกครั้ง</div>
+                <div class="flex gap-3 mt-2">
+                    <button id="btnCancelPassword" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-200">ยกเลิก</button>
+                    <button id="btnConfirmPassword" class="flex-1 bg-purple-700 hover:bg-purple-800 text-white font-bold py-2 px-4 rounded-lg transition duration-200">ยืนยัน</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="mt-8 mb-4 text-center text-sm text-gray-500 font-medium">
+        &copy; 2569 สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 11 (นครราชสีมา) epo11@pcd.go.th
+    </footer>
+<script src="js/pmcc.js"></script>
+</body>
+</html>
