@@ -1,0 +1,51 @@
+        /* บังคับใช้ฟอนต์ Sarabun ทั้งหน้าเว็บ */
+        body {
+            font-family: 'Sarabun', sans-serif !important;
+        }
+        
+        .aqi-excellent { background-color: #00B0F0; color: white; }
+        .aqi-good { background-color: #92D050; color: black; }
+        .aqi-moderate { background-color: #FFFF00; color: black; }
+        .aqi-unhealthy-sensitive { background-color: #FFC000; color: black; }
+        .aqi-unhealthy { background-color: #FF0000; color: white; }
+        
+        #loader {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex; justify-content: center; align-items: center;
+            font-size: 1.5rem; font-weight: bold; color: #6b21a8;
+            z-index: 50;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .btn-clean {
+            display: inline-flex;
+            align-items: center;
+            padding: 10px 24px;
+            background-color: #ffffff;
+            color: #374151;
+            text-decoration: none;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-family: sans-serif;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        .btn-clean:hover {
+            border-color: #3b82f6;
+            color: #3b82f6;
+            background-color: #f8fafc;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+        }
+        .btn-clean svg {
+            margin-right: 8px;
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
