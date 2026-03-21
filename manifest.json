@@ -1,5 +1,5 @@
 {
-  "name": "รายงานสถานการณ์ฝุ่น PM2.5 สคพ.11",
+  "name": "ศูนย์ควบคุม PM2.5 สคพ.11",
   "short_name": "PM2.5 สคพ.11",
   "start_url": "./index.html",
   "display": "standalone",
@@ -7,12 +7,7 @@
   "theme_color": "#6b21a8",
   "icons": [
     {
-      "src": "img/pcd.svg",
-      "sizes": "192x192",
-      "type": "image/svg+xml"
-    },
-    {
-      "src": "img/pcd.svg",
+      "src": "img/PMicon.png",
       "sizes": "512x512",
       "type": "image/svg+xml"
     }
