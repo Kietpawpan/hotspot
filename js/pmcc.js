@@ -1,4 +1,22 @@
-        // ✨ พระเอกของเราอยู่ตรงนี้ครับ! สั่ง Register ให้ปลั๊กอินทำงาน
+        // ฟังก์ชันสู้ไม่ถอย: ดึงข้อมูลแบบมี Auto-Retry สูงสุด 3 ครั้ง
+	async function fetchWithRetry(url, retries = 3, delay = 1000) {
+    	for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response; // ถ้าสำเร็จ คืนค่ากลับไปใช้งานทันที
+        } catch (error) {
+            if (i === retries - 1) throw error; // ถ้าสู้ครบ 3 ครั้งแล้วยังพัง ให้ยอมแพ้และโยน Error
+            console.warn(`เชื่อมต่อ ${url} ล้มเหลว กำลังลองใหม่ครั้งที่ ${i + 1}...`);
+            await new Promise(res => setTimeout(res, delay)); // หน่วงเวลา 1 วินาทีก่อนลุยใหม่
+        }
+    }
+}
+
+
+	// ✨ พระเอกของเราอยู่ตรงนี้ครับ! สั่ง Register ให้ปลั๊กอินทำงาน
         Chart.register(ChartDataLabels);
         
         let globalDashboardData = []; // ตัวแปรสำหรับเก็บข้อมูลฝุ่นไปให้ AI ประมวลผล
@@ -604,10 +622,10 @@ async function fetchWeatherData() {
     const fetchPromises = provinces.map(async (prov) => {
         try {
             const meteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${prov.lat}&longitude=${prov.lon}&hourly=boundary_layer_height,precipitation_probability&timezone=Asia%2FBangkok&forecast_days=1`;
-            // ดึง TMD API และ Open-Meteo API พร้อมกัน
+    	// ดึง TMD API และ Open-Meteo API พร้อมกัน (เปลี่ยนมาใช้ระบบดึงซ้ำอัตโนมัติ)
             const [weatherResponse, meteoResponse] = await Promise.all([
-                fetch(`${GAS_WEATHER_PROXY}?lat=${prov.lat}&lon=${prov.lon}`).catch(() => null),
-                fetch(meteoUrl).catch(() => null)
+                fetchWithRetry(`${GAS_WEATHER_PROXY}?lat=${prov.lat}&lon=${prov.lon}`, 3, 1000).catch(() => null),
+                fetchWithRetry(meteoUrl, 3, 1000).catch(() => null)
             ]);
 
             if (weatherResponse && weatherResponse.ok) {
@@ -880,11 +898,18 @@ async function fetchNasaHotspots() {
                             policyAdv = "สถานการณ์ปกติ: ดำเนินมาตรการเฝ้าระวังตามปกติ";
                         }
 
-                        let trendWarning = "";
-                        // ปรับเงื่อนไขการเตือนแนวโน้มให้พิจารณาค่าฝุ่นปัจจุบันด้วย
+			let trendWarning = "";
+                        // ดึงค่า PM2.5 ปัจจุบัน และเวลาชั่วโมงปัจจุบัน (0-23)
                         let currentPMNum = parseFloat(globalWeatherData[province]?.currentPM25) || pmVal;
+                        const currentHour = new Date().getHours();
                         
-                        if (dayMinus2Num > 25.0 && dayMinus1Num > 25.0 && currentPMNum >= 30.0 && dayMinus2Num < dayMinus1Num && dayMinus1Num < currentPMNum) {
+                        // เงื่อนไขที่ 1: แจ้งเตือนภาวะฝุ่นสะสมระหว่างวัน (ทำงานเฉพาะหลัง 16.00 น. เป็นต้นไป)
+                        // เช็คว่าฝุ่นปัจจุบันสูงกว่าตอน 07.00 น. (pmVal) และอยู่ในเกณฑ์สีส้มขึ้นไป (>= 37.6)
+                        if (currentHour >= 16 && currentPMNum > pmVal && currentPMNum >= 37.6) {
+                            trendWarning = "⚠️ ข้อควรระวังเพิ่มเติม: ค่าฝุ่นช่วงบ่าย/เย็นสูงกว่าช่วงเช้า แสดงถึงภาวะสะสมตัวรุนแรงเกินขีดความสามารถในการระบายอากาศของวันนี้ หากเข้าสู่ช่วงกลางคืนที่เพดานอากาศ (BLH) ปิด จะส่งผลให้พรุ่งนี้เช้าสถานการณ์ยิ่งวิกฤตลง ขอแจ้งให้ ทสจ. เตรียมประชาสัมพันธ์กลุ่มเสี่ยงรับมือล่วงหน้า";
+                        } 
+                        // เงื่อนไขที่ 2: แจ้งเตือนเทรนด์ฝุ่นขาขึ้นต่อเนื่องหลายวัน (ลอจิกเดิม)
+                        else if (dayMinus2Num > 25.0 && dayMinus1Num > 25.0 && currentPMNum >= 30.0 && dayMinus2Num < dayMinus1Num && dayMinus1Num < currentPMNum) {
                             trendWarning = "⚠️ แจ้งเตือนพิเศษ: แนวโน้มฝุ่นสูงขึ้นอย่างต่อเนื่อง ควรพิจารณายกระดับมาตรการป้องกันปัญหาฝุ่น PM2.5 ก่อนจะเริ่มมีผลกระทบต่อสุขภาพ";
                         }
 
