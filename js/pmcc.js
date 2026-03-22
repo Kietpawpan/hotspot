@@ -1,8 +1,4 @@
-/*===================================\
- ✨ pmcc.js v1.0 by Monte Kietpawpan  
-  (c) 2026 MIT License      
-\===================================*/
-
+        // ✨ พระเอกของเราอยู่ตรงนี้ครับ! สั่ง Register ให้ปลั๊กอินทำงาน
         Chart.register(ChartDataLabels);
         
         let globalDashboardData = []; // ตัวแปรสำหรับเก็บข้อมูลฝุ่นไปให้ AI ประมวลผล
@@ -559,122 +555,184 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
             return directions[index] + ' (' + degree + '°)';
         }
 
-        async function fetchWeatherData() {
-            const weatherContainer = document.getElementById('weather-cards');
-            const provinces = [
-                { name: 'นครราชสีมา', lat: 14.9799, lon: 102.0978 },
-                { name: 'ชัยภูมิ', lat: 15.8063, lon: 102.0315 },
-                { name: 'บุรีรัมย์', lat: 14.9951, lon: 103.1116 },
-                { name: 'สุรินทร์', lat: 14.8818, lon: 103.4936 }
-            ];
+// ==========================================
+// ส่วนใหม่: กำหนด URL Proxy สำหรับดึง live PM2.5 (ผอ. นำ URL ที่ได้จาก GAS มาใส่ตรงนี้)
+// ==========================================
+const GAS_LIVE_PM25_PROXY = 'https://script.google.com/macros/s/AKfycby2OvLen-3AxfZH2mJ9f-63DClvUT5RuSbbNDuD1_T6SqStLKDYKVapnPOVj_ir_ogj-Q/exec';
 
-            weatherContainer.innerHTML = '';
+async function fetchWeatherData() {
+    const weatherContainer = document.getElementById('weather-cards');
+    const provinces = [
+        { name: 'นครราชสีมา', lat: 14.9799, lon: 102.0978 },
+        { name: 'ชัยภูมิ', lat: 15.8063, lon: 102.0315 },
+        { name: 'บุรีรัมย์', lat: 14.9951, lon: 103.1116 },
+        { name: 'สุรินทร์', lat: 14.8818, lon: 103.4936 }
+    ];
 
-            for (const prov of provinces) {
-                let cardHtml = `
-                    <div class="border rounded-lg p-3 bg-blue-50 relative" id="weather-${prov.name}">
-                        <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
-                        <div class="text-sm space-y-2 text-center text-gray-500">
-                            กำลังโหลดข้อมูล...
-                        </div>
-                    </div>
-                `;
-                weatherContainer.innerHTML += cardHtml;
-            }
+    weatherContainer.innerHTML = '';
 
-            for (const prov of provinces) {
-                try {
-                    const response = await fetch(`${GAS_WEATHER_PROXY}?lat=${prov.lat}&lon=${prov.lon}`);
+    for (const prov of provinces) {
+        let cardHtml = `
+            <div class="border rounded-lg p-3 bg-blue-50 relative" id="weather-${prov.name}">
+                <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
+                <div class="text-sm space-y-2 text-center text-gray-500">
+                    กำลังโหลดข้อมูล...
+                </div>
+            </div>
+        `;
+        weatherContainer.innerHTML += cardHtml;
+    }
 
-                    if (response.ok) {
-                        const data = await response.json();
-                        
-                        if (data && data.WeatherForecasts && data.WeatherForecasts.length > 0) {
-                            const forecastObj = data.WeatherForecasts[0].forecasts[0]; 
-                            const weatherData = forecastObj.data;
-                            const rawTime = forecastObj.time;
-                            
-                            // แปลงเวลา
-                            const dateObj = new Date(rawTime);
-                            const timeString = dateObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-                            const dateString = dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
-                            const displayTime = `${dateString} เวลา ${timeString} น.`;
-                            
-// ดึงค่าสภาพอากาศ
-const condText = weatherData.cond !== undefined ? getWeatherCondition(weatherData.cond) : '-';
-const tc = weatherData.tc !== undefined ? weatherData.tc : '-';
-const rh = weatherData.rh !== undefined ? weatherData.rh : '-';
+    for (const prov of provinces) {
+        try {
+            // 1. ดึงข้อมูลสภาพอากาศจาก TMD API (ผ่าน GAS Proxy) และ PBLH (Open-Meteo) ในบรรทัดเดียวตามเดิม
+            const weatherResponse = await fetch(`${GAS_WEATHER_PROXY}?lat=${prov.lat}&lon=${prov.lon}`);
+            
+            // 2. ส่วนใหม่: ดึงข้อมูล live PM2.5 จาก Air4Thai (ผ่าน GAS Proxy)
+            const livePMResponse = await fetch(`${GAS_LIVE_PM25_PROXY}?action=live_pm25`);
 
+            if (weatherResponse.ok && livePMResponse.ok) {
+                const data = await weatherResponse.json();
+                const livePMData = await livePMResponse.json();
 
-// เปลี่ยนค่าเริ่มต้นโอกาสเกิดฝน (pop) หรือ ปริมาณฝน (rain) จาก '-' เป็น '0 %'
-let rainChanceDisplay = '0 %';
+                if (data && data.WeatherForecasts && data.WeatherForecasts.length > 0) {
+                    const forecastObj = data.WeatherForecasts[0].forecasts[0]; 
+                    const weatherData = forecastObj.data;
+                    const rawTime = forecastObj.time;
+                    
+                    // แปลงเวลา
+                    const dateObj = new Date(rawTime);
+                    const timeString = dateObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                    const dateString = dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+                    const displayTime = `${dateString} เวลา ${timeString} น.`;
+                    
+                    // ดึงค่าสภาพอากาศ
+                    const condText = weatherData.cond !== undefined ? getWeatherCondition(weatherData.cond) : '-';
+                    const tc = weatherData.tc !== undefined ? weatherData.tc : '-';
+                    const rh = weatherData.rh !== undefined ? weatherData.rh : '-';
 
-if (weatherData.pop !== undefined) {
-    rainChanceDisplay = `${weatherData.pop} %`;
-} else if (weatherData.rain !== undefined) {
-    rainChanceDisplay = `ปริมาณ ${weatherData.rain} มม.`;
-}
-
-// ดึงค่าลม
-let windSpeedDisplay = '-';
-if (weatherData.ws10m !== undefined) {
-    const kmh = (weatherData.ws10m * 3.6).toFixed(1);
-    windSpeedDisplay = `${kmh} กม./ชม.`;
-}
-
-const windDirDisplay = weatherData.wd10m !== undefined ? getWindDirectionThai(weatherData.wd10m) : '-';
-
-// เก็บข้อมูลสภาพอากาศไว้ในตัวแปร globalWeatherData เพื่อให้ผู้ช่วยนำไปใช้ (เพิ่ม rainChance)
-globalWeatherData[prov.name] = {
-    cond: condText,
-    temp: tc,
-    rh: rh,
-    windSpeed: windSpeedDisplay,
-    windDir: windDirDisplay,
-    rainChance: rainChanceDisplay
-};
-
-// สร้างไอคอนลูกศรชี้ทิศทางที่ลมพัดไป
-let windArrowHtml = '';
-if (weatherData.wd10m !== undefined) {
-    const rotation = (weatherData.wd10m + 180) % 360;
-    windArrowHtml = `<svg style="transform: rotate(${rotation}deg);" class="inline-block w-5 h-5 ml-1 text-blue-600 font-bold drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 19V5m-7 7l7-7 7 7"></path></svg>`;
-}
-
-document.getElementById(`weather-${prov.name}`).innerHTML = `
-    <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
-    <div class="text-xs text-center text-gray-500 mb-3 bg-white py-1 rounded border border-gray-200 shadow-sm">
-        อัปเดตข้อมูล: <span class="font-bold text-blue-700">${displayTime}</span>
-    </div>
-    <div class="text-sm space-y-2">
-        <div class="flex justify-between"><span>🌤️ สภาพอากาศ:</span> <span class="font-semibold text-blue-700">${condText}</span></div>
-        <div class="flex justify-between"><span>🌡️ อุณหภูมิ:</span> <span class="font-semibold">${tc} °C</span></div>
-        <div class="flex justify-between"><span>💧 ความชื้น:</span> <span class="font-semibold">${rh} %</span></div>
-        <div class="flex justify-between"><span>🌧️ โอกาสเกิดฝน:</span> <span class="font-semibold text-blue-600">${rainChanceDisplay}</span></div>
-        <div class="flex justify-between"><span>🌬️ ความเร็วลม:</span> <span class="font-semibold">${windSpeedDisplay}</span></div>
-        <div class="flex justify-between items-center">
-            <span>🧭 ทิศทางลม:</span> 
-            <span class="font-semibold text-right flex items-center justify-end">
-                ${windDirDisplay} ${windArrowHtml}
-            </span>
-        </div>
-    </div>
-                            `;
-                        } else {
-                            throw new Error('รูปแบบข้อมูลผิดพลาด');
-                        }
-                    } else {
-                        throw new Error('เชื่อมต่อไม่สำเร็จ');
+                    let rainChanceDisplay = '0 %';
+                    if (weatherData.pop !== undefined) {
+                        rainChanceDisplay = `${weatherData.pop} %`;
+                    } else if (weatherData.rain !== undefined) {
+                        rainChanceDisplay = `ปริมาณ ${weatherData.rain} มม.`;
                     }
-                } catch (error) {
+
+                    // ดึงค่าลม
+                    let windSpeedDisplay = '-';
+                    if (weatherData.ws10m !== undefined) {
+                        const kmh = (weatherData.ws10m * 3.6).toFixed(1);
+                        windSpeedDisplay = `${kmh} กม./ชม.`;
+                    }
+
+                    const windDirDisplay = weatherData.wd10m !== undefined ? getWindDirectionThai(weatherData.wd10m) : '-';
+
+                    // ดึงค่า PBLH จาก Open-Meteo API
+                    let blhDisplay = '-';
+                    try {
+                        // **ตรวจสอบ: แก้ไขชื่อตัวแปร hourly ให้ถูกต้องเป็น boundary_layer_height**
+                        const meteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${prov.lat}&longitude=${prov.lon}&hourly=boundary_layer_height&timezone=Asia%2FBangkok&forecast_days=1`;
+                        const meteoResponse = await fetch(meteoUrl);
+                        if (meteoResponse.ok) {
+                            const meteoData = await meteoResponse.json();
+                            const currentHour = new Date().getHours();
+                            // **ตรวจสอบ: แก้ไขชื่อตัวแปรสำหรับการดึงค่าให้ถูกต้อง**
+                            const currentBlh = meteoData.hourly.boundary_layer_height[currentHour];
+                            
+                            if (currentBlh !== null && currentBlh !== undefined) {
+                                blhDisplay = `${Math.round(currentBlh)} เมตร`;
+                            }
+                        }
+                    } catch (meteoErr) {
+                        console.error(`Error fetching BLH for ${prov.name}:`, meteoErr);
+                        blhDisplay = 'ไม่สามารถดึงข้อมูลได้';
+                    }
+
+                    // ==========================================
+                    // ส่วนใหม่: ประมวลผลและสร้าง HTML สำหรับแสดงผล live PM2.5
+                    // ==========================================
+                    const currentLivePM = livePMData[prov.name] || 'N/A';
+                    let livePMClass = 'text-gray-500'; // สีเริ่มต้นกรณี Error/N/A
+                    let livePMIcon = '⚪'; // ไอคอนเริ่มต้น
+
+                    // ตรวจสอบค่าตัวเลขและกำหนดสี/ไอคอนตามระดับเกณฑ์
+                    const pmNum = parseFloat(currentLivePM);
+                    if (!isNaN(pmNum)) {
+                        if (pmNum <= 15.0) { livePMClass = 'text-blue-600'; livePMIcon = '😊'; }
+                        else if (pmNum <= 25.0) { livePMClass = 'text-green-600'; livePMIcon = '🙂'; }
+                        else if (pmNum <= 37.5) { livePMClass = 'text-yellow-600'; livePMIcon = '😐'; }
+                        else if (pmNum <= 75.0) { livePMClass = 'text-orange-600'; livePMIcon = '⚠️'; }
+                        else if (pmNum > 75.0) { livePMClass = 'text-red-600'; livePMIcon = '🚨'; }
+                    }
+
+                    const livePMHtml = `
+                        <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-gray-200 shadow-inner my-2">
+                            <span class="font-bold text-gray-800 flex items-center gap-1">${livePMIcon} ฝุ่น PM2.5 ณ ปัจจุบัน:</span>
+                            <span class="font-extrabold text-lg ${livePMClass}">${currentLivePM} มคก./ลบ.ม.</span>
+                        </div>
+                    `;
+                    // ==========================================
+
+                    // เก็บข้อมูลสภาพอากาศไว้ให้ AI นำไปใช้ (รวมทั้ง BLH และ live PM2.5)
+                    globalWeatherData[prov.name] = {
+                        cond: condText,
+                        temp: tc,
+                        rh: rh,
+                        windSpeed: windSpeedDisplay,
+                        windDir: windDirDisplay,
+                        rainChance: rainChanceDisplay,
+                        blh: blhDisplay,
+                        currentPM25: currentLivePM // ส่งค่า PM2.5 ปัจจุบันไปให้ AI ประมวลผลด้วย
+                    };
+
+                    // สร้างไอคอนลูกศรชี้ทิศทางที่ลมพัดไป
+                    let windArrowHtml = '';
+                    if (weatherData.wd10m !== undefined) {
+                        const rotation = (weatherData.wd10m + 180) % 360;
+                        windArrowHtml = `<svg style="transform: rotate(${rotation}deg);" class="inline-block w-5 h-5 ml-1 text-blue-600 font-bold drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 19V5m-7 7l7-7 7 7"></path></svg>`;
+                    }
+
+                    // แสดงผลบนหน้าเว็บ (รวมทั้งส่วน live PM2.5 และอัปเดต PBLH)
                     document.getElementById(`weather-${prov.name}`).innerHTML = `
                         <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
-                        <div class="text-sm text-red-500 text-center">ไม่สามารถดึงข้อมูลพยากรณ์ได้</div>
-                    `;
-                }
-            }
-        }
+                        <div class="text-xs text-center text-gray-500 mb-2 bg-white py-1 rounded border border-gray-200 shadow-sm">
+                            อัปเดตข้อมูล weather: <span class="font-bold text-blue-700">${displayTime}</span>
+                        </div>
+                        
+                        ${livePMHtml}
 
+                        <div class="text-sm space-y-2">
+                            <div class="flex justify-between"><span>🌤️ สภาพอากาศ:</span> <span class="font-semibold text-blue-700">${condText}</span></div>
+                            <div class="flex justify-between"><span>🌡️ อุณหภูมิ:</span> <span class="font-semibold">${tc} °C</span></div>
+                            <div class="flex justify-between"><span>💧 ความชื้น:</span> <span class="font-semibold">${rh} %</span></div>
+                            <div class="flex justify-between"><span>🌧️ โอกาสเกิดฝน:</span> <span class="font-semibold text-blue-600">${rainChanceDisplay}</span></div>
+                            <div class="flex justify-between"><span>🌬️ ความเร็วลม:</span> <span class="font-semibold">${windSpeedDisplay}</span></div>
+                            <div class="flex justify-between items-center">
+                                <span>🧭 ทิศทางลม:</span> 
+                                <span class="font-semibold text-right flex items-center justify-end">
+                                    ${windDirDisplay} ${windArrowHtml}
+                                </span>
+                            </div>
+                            <div class="flex justify-between border-t border-blue-200 pt-2 mt-2">
+                                <span class="font-bold text-purple-800" title="เพดานการลอยตัวของอากาศ (PBLH)">📏 เพดานการระบายอากาศ:</span> 
+                                <span class="font-bold text-purple-600">${blhDisplay}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    throw new Error('รูปแบบข้อมูลผิดพลาด');
+                }
+            } else {
+                throw new Error('เชื่อมต่อไม่สำเร็จ');
+            }
+        } catch (error) {
+            document.getElementById(`weather-${prov.name}`).innerHTML = `
+                <h4 class="font-bold text-blue-800 text-center border-b pb-2 mb-2">จ.${prov.name}</h4>
+                <div class="text-sm text-red-500 text-center">ไม่สามารถดึงข้อมูลสภาพอากาศได้</div>
+            `;
+        }
+    }
+}
 // ====
 // ดึงข้อมูล NASA ผ่าน Google Apps Script Proxy
 async function fetchNasaHotspots() {
