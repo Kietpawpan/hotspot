@@ -47,14 +47,16 @@
             
             function attemptLogin() {
                 // ใส่ค่ารหัสผ่าน admin ที่ถูกแปลงเป็น SHA3-512 แล้วลงในเครื่องหมายคำพูดด้านล่าง
-                const validUserHash = "be2db9484b90a28ec64f5f412724a554d5f1d4c8ddbd745b7127fd2403909ec2404e2b703a09bdf9622cf2a479c46d9ce222b8b31ee2c76e7c1806a74785c704";
+                const validUserHash = "a69f73cca23a9ac5c8b567dc185a756e97c982164fe25859e0d1dcc1475c80a615b2123af1f5f94c11e3e9402c3ac558f500199d95b6d3e301758586281dcd26";
                 
                 // ใส่ค่ารหัสผ่าน 1234 ที่ถูกแปลงเป็น SHA3-512 แล้วลงในเครื่องหมายคำพูดด้านล่าง
-                const validPassHash = "0a743037efbc9fb828edea04589430ca95a40ab89d338035a9ac66206d89c611ce3f193022ea8b7f34528802912764cd5f5ccd0e0f9b97054a3b8ac782931571";
+                const validPassHash = "a69f73cca23a9ac5c8b567dc185a756e97c982164fe25859e0d1dcc1475c80a615b2123af1f5f94c11e3e9402c3ac558f500199d95b6d3e301758586281dcd26";
                 
                 // แปลงค่าที่กรอกมาให้เป็น SHA3-512 ก่อนเปรียบเทียบ
                 const hashedInputUser = sha3_512(inputUser.value);
                 const hashedInputPass = sha3_512(inputPass.value);
+
+	
                 
                 if (hashedInputUser === validUserHash && hashedInputPass === validPassHash) {
                     // ปิดหน้า Login แล้วแสดงหน้ากำลังโหลดข้อมูล
