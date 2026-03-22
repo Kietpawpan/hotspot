@@ -843,8 +843,9 @@ async function fetchNasaHotspots() {
                             let weatherText = "ไม่มีข้อมูลสภาพอากาศ";
                             if (globalWeatherData[province]) {
                                 const w = globalWeatherData[province];
-                                weatherText = `สภาพอากาศ: ${w.cond} | อุณหภูมิ ${w.temp} °C | ความชื้น ${w.rh} % | โอกาสเกิดฝน ${w.rainChance} | ลม${w.windDir} ความเร็ว ${w.windSpeed}`;
+				weatherText = `สภาพอากาศ: ${w.cond} | อุณหภูมิ ${w.temp} °C | ความชื้น ${w.rh} % | โอกาสเกิดฝน ${w.rainChance} | ลม${w.windDir} ความเร็ว ${w.windSpeed} | เพดานการระบายอากาศ ${w.blh}`;
                             }
+
 
                             const pmVal = parseFloat(pmToday);
                             const dayMinus1Num = parseFloat(row[4]);
