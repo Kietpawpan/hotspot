@@ -666,7 +666,7 @@ async function fetchWeatherData() {
 
                     const livePMHtml = `
                         <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-gray-200 shadow-inner my-2">
-                            <span class="font-bold text-gray-800 flex items-center gap-1">${livePMIcon} ฝุ่น PM2.5 ณ ปัจจุบัน:</span>
+                            <span class="font-bold text-gray-800 flex items-center gap-1">${livePMIcon} ฝุ่น PM2.5:</span>
                             <span class="font-extrabold text-lg ${livePMClass}">${currentLivePM} มคก./ลบ.ม.</span>
                         </div>
                     `;
