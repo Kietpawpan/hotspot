@@ -825,60 +825,74 @@ async function fetchNasaHotspots() {
                         const daysOver68 = parseFloat(row[8]) || 0; 
                         const daysOver69 = parseFloat(row[9]) || 0; 
                         
-                        if (["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"].includes(province)) {
-                            totalHotspots += parseInt(hotspot) || 0;
+		   if (["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"].includes(province)) {
+                        totalHotspots += parseInt(hotspot) || 0;
 
-                            const target69 = Math.floor(daysOver68 * 0.95);
-                            const remainingDays = target69 - daysOver69;
-                            
-                            let quotaText = "";
-                            if (remainingDays > 0) {
-                                quotaText = `เหลือโควต้าอีก ${remainingDays} วัน`;
-                            } else if (remainingDays === 0) {
-                                quotaText = `ไม่มีโควต้าเหลือแล้ว ชนเพดานเป้าหมาย`;
-                            } else {
-                                quotaText = `เกินเป้าหมายแล้ว ${Math.abs(remainingDays)} วัน`;
-                            }
-
-                            let weatherText = "ไม่มีข้อมูลสภาพอากาศ";
-                            if (globalWeatherData[province]) {
-                                const w = globalWeatherData[province];
-				weatherText = `สภาพอากาศ: ${w.cond} | อุณหภูมิ ${w.temp} °C | ความชื้น ${w.rh} % | โอกาสเกิดฝน ${w.rainChance} | ลม${w.windDir} ความเร็ว ${w.windSpeed} | เพดานการระบายอากาศ ${w.blh}`;
-                            }
-
-
-                            const pmVal = parseFloat(pmToday);
-                            const dayMinus1Num = parseFloat(row[4]);
-                            const dayMinus2Num = parseFloat(row[5]);
-
-                            let healthAdv = getHealthAdvice(pmVal);
-                            let policyAdv = "";
-                            
-                            if (pmVal >= 75.1) {
-                                policyAdv = "มาตรการสีแดง (มีผลกระทบ): งดกิจกรรมกลางแจ้ง พิจารณา WFH และปิดสถานศึกษา แจ้งเตือน SMS บังคับใช้กฎหมายกับโรงงานและรถควันดำอย่างเด็ดขาด ห้ามเผาในพื้นที่เกษตรและป่าไม้เด็ดขาด";
-                            } else if (pmVal >= 37.6) {
-                                policyAdv = "มาตรการสีส้ม (เริ่มมีผลกระทบ): แจ้งเตือนกลุ่มเสี่ยง ควบคุมการเผาทางการเกษตรอย่างเคร่งครัด ตั้งจุดตรวจจับควันดำ และเฝ้าระวังการเกิดไฟป่า";
-                            } else if (pmVal >= 25.1) {
-                                policyAdv = "เฝ้าระวัง: ให้กลุ่มเสี่ยงระวังป้องกันตนเอง สวมหน้ากากอนามัย และเตรียมยกระดับมาตรการหากค่าฝุ่นสูงขึ้น";
-                            } else {
-                                policyAdv = "สถานการณ์ปกติ: ดำเนินมาตรการเฝ้าระวังตามปกติ";
-                            }
-
-                            let trendWarning = "";
-                            if (dayMinus2Num > 25.0 && dayMinus2Num <= 37.5 &&
-                                dayMinus1Num > 25.0 && dayMinus1Num <= 37.5 &&
-                                pmVal >= 30.0 && pmVal <= 37.5 &&
-                                dayMinus2Num < dayMinus1Num && dayMinus1Num < pmVal) {
-                                trendWarning = "⚠️ แจ้งเตือนพิเศษ: แนวโน้มฝุ่นสูงขึ้นอย่างต่อเนื่อง ควรพิจารณายกระดับมาตรการป้องกันปัญหาฝุ่น PM2.5 ก่อนจะเริ่มมีผลกระทบต่อสุขภาพ";
-                            }
-
-                            contextData += `* ${province}: PM2.5 = ${pmToday} มคก./ลบ.ม. (เมื่อวาน: ${dayMinus1Num}, สองวันก่อน: ${dayMinus2Num}) | (${quotaText}) | จุดความร้อน ${hotspot} จุด\n  ${weatherText}\n  คำแนะนำสุขภาพ: ${healthAdv}\n  แนวทาง/มาตรการ: ${policyAdv}\n`;
-                            
-                            if (trendWarning !== "") {
-                                contextData += `  ข้อควรระวัง: ${trendWarning}\n`;
-                            }
-                            contextData += `\n`;
+                        const target69 = Math.floor(daysOver68 * 0.95);
+                        const remainingDays = target69 - daysOver69;
+                        
+                        let quotaText = "";
+                        if (remainingDays > 0) {
+                            quotaText = `เหลือโควต้าอีก ${remainingDays} วัน`;
+                        } else if (remainingDays === 0) {
+                            quotaText = `ไม่มีโควต้าเหลือแล้ว ชนเพดานเป้าหมาย`;
+                        } else {
+                            quotaText = `เกินเป้าหมายแล้ว ${Math.abs(remainingDays)} วัน`;
                         }
+
+                        let weatherText = "ไม่มีข้อมูลสภาพอากาศ";
+                        let livePMText = "ไม่มีข้อมูลเรียลไทม์";
+                        if (globalWeatherData[province]) {
+                            const w = globalWeatherData[province];
+                            // เพิ่ม BLH เข้าไปในข้อมูลสภาพอากาศ
+                            weatherText = `สภาพอากาศ: ${w.cond} | อุณหภูมิ ${w.temp} °C | ความชื้น ${w.rh} % | โอกาสเกิดฝน ${w.rainChance} | ลม${w.windDir} ความเร็ว ${w.windSpeed} | เพดานการระบายอากาศ ${w.blh}`;
+                            // ดึงค่า PM2.5 ปัจจุบันมาสร้างข้อความ
+                            livePMText = `PM2.5 ปัจจุบัน (Real-time): ${w.currentPM25} มคก./ลบ.ม.`;
+                        }
+
+                        const pmVal = parseFloat(pmToday); // ค่ารอบ 07.00 น.
+                        const dayMinus1Num = parseFloat(row[4]);
+                        const dayMinus2Num = parseFloat(row[5]);
+                        const dayMinus3Num = parseFloat(row[6]); // ย้อนหลัง 3 วัน
+                        const dayMinus4Num = parseFloat(row[7]); // ย้อนหลัง 4 วัน
+
+                        let healthAdv = getHealthAdvice(pmVal);
+                        let policyAdv = "";
+                        
+                        if (pmVal >= 75.1) {
+                            policyAdv = "มาตรการสีแดง (มีผลกระทบ): งดกิจกรรมกลางแจ้ง พิจารณา WFH และปิดสถานศึกษา แจ้งเตือน SMS บังคับใช้กฎหมายกับโรงงานและรถควันดำอย่างเด็ดขาด ห้ามเผาในพื้นที่เกษตรและป่าไม้เด็ดขาด";
+                        } else if (pmVal >= 37.6) {
+                            policyAdv = "มาตรการสีส้ม (เริ่มมีผลกระทบ): แจ้งเตือนกลุ่มเสี่ยง ควบคุมการเผาทางการเกษตรอย่างเคร่งครัด ตั้งจุดตรวจจับควันดำ และเฝ้าระวังการเกิดไฟป่า";
+                        } else if (pmVal >= 25.1) {
+                            policyAdv = "เฝ้าระวัง: ให้กลุ่มเสี่ยงระวังป้องกันตนเอง สวมหน้ากากอนามัย และเตรียมยกระดับมาตรการหากค่าฝุ่นสูงขึ้น";
+                        } else {
+                            policyAdv = "สถานการณ์ปกติ: ดำเนินมาตรการเฝ้าระวังตามปกติ";
+                        }
+
+                        let trendWarning = "";
+                        // ปรับเงื่อนไขการเตือนแนวโน้มให้พิจารณาค่าฝุ่นปัจจุบันด้วย
+                        let currentPMNum = parseFloat(globalWeatherData[province]?.currentPM25) || pmVal;
+                        
+                        if (dayMinus2Num > 25.0 && dayMinus1Num > 25.0 && currentPMNum >= 30.0 && dayMinus2Num < dayMinus1Num && dayMinus1Num < currentPMNum) {
+                            trendWarning = "⚠️ แจ้งเตือนพิเศษ: แนวโน้มฝุ่นสูงขึ้นอย่างต่อเนื่อง ควรพิจารณายกระดับมาตรการป้องกันปัญหาฝุ่น PM2.5 ก่อนจะเริ่มมีผลกระทบต่อสุขภาพ";
+                        }
+
+                        // ปรับโครงสร้างข้อความที่ส่งให้ AI ใหม่ทั้งหมดให้เป็นระเบียบและครบถ้วน
+                        contextData += `* ${province}:\n`;
+                        contextData += `  - ${livePMText}\n`;
+                        contextData += `  - PM2.5 รอบ 07.00 น. เช้านี้: ${pmToday} มคก./ลบ.ม.\n`;
+                        contextData += `  - PM2.5 ย้อนหลัง 4 วัน: (เมื่อวาน: ${dayMinus1Num} | 2 วันก่อน: ${dayMinus2Num} | 3 วันก่อน: ${dayMinus3Num} | 4 วันก่อน: ${dayMinus4Num})\n`;
+                        contextData += `  - สถานะเป้าหมายปี 2569: ${quotaText} | พบจุดความร้อน ${hotspot} จุด\n`;
+                        contextData += `  - ${weatherText}\n`;
+                        contextData += `  - คำแนะนำสุขภาพ: ${healthAdv}\n`;
+                        contextData += `  - แนวทาง/มาตรการ: ${policyAdv}\n`;
+                        
+                        if (trendWarning !== "") {
+                            contextData += `  - ข้อควรระวัง: ${trendWarning}\n`;
+                        }
+                        contextData += `\n`;
+                    }
+
                     }
                 });
                 contextData += `ยอดรวมจุดความร้อนทั้งหมดในพื้นที่ สคพ.11 (4 จังหวัด) วันนี้ ${totalHotspots} จุด\n`;
