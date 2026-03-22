@@ -601,8 +601,7 @@ async function fetchWeatherData() {
     // สั่งดึงข้อมูลสภาพอากาศของ 4 จังหวัดพร้อมกัน (Parallel)
     const fetchPromises = provinces.map(async (prov) => {
         try {
-            const meteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${prov.lat}&longitude=${prov.lon}&hourly=boundary_layer_height&timezone=Asia%2FBangkok&forecast_days=1`;
-            
+            const meteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${prov.lat}&longitude=${prov.lon}&hourly=boundary_layer_height,precipitation_probability&timezone=Asia%2FBangkok&forecast_days=1`;
             // ดึง TMD API และ Open-Meteo API พร้อมกัน
             const [weatherResponse, meteoResponse] = await Promise.all([
                 fetch(`${GAS_WEATHER_PROXY}?lat=${prov.lat}&lon=${prov.lon}`).catch(() => null),
@@ -637,18 +636,26 @@ async function fetchWeatherData() {
                     }
                     const windDirDisplay = weatherData.wd10m !== undefined ? getWindDirectionThai(weatherData.wd10m) : '-';
 
-                    // จัดการค่า BLH
-                    let blhDisplay = '-';
-                    if (meteoResponse && meteoResponse.ok) {
-                        try {
-                            const meteoData = await meteoResponse.json();
-                            const currentHour = new Date().getHours();
-                            const currentBlh = meteoData.hourly.boundary_layer_height[currentHour];
-                            if (currentBlh !== null && currentBlh !== undefined) {
-                                blhDisplay = `${Math.round(currentBlh)} เมตร`;
-                            }
-                        } catch(e) {}
-                    }
+		// จัดการค่า BLH และโอกาสเกิดฝนจาก Open-Meteo
+		let blhDisplay = '-';
+			if (meteoResponse && meteoResponse.ok) {
+   			 try {
+    			    const meteoData = await meteoResponse.json();
+       				 const currentHour = new Date().getHours();
+        
+       		 // จัดการค่า BLH
+       		 const currentBlh = meteoData.hourly.boundary_layer_height[currentHour];
+        	if (currentBlh !== null && currentBlh !== undefined) {
+          		  blhDisplay = `${Math.round(currentBlh)} เมตร`;
+       		 }
+
+        	// จัดการโอกาสเกิดฝน นำมาเขียนทับค่าจาก TMD
+       		 const currentPop = meteoData.hourly.precipitation_probability[currentHour];
+       		 if (currentPop !== null && currentPop !== undefined) {
+        	    rainChanceDisplay = `${currentPop} %`;
+        	}
+    		} catch(e) {}
+		}
 
                     // จัดการค่า Live PM2.5 ที่ดึงมาแล้ว
                     const currentLivePM = livePMData[prov.name] || 'N/A';
