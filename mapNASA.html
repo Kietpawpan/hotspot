@@ -200,6 +200,11 @@
            maxZoom: 18,
            attribution: '© Esri'
         });
+//เพิ่มแผนที่จราจร
+	const googleTrafficLayer = L.tileLayer('https://mt1.google.com/vt?lyrs=h,traffic&x={x}&y={y}&z={z}', {
+   	 maxZoom: 20,
+   	 attribution: '© Google Maps'
+	});
 
         osmLayer.addTo(map);
 
@@ -207,7 +212,17 @@
             "แผนที่ถนน (OSM)": osmLayer,
             "ภาพถ่ายดาวเทียม (Esri)": satelliteLayer
         };
-        L.control.layers(baseMaps).addTo(map);
+
+// เพิ่มสถานีตรวจอากาศ
+const aqmLayer = L.layerGroup().addTo(map);
+
+// รวม Layer ทั้งหมดไว้ในตัวแปรเดียว
+const overlayMaps = {
+//    "สภาพการจราจร (Google)": googleTrafficLayer,
+    "สถานีตรวจวัดคุณภาพอากาศ": aqmLayer
+};
+
+L.control.layers(baseMaps, overlayMaps).addTo(map);
 
         const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
         const targetProvincesThai = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
@@ -476,7 +491,11 @@
                     popupContent += "<a href='" + googleMapsUrl + "' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>";
                     popupContent += "</div>";
                     
-                    layer.bindPopup(popupContent);
+// แก้ไขจากเดิม:
+// layer.bindPopup(popupContent);
+
+// เปลี่ยนเป็น:
+layer.bindPopup(popupContent, { autoClose: false, closeOnClick: false });
 
                     layer.on('popupopen', function(e) {
                         let popupNode = e.popup._contentNode;
@@ -749,6 +768,171 @@ downloadControl.onAdd = function (map) {
     return btn;
 };
         downloadControl.addTo(map);
+
+// ดึงข้อมูลสถานีตรวจอากาศที่คัดกรองแล้วจาก Google Apps Script
+function fetchAQMData() {
+    const url = 'https://script.google.com/macros/s/AKfycby-YFuRlXJlQSfqMafbUuhjHaPiRYKM1bN0v7Bz0al3rHu5i4biaqaxhM9j71aa1Jtv/exec';
+    
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+
+            data.forEach(station => {
+                const lat = parseFloat(station.lat);
+                const lon = parseFloat(station.lon);
+                const pm25Value = station.pm25;
+                
+                // แปลงค่า PM2.5 เป็นตัวเลขเพื่อจัดกลุ่มสีและ Emoji
+                let pmNum = parseFloat(pm25Value);
+                let textColor = "#94a3b8"; // สีเทาสำหรับกรณีไม่มีข้อมูล
+                let emoji = "❓";
+
+                if (!isNaN(pmNum)) {
+                    if (pmNum <= 15.0) {
+                        textColor = "#38bdf8"; // สีฟ้า
+                        emoji = "😊" + " ดีมาก";
+                    } else if (pmNum <= 25.0) {
+                        textColor = "#4ade80"; // สีเขียว
+                        emoji = "🙂" + " ดี";
+                    } else if (pmNum <= 37.5) {
+                        textColor = "#facc15"; // สีเหลือง
+                        emoji = "😐" + " ปานกลาง";
+                    } else if (pmNum <= 75.0) {
+                        textColor = "#fb923c"; // สีส้ม
+                        emoji = "⚠️" + " เริ่มมีผลกระทบต่อสุขภาพ";
+                    } else {
+                        textColor = "#f87171"; // สีแดง
+                        emoji = "🚨"+ " มีผลกระทบต่อสุขภาพ";
+                    }
+                }
+
+                // จัดรูปแบบวันที่และเวลา
+                let thaiDateTimeDisplay = station.date + " " + station.time;
+                try {
+                    let dateParts = station.date.split('-');
+                    if (dateParts.length === 3) {
+                        let d = parseInt(dateParts[2], 10);
+                        let mIndex = parseInt(dateParts[1], 10) - 1;
+                        let y = parseInt(dateParts[0], 10);
+
+                        // แปลงเป็น พ.ศ. หากยังเป็น ค.ศ.
+                        if (y < 2500) y += 543; 
+
+                        const fullThaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+                        
+                        if (mIndex >= 0 && mIndex <= 11) {
+                            let timeParts = station.time.split(':');
+                            let timeFormatted = station.time;
+                            if (timeParts.length >= 2) {
+                                timeFormatted = timeParts[0] + ":" + timeParts[1];
+                            }
+                            thaiDateTimeDisplay = `${d} ${fullThaiMonths[mIndex]} ${y} ${timeFormatted} น.`;
+                        }
+                    }
+                } catch(e) {
+                    console.error("เกิดข้อผิดพลาดในการแปลงวันที่", e);
+                }
+
+                // สร้างไอคอนสามเหลี่ยม
+                const triangleSvg = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="12,2 22,20 2,20" fill="#9333ea" stroke="#ffffff" stroke-width="2"/>
+                </svg>`;
+
+                const customIcon = L.divIcon({
+                    html: triangleSvg,
+                    className: '', 
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12], 
+                    popupAnchor: [0, -12] 
+                });
+
+                const marker = L.marker([lat, lon], { icon: customIcon });
+
+                // เตรียม HTML สำหรับ Popup พร้อมใส่ Emoji
+                let popupHTML = "<div style='font-size: 14px;'>";
+                popupHTML += "<div style='background-color:#9333ea; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>สถานีวัดคุณภาพอากาศ (Air4Thai)</b></div>";
+                popupHTML += "<b>พิกัด:</b> " + lat.toFixed(5) + "  " + lon.toFixed(5) + "<br>";
+                popupHTML += "<b>ตำบล:</b> <span class='aqm-tb-name' style='color:#0284c7; font-weight:bold;'>กำลังค้นหา...</span><br>";
+                popupHTML += "<b>อำเภอ:</b> <span class='aqm-ap-name' style='color:#0284c7; font-weight:bold;'>กำลังค้นหา...</span><br>";
+                popupHTML += "<b>จังหวัด:</b> " + station.prov_name + "<br>";
+                popupHTML += "<b>สถานี:</b> " + station.nameTH + "<br>";
+                popupHTML += "<b>เวลา:</b> " + thaiDateTimeDisplay + "<br>";
+                popupHTML += "<b>ค่า PM2.5:</b> <span style='font-weight:bold; font-size: 16px; color:" + textColor + "; text-shadow: 0px 0px 1px rgba(0,0,0,0.2);'>" + pm25Value + " µg/m³ " + emoji + "</span><br>";
+                
+                let googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=$${lat},${lon}`;
+                popupHTML += "<br><a href='" + googleMapsUrl + "' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>";
+                
+                popupHTML += "</div>";
+
+// แก้ไขจากเดิม:
+// marker.bindPopup(popupHTML);
+
+// เปลี่ยนเป็น:
+marker.bindPopup(popupHTML, { autoClose: false, closeOnClick: false });
+
+                marker.on('popupopen', function(e) {
+                    let popupNode = e.popup._contentNode;
+                    if (!popupNode) return;
+                    
+                    let tambonEl = popupNode.querySelector('.aqm-tb-name');
+                    let amphoeEl = popupNode.querySelector('.aqm-ap-name');
+                    let cacheKey = lat + "_" + lon;
+                    
+                    if (tambonEl && tambonEl.innerText === 'กำลังค้นหา...') {
+                        if (addressCache[cacheKey]) {
+                            tambonEl.innerText = addressCache[cacheKey].tambon;
+                            amphoeEl.innerText = addressCache[cacheKey].amphoe;
+                        } else {
+                            fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
+                            .then(res => res.json())
+                            .then(data => {
+                                if(data) {
+                                    let t = data.subdistrict || "-";
+                                    let a = data.district || "-";
+                                    
+                                    t = t.replace(/^ตำบล/g, '').replace(/^แขวง/g, '').trim();
+                                    a = a.replace(/^อำเภอ/g, '').replace(/^เขต/g, '').trim();
+                                    
+                                    let finalTambon = t !== "-" ? t : "ไม่ระบุ";
+                                    let finalAmphoe = a !== "-" ? a : "ไม่ระบุ";
+                                    
+                                    tambonEl.innerText = finalTambon;
+                                    amphoeEl.innerText = finalAmphoe;
+                                    
+                                    addressCache[cacheKey] = { 
+                                        tambon: finalTambon, 
+                                        amphoe: finalAmphoe, 
+                                        province: station.prov_name 
+                                    };
+                                } else {
+                                    tambonEl.innerText = "ไม่พบข้อมูล";
+                                    amphoeEl.innerText = "ไม่พบข้อมูล";
+                                }
+                            }).catch(() => {
+                                tambonEl.innerText = "ข้อผิดพลาด";
+                                amphoeEl.innerText = "ข้อผิดพลาด";
+                            });
+                        }
+                    }
+                });
+
+                aqmLayer.addLayer(marker);
+            });
+        })
+        .catch(err => {
+            console.error("ข้อผิดพลาดในการดึงข้อมูล Air4Thai ผ่าน GAS", err);
+            showToast("ไม่สามารถเชื่อมต่อข้อมูลสถานีคุณภาพอากาศได้", "error");
+        });
+}
+
+// เพิ่มคำสั่งเรียกใช้งานฟังก์ชันตรงนี้
+fetchAQMData();
+
     </script>
 </body>
 </html>
+    </script>
+</body>
+</html>
+
