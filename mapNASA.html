@@ -10,6 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
     <style>
         .leaflet-control-download {
             background-color: white;
@@ -145,6 +147,16 @@
                     </label>
                 </div>
             </div>
+
+
+
+
+<div id="searchContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+    <label style="font-size: 16px; font-weight: bold;">🔍 ค้นหาสถานที่กำจัดขยะ:</label>
+    <input type="text" id="siteSearchInput" placeholder="ระบุชื่อตำบล หรือชื่อสถานที่..." style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; flex: 1; min-width: 200px; font-size: 15px;">
+    <button id="siteSearchBtn" style="padding: 8px 16px; background-color: #4a148c; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: bold;">ค้นหา</button>
+</div>
+
         </div>
         
         <div id="map-wrapper">
@@ -214,26 +226,35 @@
             "ภาพถ่ายดาวเทียม (Esri)": satelliteLayer
         };
 
-// 1. สร้าง Layer สำหรับสถานีตรวจอากาศ (โค้ดเดิมของคุณ)
-const aqmLayer = L.layerGroup().addTo(map);
 
-// 2. สร้าง Layer สำหรับสถานที่กำจัดขยะ (เพิ่มใหม่)
-const landfillLayer = L.layerGroup().addTo(map);
+// 1. สร้าง Layer สำหรับสถานีตรวจอากาศ
+const aqmLayer = L.layerGroup();
 
-// 3. นำ Layer ทั้งหมดมารวมไว้ในเมนู overlayMaps
+// 2. สร้าง Layer สำหรับสถานที่กำจัดขยะ
+const landfillLayer = L.layerGroup();
+
+// 3. สร้าง Layer สำหรับจุดความร้อน (เพิ่มใหม่และตั้งค่าคลัสเตอร์)
+const hotspotLayer = L.markerClusterGroup({
+    maxClusterRadius: 40,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: true
+}).addTo(map);
+
+// 4. นำ Layer ทั้งหมดมารวมไว้ในเมนู overlayMaps
 const overlayMaps = {
+    "จุดความร้อน (NASA)": hotspotLayer,
     "สถานีตรวจวัดคุณภาพอากาศ": aqmLayer,
     "สถานที่กำจัดขยะ": landfillLayer
 };
 
-// 4. นำเมนูไปแสดงบนแผนที่
+// 5. นำเมนูไปแสดงบนแผนที่
 L.control.layers(baseMaps, overlayMaps).addTo(map);
 
         const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
         const targetProvincesThai = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
         
         let boundaryGeoJSON = null;
-        let hotspotLayer;
         let summaryControl;
         let globalFeatures = [];
         let currentTimeframe = 24;
@@ -406,23 +427,20 @@ L.control.layers(baseMaps, overlayMaps).addTo(map);
             });
         });
 
-        function renderMap(features, counts, total) {
-            if (hotspotLayer) { map.removeLayer(hotspotLayer); }
+
+function renderMap(features, counts, total) {
+            // ใช้คำสั่งนี้เพื่อเคลียร์หมุดจุดความร้อนเดิมออกก่อน
+            hotspotLayer.clearLayers();
+            
             if (summaryControl) { map.removeControl(summaryControl); }
 
             const filteredData = {
                 type: "FeatureCollection",
                 features: features
             };
-
-            hotspotLayer = L.markerClusterGroup({
-                maxClusterRadius: 40,
-                spiderfyOnMaxZoom: true,
-                showCoverageOnHover: false,
-                zoomToBoundsOnClick: true
-            });
-
+            
             const geoJsonLayer = L.geoJSON(filteredData, {
+
                 pointToLayer: function (feature, latlng) {
                     let props = feature.properties || {};
                     let conf = props.confidence || "";
@@ -496,11 +514,11 @@ L.control.layers(baseMaps, overlayMaps).addTo(map);
                     popupContent += "<a href='" + googleMapsUrl + "' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>";
                     popupContent += "</div>";
                     
-// แก้ไขจากเดิม:
-// layer.bindPopup(popupContent);
+// ปิด popup เอง:
+ layer.bindPopup(popupContent);
 
-// เปลี่ยนเป็น:
-layer.bindPopup(popupContent, { autoClose: false, closeOnClick: false });
+// เปิดค้าง:
+// layer.bindPopup(popupContent, { autoClose: false, closeOnClick: false });
 
                     layer.on('popupopen', function(e) {
                         let popupNode = e.popup._contentNode;
@@ -555,8 +573,8 @@ layer.bindPopup(popupContent, { autoClose: false, closeOnClick: false });
             }); 
 
             hotspotLayer.addLayer(geoJsonLayer);
-            map.addLayer(hotspotLayer);
-
+    
+   
             summaryControl = L.control({position: 'bottomright'});
             summaryControl.onAdd = function (map) {
                 const div = L.DomUtil.create('div', 'legend-box');
@@ -598,12 +616,35 @@ downloadControl.onAdd = function (map) {
     // ฟังก์ชันช่วยหน่วงเวลา (Delay)
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-    btn.onclick = async function() {
-        if (!globalFeatures || globalFeatures.length === 0) {
-            showToast("ไม่พบข้อมูลจุดความร้อนในระบบ", "warning");
-            return;
-        }
 
+
+btn.onclick = async function() {
+    // กำหนดรหัสผ่าน SHA3-512 ที่ถูกต้องไว้ที่นี่
+    // ตัวอย่างด้านล่างนี้คือค่า Hash ของคำว่า "reo11" 
+    const TARGET_HASH = "368e734360e29633e147164996924f0c90c743818318e8071e6261545084993a43690623a6358356972740286827052445851498188188241484252618956903";
+
+    // แสดงกล่องรับรหัสผ่าน
+    const userPassword = prompt("กรุณากรอกรหัสผ่านเพื่อดาวน์โหลดไฟล์ Excel สคพ.11");
+
+    // กรณีผู้ใช้กดยกเลิก
+    if (userPassword === null) {
+        return; 
+    }
+
+    // แปลงรหัสผ่านที่กรอกเป็น SHA3-512
+    const userHash = CryptoJS.SHA3(userPassword, { outputLength: 512 }).toString();
+
+    // เปรียบเทียบรหัสผ่าน
+    if (userHash !== TARGET_HASH) {
+        showToast("รหัสผ่านไม่ถูกต้อง ไม่สามารถดาวน์โหลดข้อมูลได้", "error");
+        return;
+    }
+
+    // --- โค้ดดาวน์โหลดเดิมเริ่มต้นที่นี่ ---
+    if (!globalFeatures || globalFeatures.length === 0) {
+        showToast("ไม่พบข้อมูลจุดความร้อนในระบบ", "warning");
+        return;
+    }
         // ปรับแต่งปุ่มให้พร้อมแสดงข้อความเปอร์เซ็นต์
         btn.classList.add('loading');
         btn.style.width = '55px'; // ขยายปุ่มให้กว้างขึ้นเพื่อใส่ตัวเลข
@@ -856,6 +897,8 @@ function fetchAQMData() {
 
                 // เตรียม HTML สำหรับ Popup พร้อมใส่ Emoji
                 let popupHTML = "<div style='font-size: 14px;'>";
+
+
                 popupHTML += "<div style='background-color:#9333ea; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>สถานีวัดคุณภาพอากาศ (Air4Thai)</b></div>";
                 popupHTML += "<b>พิกัด:</b> " + lat.toFixed(5) + "  " + lon.toFixed(5) + "<br>";
                 popupHTML += "<b>ตำบล:</b> <span class='aqm-tb-name' style='color:#0284c7; font-weight:bold;'>กำลังค้นหา...</span><br>";
@@ -870,11 +913,11 @@ function fetchAQMData() {
                 
                 popupHTML += "</div>";
 
-// แก้ไขจากเดิม:
-// marker.bindPopup(popupHTML);
+// ปิดเอง:
+marker.bindPopup(popupHTML);
 
-// เปลี่ยนเป็น:
-marker.bindPopup(popupHTML, { autoClose: false, closeOnClick: false });
+// ค้าง:
+// marker.bindPopup(popupHTML, { autoClose: false, closeOnClick: false });
 
                 marker.on('popupopen', function(e) {
                     let popupNode = e.popup._contentNode;
@@ -935,10 +978,17 @@ marker.bindPopup(popupHTML, { autoClose: false, closeOnClick: false });
 fetchAQMData();
 
 //เรียกดูสถานที่กำจัดขยะจาก APS WasteSiteEPO11 https://script.google.com/macros/s/AKfycbwWI0NvtyToeNBq5Y0Yu6VCKiJh27JDSDBZTJ0IbQ1mGsErkJfFdzYdkiVAw72GGWKZ/exec
-function getLandfillColor(area) {
+
+
+function getLandfillColor(area, status) {
+    // ตรวจสอบว่ามีค่าสถานะและสถานะนั้น "ไม่ใช่" คำว่า "เปิดดำเนินงาน"
+    // ใช้ .trim() เพื่อตัดช่องว่างซ้ายขวาเผื่อมีการพิมพ์เว้นวรรคติดมาในฐานข้อมูล
+    if (status && status.trim() !== "เปิดดำเนินงาน") {
+        return "#1f2937"; // สีดำ (เทาเข้ม)
+    }
+
     let areaNum = parseFloat(area);
     if (isNaN(areaNum)) return "#a1a1aa"; // สีเทา หากไม่มีข้อมูล
-
     if (areaNum <= 15) {
         return "#38bdf8"; // สีฟ้า
     } else if (areaNum <= 25.0) {
@@ -951,6 +1001,8 @@ function getLandfillColor(area) {
         return "#f87171"; // สีแดง
     }
 }
+
+let landfillMarkers = [];
 
 function fetchLandfillData() {
     // นำ URL ที่ได้จาก Google Apps Script มาใส่ตรงนี้ครับ
@@ -971,14 +1023,57 @@ function fetchLandfillData() {
                     
                     // ปรับชื่อตัวแปรให้ตรงกับหัวคอลัมน์ใน Google Sheets ใหม่
                     let siteName = row["ชื่อสถานที่"] || "ไม่ระบุชื่อ";
-                    let agency = row["หน่วยงานที่ดูแล"] || "-";
+                    let agency = row["ชื่อผู้ดำเนินการ"] || "-";
                     let address = row["ที่ตั้ง"] || "-";
                     let type = row["รูปแบบการกำจัด"] || "-";
                     let area = row["เนื้อที่ (ไร่)"] || "-";
-                    let wasteAmount = row["ปริมาณขยะ"] || "-";
+                    let wasteAmount = row["ปริมาณขยะ (ตัน/วัน)"] || "-";
+        	       let siteStatus = row["สถานะการดำเนินงานในปัจจุบัน"] || "-";
+                      let yearStart = row["ปีที่เปิดดำเนินงาน"] || "-";
 
-                    let trashColor = getLandfillColor(area);
 
+// 1. ดึงสีพื้นฐานมาก่อน
+                    let trashColor = getLandfillColor(area, siteStatus);
+
+                    // 2. คำนวณความเสี่ยงก่อนสร้างไอคอน
+                    let wasteNum = parseFloat(wasteAmount);
+                    let areaNum = parseFloat(area);
+                    let isAtRisk = false;
+                    let riskReason = "";
+
+                    if (siteStatus.includes("เต็ม") || siteStatus.includes("วิกฤต")) {
+                        isAtRisk = true;
+                        riskReason = "สถานะแจ้งว่าพื้นที่เต็ม";
+                    } else if (!isNaN(wasteNum) && !isNaN(areaNum) && areaNum > 0) {
+                        let density = wasteNum / areaNum;
+                        if (density > 1) { // เกณฑ์เตือนภัย: ขยะมากกว่า 2 ตัน ต่อ 1 ไร่ ต่อวัน
+                            isAtRisk = true;
+                            riskReason = `ปริมาณขยะมาก (${density.toFixed(2)} ตัน/ไร่/วัน)`;
+                        }
+                    }
+/*===========================================================================
+1. ความหนาแน่นของขยะเทกอง (Loose Density) ขยะที่เทลงจากรถบรรทุกโดยไม่มีการบดอัด จะมีความหนาแน่นเพียง 0.15 ถึง 0.30 ตัน/ลูกบาศก์เมตร เท่านั้น (เทียบกับแบบบดอัดที่สูงถึง 0.6 - 0.8 ตัน/ลบ.ม.)
+
+2. ขีดความสามารถในการรองรับ (Capacity) ที่ความสูง 3 เมตรหากใช้เกณฑ์ "ป้องกันไว้ก่อน" ที่ความสูง 3 เมตร ตามที่ท่านตั้งไว้:ปริมาตร: $1,600 ตร.ม. * 3 เมตร = 4,800 ลูกบาศก์เมตร/ไร่
+น้ำหนักขยะที่รองรับได้: จะรับขยะได้เพียง 720 ถึง 1,440 ตัน/ไร่ เท่านั้น
+
+3. ปริมาณที่รับได้ต่อวัน (Inflow Rate) หากถามว่ารับได้ "กี่ตัน/ไร่/วัน" จนกว่าจะเต็มเกณฑ์ 3 เมตร ภายในระยะเวลาต่างๆ:
+ระยะเวลาที่ต้องการให้ใช้งานได้ปริมาณขยะขาเข้าที่รับได้ (ตัน/ไร่/วัน) สถานะ
+
+ให้ใช้ได้นาน 1 ปี (365 วัน) 	2 - 4 ตัน/ไร่/วัน 	เสี่ยงสูง (เต็มเร็วมาก)
+ให้ใช้ได้นาน 6 เดือน (180 วัน)	4 - 8 ตัน/ไร่/วัน	วิกฤต
+ให้ใช้ได้นาน 3 เดือน (90 วัน)	8 - 16 ตัน/ไร่/วัน	เต็มพิกัดทันที
+
+
+=============================================================================*/
+                    // ปรับสีและความหนาของเส้นหากมีความเสี่ยง
+                    let bufferWeight = 1.5;
+                    if (isAtRisk) {
+                        trashColor = "#7f1d1d"; // สีแดงเข้ม (Dark Red)
+                        bufferWeight = 3; 
+                    }
+
+                    // 3. เริ่มวาดลงแผนที่โดยใช้สีที่อัปเดตแล้ว
                     if (!isNaN(lat) && !isNaN(lon)) {
                         const trashSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M5 6V20C5 21.1046 5.89543 22 7 22H17C18.1046 22 19 21.1046 19 20V6H5Z" fill="${trashColor}"/>
@@ -995,21 +1090,49 @@ function fetchLandfillData() {
 
                         let marker = L.marker([lat, lon], { icon: trashIcon });
 
+                        // สร้างวงรัศมี 5 กิโลเมตร (5000 เมตร) เพียงครั้งเดียว
+                        let bufferRadius = 5000;
+                        let bufferCircle = L.circle([lat, lon], {
+                            color: trashColor,     
+                            fillColor: trashColor, 
+                            fillOpacity: 0.1,      
+                            weight: bufferWeight, 
+                            dashArray: '5, 5'      
+                        });
+                        
+                        bufferCircle.addTo(landfillLayer);
+
+                        // 4. สร้างหน้าต่าง Popup
                         let popupHTML = "<div style='font-size: 14px;'>";
-                        popupHTML += "<div style='background-color:#5D4037; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>สถานที่กำจัดขยะมูลฝอย (ปี 2567)</b></div>";
+                        popupHTML += "<div style='background-color:#5D4037; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>สถานที่กำจัดขยะมูลฝอย (ปี 2568)</b></div>";
+                        
+                        // แทรกคำเตือนในป๊อปอัปหากมีความเสี่ยง
+                        if (isAtRisk) {
+                            popupHTML += `<div style='background-color:#fef2f2; color:#b91c1c; padding:8px; border-left:4px solid #b91c1c; margin-bottom:10px; font-weight:bold;'>⚠️ เฝ้าระวัง: ${riskReason}</div>`;
+                        }
+
                         popupHTML += "<b>สถานที่:</b> " + siteName + "<br>";
                         popupHTML += "<b>หน่วยงานดูแล:</b> " + agency + "<br>";
                         popupHTML += "<b>ที่ตั้ง:</b> " + address + "<br>";
                         popupHTML += "<b>รูปแบบการกำจัด:</b> " + type + "<br>";
                         popupHTML += "<b>เนื้อที่:</b> <span style='font-weight:bold; color:"+trashColor+";'>" + area + "</span> ไร่<br>";
+                        popupHTML += "<b>ปีเปิด:</b> " + yearStart + "<br>";
+                        popupHTML += "<b>สถานะ:</b> " + siteStatus + "<br>";
                         popupHTML += "<b>ปริมาณขยะ:</b> " + wasteAmount + " ตัน/วัน<br>";
                         
-                        let mapNavUrl = "https://maps.google.com/?q=" + lat + "," + lon;
+                        let mapNavUrl = `https://maps.google.com/?q=$${lat},${lon}`;
                         popupHTML += "<br><a href='" + mapNavUrl + "' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>";
                         popupHTML += "</div>";
 
-                        marker.bindPopup(popupHTML, { autoClose: false, closeOnClick: false });
+                        marker.bindPopup(popupHTML);
                         landfillLayer.addLayer(marker);
+
+                        // ทำระบบค้นหา
+     			landfillMarkers.push({
+    				marker: marker,
+   				 address: address,
+    				name: siteName
+			});
                     }
                 }
             });
@@ -1022,9 +1145,43 @@ function fetchLandfillData() {
 // เรียกใช้งานฟังก์ชัน
 fetchLandfillData();
 
-    </script>
-</body>
-</html>
+document.getElementById('siteSearchBtn').addEventListener('click', doSiteSearch);
+document.getElementById('siteSearchInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') doSiteSearch();
+});
+
+function doSiteSearch() {
+    const keyword = document.getElementById('siteSearchInput').value.trim().toLowerCase();
+    if (!keyword) {
+        showToast("กรุณาระบุชื่อตำบลหรือคำค้นหา", "warning");
+        return;
+    }
+
+    let found = false;
+    for (let item of landfillMarkers) {
+        // ค้นหาจากที่ตั้ง (ตำบล/อำเภอ) หรือชื่อสถานที่
+        if (item.address.toLowerCase().includes(keyword) || item.name.toLowerCase().includes(keyword)) {
+            
+            // เช็กว่าเลเยอร์ขยะเปิดอยู่หรือไม่ ถ้าปิดอยู่ให้เปิดก่อน
+            if (!map.hasLayer(landfillLayer)) {
+                map.addLayer(landfillLayer);
+            }
+
+            // ซูมแผนที่ไปที่หมุดและเปิดป๊อปอัป
+            map.setView(item.marker.getLatLng(), 14);
+            item.marker.openPopup();
+            
+            showToast("พบสถานที่กำจัดขยะ: " + item.name, "success");
+            found = true;
+            break; // หยุดค้นหาเมื่อเจอเป้าหมายแรก
+        }
+    }
+
+    if (!found) {
+        showToast("ไม่พบสถานที่กำจัดขยะที่ตรงกับคำค้นหา", "error");
+    }
+}
+
     </script>
 </body>
 </html>
