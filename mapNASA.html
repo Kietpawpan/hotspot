@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         .leaflet-control-download {
             background-color: white;
@@ -213,15 +214,19 @@
             "ภาพถ่ายดาวเทียม (Esri)": satelliteLayer
         };
 
-// เพิ่มสถานีตรวจอากาศ
+// 1. สร้าง Layer สำหรับสถานีตรวจอากาศ (โค้ดเดิมของคุณ)
 const aqmLayer = L.layerGroup().addTo(map);
 
-// รวม Layer ทั้งหมดไว้ในตัวแปรเดียว
+// 2. สร้าง Layer สำหรับสถานที่กำจัดขยะ (เพิ่มใหม่)
+const landfillLayer = L.layerGroup().addTo(map);
+
+// 3. นำ Layer ทั้งหมดมารวมไว้ในเมนู overlayMaps
 const overlayMaps = {
-//    "สภาพการจราจร (Google)": googleTrafficLayer,
-    "สถานีตรวจวัดคุณภาพอากาศ": aqmLayer
+    "สถานีตรวจวัดคุณภาพอากาศ": aqmLayer,
+    "สถานที่กำจัดขยะ": landfillLayer
 };
 
+// 4. นำเมนูไปแสดงบนแผนที่
 L.control.layers(baseMaps, overlayMaps).addTo(map);
 
         const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
@@ -926,8 +931,96 @@ marker.bindPopup(popupHTML, { autoClose: false, closeOnClick: false });
         });
 }
 
-// เพิ่มคำสั่งเรียกใช้งานฟังก์ชันตรงนี้
+// เรียกดูสถานนีอากาศ
 fetchAQMData();
+
+//เรียกดูสถานที่กำจัดขยะจาก APS WasteSiteEPO11 https://script.google.com/macros/s/AKfycbwWI0NvtyToeNBq5Y0Yu6VCKiJh27JDSDBZTJ0IbQ1mGsErkJfFdzYdkiVAw72GGWKZ/exec
+function getLandfillColor(area) {
+    let areaNum = parseFloat(area);
+    if (isNaN(areaNum)) return "#a1a1aa"; // สีเทา หากไม่มีข้อมูล
+
+    if (areaNum <= 15) {
+        return "#38bdf8"; // สีฟ้า
+    } else if (areaNum <= 25.0) {
+        return "#4ade80"; // สีเขียว
+    } else if (areaNum <= 37.5) {
+        return "#facc15"; // สีเหลือง
+    } else if (areaNum <= 75.0) {
+        return "#fb923c"; // สีส้ม
+    } else {
+        return "#f87171"; // สีแดง
+    }
+}
+
+function fetchLandfillData() {
+    // นำ URL ที่ได้จาก Google Apps Script มาใส่ตรงนี้ครับ
+    const gasUrl = 'https://script.google.com/macros/s/AKfycbwWI0NvtyToeNBq5Y0Yu6VCKiJh27JDSDBZTJ0IbQ1mGsErkJfFdzYdkiVAw72GGWKZ/exec';
+
+    fetch(gasUrl)
+        .then(res => res.json())
+        .then(data => {
+            const targetProvinces = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
+
+            data.forEach(row => {
+                let prov = row["จังหวัด"] || "";
+                let isTarget = targetProvinces.some(p => prov.includes(p));
+
+                if (isTarget) {
+                    let lat = parseFloat(row["ละติจูด"]);
+                    let lon = parseFloat(row["ลองจิจูด"]);
+                    
+                    // ปรับชื่อตัวแปรให้ตรงกับหัวคอลัมน์ใน Google Sheets ใหม่
+                    let siteName = row["ชื่อสถานที่"] || "ไม่ระบุชื่อ";
+                    let agency = row["หน่วยงานที่ดูแล"] || "-";
+                    let address = row["ที่ตั้ง"] || "-";
+                    let type = row["รูปแบบการกำจัด"] || "-";
+                    let area = row["เนื้อที่ (ไร่)"] || "-";
+                    let wasteAmount = row["ปริมาณขยะ"] || "-";
+
+                    let trashColor = getLandfillColor(area);
+
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        const trashSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 6V20C5 21.1046 5.89543 22 7 22H17C18.1046 22 19 21.1046 19 20V6H5Z" fill="${trashColor}"/>
+                            <path d="M9 4V2H15V4H20V6H4V4H9Z" fill="#5D4037"/>
+                        </svg>`;
+
+                        const trashIcon = L.divIcon({
+                            html: trashSvg,
+                            className: '',
+                            iconSize: [24, 24],
+                            iconAnchor: [12, 12],
+                            popupAnchor: [0, -12]
+                        });
+
+                        let marker = L.marker([lat, lon], { icon: trashIcon });
+
+                        let popupHTML = "<div style='font-size: 14px;'>";
+                        popupHTML += "<div style='background-color:#5D4037; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>สถานที่กำจัดขยะมูลฝอย (ปี 2567)</b></div>";
+                        popupHTML += "<b>สถานที่:</b> " + siteName + "<br>";
+                        popupHTML += "<b>หน่วยงานดูแล:</b> " + agency + "<br>";
+                        popupHTML += "<b>ที่ตั้ง:</b> " + address + "<br>";
+                        popupHTML += "<b>รูปแบบการกำจัด:</b> " + type + "<br>";
+                        popupHTML += "<b>เนื้อที่:</b> <span style='font-weight:bold; color:"+trashColor+";'>" + area + "</span> ไร่<br>";
+                        popupHTML += "<b>ปริมาณขยะ:</b> " + wasteAmount + " ตัน/วัน<br>";
+                        
+                        let mapNavUrl = "https://maps.google.com/?q=" + lat + "," + lon;
+                        popupHTML += "<br><a href='" + mapNavUrl + "' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>";
+                        popupHTML += "</div>";
+
+                        marker.bindPopup(popupHTML, { autoClose: false, closeOnClick: false });
+                        landfillLayer.addLayer(marker);
+                    }
+                }
+            });
+        })
+        .catch(err => {
+            console.error("เกิดข้อผิดพลาดในการโหลดข้อมูลสถานที่กำจัดขยะ", err);
+        });
+}
+
+// เรียกใช้งานฟังก์ชัน
+fetchLandfillData();
 
     </script>
 </body>
