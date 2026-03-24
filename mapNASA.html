@@ -605,6 +605,7 @@ function renderMap(features, counts, total) {
 
 
 
+
 	    let popupContent = "<div style='font-size: 14px;'>";
             popupContent += "<div style='background-color:#4a148c; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>รายละเอียดจุดความร้อน (NASA)</b></div>";
             popupContent += "<b>พิกัด:</b> " + lat + "  " + lon + "<br>";
@@ -616,14 +617,20 @@ function renderMap(features, counts, total) {
             popupContent += "<b>ดาวเทียม:</b> " + satDisplay + "<br>";
             popupContent += "<b>ความเชื่อมั่น:</b> " + confDisplay + "<br>";
             
-            // โค้ดส่วนที่เพิ่มใหม่สำหรับแสดงสภาพลม
+	   // โค้ดส่วนแสดงสภาพลม และ พื้นที่ท้ายลม (แทนที่ของเดิม)
             popupContent += "<div style='background-color:#f8fafc; padding:8px; border:1px solid #e2e8f0; border-radius:6px; margin-top:8px; margin-bottom:8px;'>";
             popupContent += "<div style='color:#475569; font-weight:bold; margin-bottom:4px; font-size:13px;'>💨 สภาพลม ณ จุดความร้อน</div>";
             popupContent += "<b>ทิศทางลม:</b> <span class='wind-dir' style='color:#0284c7;'>กำลังโหลด...</span><br>";
             popupContent += "<b>ความเร็ว:</b> <span class='wind-speed' style='color:#dc2626;'>กำลังโหลด...</span>";
+            
+            // เพิ่มกล่องเตือนพื้นที่ท้ายลม
+            popupContent += "<div style='background-color:#fef2f2; padding:6px; border:1px solid #fca5a5; border-radius:4px; margin-top:6px;'>";
+            popupContent += "<div style='color:#b91c1c; font-weight:bold; font-size:12px; margin-bottom:2px;'>⚠️ คาดการณ์ตำบลท้ายลม (ระยะ 2-5 กม.)</div>";
+            popupContent += "<span class='downwind-risk' style='color:#7f1d1d; font-size:13px; font-weight:bold;'>กำลังวิเคราะห์เส้นทางควัน...</span>";
             popupContent += "</div>";
-            // สิ้นสุดส่วนที่เพิ่มใหม่
 
+            popupContent += "</div>";
+		
             popupContent += "<a href='" + googleMapsUrl + "' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>";
             popupContent += "</div>";
 
@@ -688,8 +695,10 @@ function renderMap(features, counts, total) {
                 }
                 // --------------------------------------------------
 
-                // โค้ดใหม่สำหรับดึงข้อมูลลมเมื่อเปิด Popup
+ // โค้ดใหม่สำหรับดึงข้อมูลลมและคำนวณพื้นที่ท้ายลม
                 if (windDirEl && windDirEl.innerText === 'กำลังโหลด...') {
+                    let downwindEl = popupNode.querySelector('.downwind-risk');
+                    
                     fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m`)
                     .then(res => res.json())
                     .then(data => {
@@ -697,18 +706,62 @@ function renderMap(features, counts, total) {
                             let speed = data.current.wind_speed_10m;
                             let dir = data.current.wind_direction_10m;
                             
-                            // ใช้ CSS หมุนลูกศรให้ชี้ไปตามทิศที่ลมพัดไป
+                            // 1. แสดงทิศทางลมปกติ
                             let arrow = `<span style="display:inline-block; transform: rotate(${dir + 180}deg);">⬆️</span>`;
-                            
                             windDirEl.innerHTML = `${arrow} ${dir}°`;
                             windSpeedEl.innerText = `${speed} กม./ชม.`;
+
+                            // 2. วิเคราะห์พื้นที่ท้ายลมด้วย Turf.js
+                            if (speed > 1) { // ถ้าลมมีกำลังพอที่จะพัดพาควัน
+                                let smokeAngle = (dir + 180) % 360;
+                                let bearing = smokeAngle > 180 ? smokeAngle - 360 : smokeAngle; // แปลงองศาให้ Turf.js
+                                
+                                // สร้างพิกัดจำลองตกกระทบที่ระยะ 2.5 กม. และ 5 กม. ท้ายลม
+                                let pt1 = turf.destination([lon, lat], 2.5, bearing, {units: 'kilometers'}).geometry.coordinates;
+                                let pt2 = turf.destination([lon, lat], 5, bearing, {units: 'kilometers'}).geometry.coordinates;
+
+                                // ยิงคำขอไป Longdo API พร้อมกัน 2 จุด
+                                Promise.all([
+                                    fetch(`https://api.longdo.com/map/services/address?lon=${pt1[0]}&lat=${pt1[1]}&key=${longdoApiKey}`).then(r => r.json()),
+                                    fetch(`https://api.longdo.com/map/services/address?lon=${pt2[0]}&lat=${pt2[1]}&key=${longdoApiKey}`).then(r => r.json())
+                                ]).then(results => {
+                                    let riskAreas = [];
+                                    
+                                    results.forEach(res => {
+                                        if (res && res.subdistrict) {
+                                            let t = res.subdistrict.replace(/^ตำบล/g, '').replace(/^แขวง/g, '').trim();
+                                            let a = res.district ? res.district.replace(/^อำเภอ/g, '').replace(/^เขต/g, '').trim() : '';
+                                            let areaName = `${t} ${a}`;
+                                            
+                                            // เก็บชื่อตำบลที่ไม่ซ้ำกัน
+                                            if (!riskAreas.includes(areaName) && t !== "-") {
+                                                riskAreas.push(areaName);
+                                            }
+                                        }
+                                    });
+
+                                    if (riskAreas.length > 0) {
+                                        downwindEl.innerHTML = riskAreas.join(' และ ');
+                                    } else {
+                                        downwindEl.innerHTML = "ไม่พบข้อมูลชุมชนที่ชัดเจน";
+                                    }
+                                }).catch(() => {
+                                    downwindEl.innerHTML = "ระบบวิเคราะห์ที่อยู่ขัดข้อง";
+                                });
+                                
+                            } else {
+                                downwindEl.innerHTML = "ลมสงบ ควันอาจสะสมปกคลุมจุดเกิดเหตุ";
+                            }
+                            
                         } else {
                             windDirEl.innerText = "ไม่พบข้อมูล";
                             windSpeedEl.innerText = "ไม่พบข้อมูล";
+                            if (downwindEl) downwindEl.innerHTML = "ไม่สามารถวิเคราะห์ได้";
                         }
                     }).catch(() => {
                         windDirEl.innerText = "ข้อผิดพลาด";
                         windSpeedEl.innerText = "ข้อผิดพลาด";
+                        if (downwindEl) downwindEl.innerHTML = "เครือข่ายขัดข้อง";
                     });
                 }
 
