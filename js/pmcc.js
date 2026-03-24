@@ -1,4 +1,43 @@
-        // ฟังก์ชันสู้ไม่ถอย: ดึงข้อมูลแบบมี Auto-Retry สูงสุด 3 ครั้ง
+ // ฟังก์ชันสู้ไม่ถอย V2: สำหรับส่งข้อมูลให้ AI พร้อมระบบ Exponential Backoff
+async function fetchAiWithBackoff(url, options = {}, maxRetries = 4) {
+    let delay = 2000; // เริ่มรอที่ 2 วินาทีเพราะ AI ใช้เวลาประมวลผลนาน
+    
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const response = await fetch(url, options);
+            
+            // ถ้าเซิร์ฟเวอร์ไม่ว่าง (503) หรือยิงรัวเกินไป (429) ให้เตรียมลองใหม่
+            if (response.status === 429 || response.status >= 500) {
+                console.warn(`เซิร์ฟเวอร์ AI ไม่ว่าง (รหัส ${response.status}) กำลังลองใหม่ครั้งที่ ${i + 1}...`);
+                
+                // อัปเดตข้อความหน้าจอให้ผู้ใช้รู้ว่ากำลังพยายามใหม่
+                const resultDiv = document.getElementById('aiResult');
+                if (resultDiv) {
+                    resultDiv.innerHTML = `<div class="text-center text-orange-600 animate-pulse"><i>เซิร์ฟเวอร์หนาแน่น กำลังพยายามเชื่อมต่อใหม่ครั้งที่ ${i + 1}/${maxRetries}...</i></div>`;
+                }
+                
+                if (i === maxRetries - 1) throw new Error(`เซิร์ฟเวอร์ AI ไม่ว่างเกิน ${maxRetries} ครั้ง`);
+            } else if (!response.ok) {
+                throw new Error(`HTTP error status: ${response.status}`);
+            } else {
+                return response; // ทำสำเร็จ คืนค่ากลับไป
+            }
+        } catch (error) {
+            if (i === maxRetries - 1) throw error;
+        }
+        
+        // สุ่มเวลาบวกเข้าไป (Jitter 0-1 วินาที) ป้องกันการยิงซ้ำพร้อมกันพอดี
+        const jitter = Math.floor(Math.random() * 1000);
+        await new Promise(res => setTimeout(res, delay + jitter));
+        
+        // เพิ่มเวลารอเป็น 2 เท่าในรอบถัดไป
+        delay *= 2; 
+    }
+}
+
+
+
+       // ฟังก์ชันสู้ไม่ถอย: ดึงข้อมูลแบบมี Auto-Retry สูงสุด 3 ครั้ง
 	async function fetchWithRetry(url, retries = 3, delay = 1000) {
     	for (let i = 0; i < retries; i++) {
         try {
@@ -656,26 +695,44 @@ async function fetchWeatherData() {
                     }
                     const windDirDisplay = weatherData.wd10m !== undefined ? getWindDirectionThai(weatherData.wd10m) : '-';
 
-		// จัดการค่า BLH และโอกาสเกิดฝนจาก Open-Meteo
-		let blhDisplay = '-';
-			if (meteoResponse && meteoResponse.ok) {
-   			 try {
-    			    const meteoData = await meteoResponse.json();
-       				 const currentHour = new Date().getHours();
-        
-       		 // จัดการค่า BLH
-       		 const currentBlh = meteoData.hourly.boundary_layer_height[currentHour];
-        	if (currentBlh !== null && currentBlh !== undefined) {
-          		  blhDisplay = `${Math.round(currentBlh)} เมตร`;
-       		 }
 
-        	// จัดการโอกาสเกิดฝน นำมาเขียนทับค่าจาก TMD
-       		 const currentPop = meteoData.hourly.precipitation_probability[currentHour];
-       		 if (currentPop !== null && currentPop !== undefined) {
-        	    rainChanceDisplay = `${currentPop} %`;
-        	}
-    		} catch(e) {}
-		}
+// ... (โค้ดก่อนหน้า จัดการค่า BLH และโอกาสเกิดฝน) ...
+                    
+                    let blhDisplay = '-';
+                    let vrDisplay = '-'; // เพิ่มตัวแปรเก็บค่า VR
+                    let currentBlhVal = 0; // ตัวแปรเก็บค่าตัวเลข BLH
+                    
+                    if (meteoResponse && meteoResponse.ok) {
+                        try {
+                            const meteoData = await meteoResponse.json();
+                            const currentHour = new Date().getHours();
+        
+                            const currentBlh = meteoData.hourly.boundary_layer_height[currentHour];
+                            if (currentBlh !== null && currentBlh !== undefined) {
+                                currentBlhVal = Math.round(currentBlh);
+                                blhDisplay = `${currentBlhVal} เมตร`;
+                            }
+
+                            const currentPop = meteoData.hourly.precipitation_probability[currentHour];
+                            if (currentPop !== null && currentPop !== undefined) {
+                                rainChanceDisplay = `${currentPop} %`;
+                            }
+                        } catch(e) {}
+                    }
+
+                    // ✨ คำนวณอัตราการระบายอากาศ (VR) = BLH (m) * Wind Speed (m/s)
+                    if (weatherData.ws10m !== undefined && currentBlhVal > 0) {
+                        const ws_ms = weatherData.ws10m; // ความเร็วลมหน่วย เมตร/วินาที
+                        const vrValue = Math.round(currentBlhVal * ws_ms);
+                        
+                        let vrStatus = "";
+                        if (vrValue <= 2000) vrStatus = "แย่ (ฝุ่นสะสมตัว)";
+                        else if (vrValue <= 4000) vrStatus = "ปานกลาง";
+                        else if (vrValue <= 6000) vrStatus = "ดี";
+                        else vrStatus = "ดีมาก (ฝุ่นกระจายตัวดี)";
+
+                        vrDisplay = `${vrValue} ตร.ม./วินาที (${vrStatus})`;
+                    }
 
                     // จัดการค่า Live PM2.5 ที่ดึงมาแล้ว
                     const currentLivePM = livePMData[prov.name] || 'N/A';
@@ -698,7 +755,7 @@ async function fetchWeatherData() {
                         </div>
                     `;
 
-                    // อัปเดตข้อมูลให้ AI
+  		// ✨ อัปเดตข้อมูลให้ AI โดยเพิ่ม vr ลงไป
                     globalWeatherData[prov.name] = {
                         cond: condText,
                         temp: tc,
@@ -707,6 +764,7 @@ async function fetchWeatherData() {
                         windDir: windDirDisplay,
                         rainChance: rainChanceDisplay,
                         blh: blhDisplay,
+                        vr: vrDisplay, // ส่งค่า VR ไปให้ AI
                         currentPM25: currentLivePM
                     };
 
@@ -869,13 +927,12 @@ async function fetchNasaHotspots() {
                             quotaText = `เกินเป้าหมายแล้ว ${Math.abs(remainingDays)} วัน`;
                         }
 
-                        let weatherText = "ไม่มีข้อมูลสภาพอากาศ";
+			let weatherText = "ไม่มีข้อมูลสภาพอากาศ";
                         let livePMText = "ไม่มีข้อมูลเรียลไทม์";
                         if (globalWeatherData[province]) {
                             const w = globalWeatherData[province];
-                            // เพิ่ม BLH เข้าไปในข้อมูลสภาพอากาศ
-                            weatherText = `สภาพอากาศ: ${w.cond} | อุณหภูมิ ${w.temp} °C | ความชื้น ${w.rh} % | โอกาสเกิดฝน ${w.rainChance} | ลม${w.windDir} ความเร็ว ${w.windSpeed} | เพดานการระบายอากาศ ${w.blh}`;
-                            // ดึงค่า PM2.5 ปัจจุบันมาสร้างข้อความ
+                            // ✨ เพิ่ม VR เข้าไปในข้อมูลสภาพอากาศที่ส่งให้ AI
+                            weatherText = `สภาพอากาศ: ${w.cond} | อุณหภูมิ ${w.temp} °C | ความชื้น ${w.rh} % | โอกาสเกิดฝน ${w.rainChance} | ลม${w.windDir} ความเร็ว ${w.windSpeed} | เพดานการระบายอากาศ (BLH) ${w.blh} | อัตราการระบายอากาศ (VR) ${w.vr}`;
                             livePMText = `PM2.5 ปัจจุบัน (Real-time): ${w.currentPM25} มคก./ลบ.ม.`;
                         }
 
@@ -936,19 +993,25 @@ async function fetchNasaHotspots() {
                 contextData += "- ไม่มีข้อมูลหรือรอการอัปเดต\n";
             }
 
-            try {
-                const response = await fetch(gasWebAppUrl, {
-                    method: 'POST',
-                    body: JSON.stringify({ 
-                        contextData: contextData, // ส่งไปแค่ข้อมูลดิบ
-                        password: password // ส่งรหัสผ่านไปตรวจสอบ
-                    })
-                });
-                
-                const data = await response.json();
+            try { 
 
-        // ตรวจสอบกรณีรหัสผ่านผิด
-                if (data.error === "Unauthorized") {
+const response = await fetchAiWithBackoff(gasWebAppUrl, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+    },
+    body: JSON.stringify({ 
+        contextData: contextData, 
+        password: password 
+    })
+});
+
+// ✨ เพิ่มบรรทัดนี้เพื่อแกะข้อมูลที่ได้จาก GAS มาใส่ตัวแปร data ครับ
+const data = await response.json();
+
+// ตรวจสอบกรณีรหัสผ่านผิด
+if (data.error === "Unauthorized") {
+
                     // ซ่อนข้อความกำลังโหลดให้หมดจด
                     resultDiv.style.display = 'none';
                     resultDiv.classList.add('hidden');
