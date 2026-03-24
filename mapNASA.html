@@ -582,7 +582,7 @@ function renderMap(features, counts, total) {
             if (satellite === 'N') satDisplay = "Suomi-NPP";
             else if (satellite === '1') satDisplay = "NOAA-20";
 
-            let googleMapsUrl = `https://www.google.com/maps?q=$${lat},${lon}`; 
+	    let googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
 
             let popupContent = "<div style='font-size: 14px;'>";
             popupContent += "<div style='background-color:#4a148c; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>รายละเอียดจุดความร้อน (NASA)</b></div>";
@@ -759,7 +759,7 @@ btn.onclick = async function() {
                 let satDisplay = props.satellite === 'N' ? "Suomi-NPP" : (props.satellite === '1' ? "NOAA-20" : props.satellite);
                 let lat = props.latitude;
                 let lon = props.longitude;
-                let googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+     	        let googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
                 let cacheKey = lat + "_" + lon;
                 
                 let buildRowData = (tambon, amphoe, province) => ({
@@ -963,7 +963,8 @@ function fetchAQMData() {
                 popupHTML += "<b>เวลา:</b> " + thaiDateTimeDisplay + "<br>";
                 popupHTML += "<b>ค่า PM2.5:</b> <span style='font-weight:bold; font-size: 16px; color:" + textColor + "; text-shadow: 0px 0px 1px rgba(0,0,0,0.2);'>" + pm25Value + " µg/m³ " + emoji + "</span><br>";
                 
-                let googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=$${lat},${lon}`;
+		let googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+
                 popupHTML += "<br><a href='" + googleMapsUrl + "' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>";
                 
                 popupHTML += "</div>";
@@ -1174,8 +1175,9 @@ function fetchLandfillData() {
                         popupHTML += "<b>ปีเปิด:</b> " + yearStart + "<br>";
                         popupHTML += "<b>สถานะ:</b> " + siteStatus + "<br>";
                         popupHTML += "<b>ปริมาณขยะ:</b> " + wasteAmount + " ตัน/วัน<br>";
-                        
-                        let mapNavUrl = `https://maps.google.com/?q=$${lat},${lon}`;
+
+			let mapNavUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+
                         popupHTML += "<br><a href='" + mapNavUrl + "' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>";
                         popupHTML += "</div>";
 
