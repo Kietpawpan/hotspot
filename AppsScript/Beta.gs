@@ -7,6 +7,7 @@ const STATIONS = {
   "101t": "บุรีรัมย์",
   "111t": "สุรินทร์"
 };
+
 // ==========================================
 // 1. เพิ่มฟังก์ชันใหม่นี้ลงไปใน GAS
 // ==========================================
@@ -228,7 +229,6 @@ function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
 }
 
-
 function doPost(e) {
   const props = PropertiesService.getScriptProperties();
   const SECRET_PASSWORD = props.getProperty('AI_PASSWORD');
@@ -298,12 +298,18 @@ ${contextData}
 8. รูปแบบ: ห้ามใช้เครื่องหมายจุลภาค ห้ามใส่จุดท้ายประโยค ยกเว้นคำว่า ทสจ. หัวข้อใหม่ใช้เลขตามด้วยจุด (เช่น 1.)
 9. ลงท้ายว่า จึงเรียนมาเพื่อโปรดทราบ\n\n ${DIR_NAME}\n${DIR_POSITION}`;
 
-    var apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=' + GEMINI_API_KEY;
 
-   // ... โค้ดเดิมของ ผอ. ...
-    var parts = [{ "text": promptText }];
-    var imageUrls = [nasaMapUrl, "https://ozone.tmd.go.th/PM2.5/weather/Metgram/output/VR_daily/daily_VR_431201.png", "https://ozone.tmd.go.th/PM2.5/weather/Metgram/output/VR_daily/daily_VR_403201.png", "https://ozone.tmd.go.th/PM2.5/weather/Metgram/output/VR_daily/daily_VR_436201.png", "https://ozone.tmd.go.th/PM2.5/weather/Metgram/output/VR_daily/daily_VR_432201.png"];
+// ... โค้ดก่อนหน้านี้ (สร้าง promptText ฯลฯ) คงเดิม ...
+
+
+    var apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GEMINI_API_KEY;
+
     
+    var parts = [{ "text": promptText }];
+
+ // ✨ เหลือการดึงรูปภาพเฉพาะแผนที่ NASA เพียงรูปเดียว ช่วยลด Payload ได้มหาศาล
+    var imageUrls = [nasaMapUrl];
+
     for (var i = 0; i < imageUrls.length; i++) {
       try {
         var imgResponse = UrlFetchApp.fetch(imageUrls[i], { muteHttpExceptions: true });
@@ -313,41 +319,87 @@ ${contextData}
         }
       } catch (err) {}
     }
-    // ... จบโค้ดเดิมของ ผอ. ...
 
-    // ==========================================
-    // เพิ่มการสร้าง payload และ generationConfig ตรงนี้ครับ
-    // ==========================================
     var payload = {
       "contents": [
         {
-          "parts": parts // นำตัวแปร parts ที่ประกอบร่างเสร็จแล้วมาใส่ตรงนี้
+          "parts": parts 
         }
       ],
       "generationConfig": {
-        "temperature": 0.1, // ล็อกความแม่นยำสูงสุด ไม่ให้ AI แต่งประโยคเองจนออกนอกกรอบ
+        "temperature": 0.1, 
         "topK": 1,
         "topP": 0.1
       }
     };
-
-    var options = {
-      "method": "post",
-      "contentType": "application/json",
-      "payload": JSON.stringify(payload),
-      "muteHttpExceptions": true
-    };
-
-    // ส่ง Request ไปยัง Gemini API
-    // var response = UrlFetchApp.fetch(apiUrl, options);
     
-    var response = UrlFetchApp.fetch(apiUrl, { "method": "post", "contentType": "application/json", "payload": JSON.stringify({ "contents": [{ "parts": parts }] }) });
-    var aiText = JSON.parse(response.getContentText()).candidates[0].content.parts[0].text;
-    return ContentService.createTextOutput(JSON.stringify({ "result": aiText })).setMimeType(ContentService.MimeType.JSON);
+
+    // ... โค้ดส่ง Request ไปหา callGeminiWithRetry คงเดิม ...
+
+    // ==========================================
+    // ส่ง Request ไปยัง Gemini API ผ่านระบบ Auto-Retry
+    // ==========================================
+    var geminiResult = callGeminiWithRetry(apiUrl, payload);
+
+    if (geminiResult.success) {
+      return ContentService.createTextOutput(JSON.stringify({ "result": geminiResult.text })).setMimeType(ContentService.MimeType.JSON);
+    } else {
+      return ContentService.createTextOutput(JSON.stringify({ "error": geminiResult.error })).setMimeType(ContentService.MimeType.JSON);
+    }
+
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({ "error": error.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
 }
+
+// ==========================================
+// ฟังก์ชันสำหรับเรียกใช้ Gemini API พร้อมระบบดักจับ Error และ Auto-Retry
+// ==========================================
+function callGeminiWithRetry(apiUrl, payloadData) {
+  var options = {
+    "method": "post",
+    "contentType": "application/json",
+    "payload": JSON.stringify(payloadData),
+    "muteHttpExceptions": true 
+  };
+
+  var maxRetries = 3;
+  var delayMs = 2000; 
+
+  for (var i = 0; i < maxRetries; i++) {
+    try {
+      var response = UrlFetchApp.fetch(apiUrl, options);
+      var responseCode = response.getResponseCode();
+      var responseText = response.getContentText();
+
+      if (responseCode === 200) {
+        var jsonResponse = JSON.parse(responseText);
+        if (jsonResponse.candidates && jsonResponse.candidates[0] && jsonResponse.candidates[0].content) {
+          return { success: true, text: jsonResponse.candidates[0].content.parts[0].text };
+        } else {
+          return { success: false, error: "ไม่พบข้อความตอบกลับจากระบบ AI" };
+        }
+      } else if (responseCode === 503 || responseCode === 429) {
+        console.warn("Gemini Error " + responseCode + " ครั้งที่ " + (i + 1) + ": " + responseText);
+        if (i < maxRetries - 1) {
+          Utilities.sleep(delayMs);
+          delayMs *= 2; 
+        }
+      } else {
+        console.error("API Error " + responseCode + ": " + responseText);
+        return { success: false, error: "เกิดข้อผิดพลาดในการเชื่อมต่อระบบประมวลผล (รหัส " + responseCode + ")" };
+      }
+    } catch (e) {
+      console.error("Fetch Exception ครั้งที่ " + (i + 1) + ": " + e.message);
+      if (i < maxRetries - 1) {
+        Utilities.sleep(delayMs);
+      }
+    }
+  }
+
+  return { success: false, error: "ขณะนี้เซิร์ฟเวอร์ AI มีผู้ใช้งานหนาแน่น โปรดรอสักครู่แล้วลองกดประมวลผลใหม่อีกครั้ง" };
+}
+
 /*
 // ==========================================
 // 4. ฟังก์ชันดึงข้อมูลจุดความร้อนจาก NASA (คงเดิม)
@@ -479,16 +531,10 @@ function isPointInRing(point, ring) {
   return inside;
 }
 
+
 // ฟังก์ชันจัดการเรื่องการอนุญาตเชื่อมต่อข้ามโดเมน
 function doOptions(e) {
-  var headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type"
-  };
-  return ContentService.createTextOutput("")
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeaders(headers);
+  return ContentService.createTextOutput("OK").setMimeType(ContentService.MimeType.TEXT);
 }
 
 function testAuth() {
