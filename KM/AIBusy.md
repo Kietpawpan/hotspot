@@ -1,5 +1,5 @@
 # หน้าจอที่ส่งมาคือข้อผิดพลาดรหัส 503 Service Unavailable
-<img src="img/AIbusy.png"></img>
+<img src="img/AIBusy.png"></img>
 
 ข้อความ "This model is currently experiencing high demand" หมายความว่า เซิร์ฟเวอร์ของ Gemini API กำลังมีผู้ใช้งานหนาแน่นมากในขณะนี้ ทำให้ระบบฝั่งเซิร์ฟเวอร์ประมวลผลไม่ทันและไม่สามารถรับคำสั่งเพิ่มได้ชั่วคราว ปัญหานี้ไม่ได้เกิดจากโค้ดผิดพลาดแต่อย่างใด
 
