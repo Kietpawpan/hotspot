@@ -237,14 +237,15 @@
     <input type="number" id="latInput" placeholder="Lat" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 90px;">
     <input type="number" id="lonInput" placeholder="Lon" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 90px;">
     
-    <div style="display: flex; gap: 5px;">
+    <div style="display: flex; gap: 5px; align-items: center;">
         <button id="dropPinBtn" style="padding: 8px 12px; background-color: #e11d48; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">📍 ปักหมุด</button>
         <button id="editPinBtn" style="padding: 8px 12px; background-color: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">✏️ Edit</button>
         <button id="clearPinBtn" style="padding: 8px 12px; background-color: #64748b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🗑️ ล้าง</button>
+        <label style="display: flex; align-items: center; cursor: pointer; margin-left: 5px; font-size: 14px; color: #475569; font-weight: bold;">
+            <input type="checkbox" id="togglePlumeBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #64748b;"> แสดงทิศทางควัน
+        </label>
     </div>
 </div>
-
-
         </div>
         
         <div id="map-wrapper">
@@ -1695,6 +1696,32 @@ document.getElementById('dropPinBtn').addEventListener('click', createIncidentMa
 // ตัวแปรเก็บข้อมูลหมุดปัจจุบันเพื่อใช้ในการ Edit
 let currentIncidentData = null;
 
+// ตัวแปรเก็บ Layer ของกรวยทิศทางลม
+let currentPlumeLayer = null;
+
+// ฟังก์ชันสำหรับเปิด-ปิดทรงกรวย
+document.getElementById('togglePlumeBtn').addEventListener('change', function() {
+    if (currentPlumeLayer) {
+        if (this.checked) {
+            currentPlumeLayer.addTo(incidentLayer);
+        } else {
+            incidentLayer.removeLayer(currentPlumeLayer);
+        }
+    }
+});
+
+// อัปเดตปุ่มล้างจุดปักหมุดให้ล้างตัวแปรรูปกรวยด้วย
+document.getElementById('clearPinBtn').addEventListener('click', function() {
+    incidentLayer.clearLayers();
+    currentIncidentData = null;
+    currentPlumeLayer = null;
+    document.getElementById('incidentName').value = "";
+    document.getElementById('latInput').value = "";
+    document.getElementById('lonInput').value = "";
+    showToast("ล้างจุดปักหมุดเรียบร้อยแล้ว", "info");
+});
+
+
 // ปุ่มล้างจุดปักหมุด
 document.getElementById('clearPinBtn').addEventListener('click', function() {
     incidentLayer.clearLayers();
@@ -1717,7 +1744,6 @@ document.getElementById('editPinBtn').addEventListener('click', function() {
     showToast("ดึงข้อมูลมาที่ช่องแก้ไขแล้ว", "success");
 });
 
-// ปรับปรุงฟังก์ชัน createIncidentMarker ให้เก็บค่า currentIncidentData ด้วย
 async function createIncidentMarker() {
     const name = document.getElementById('incidentName').value.trim() || "ไม่ได้ระบุชื่อเหตุการณ์";
     const lat = parseFloat(document.getElementById('latInput').value);
@@ -1728,11 +1754,30 @@ async function createIncidentMarker() {
         return;
     }
 
-    // เก็บค่าไว้สำหรับปุ่ม Edit
     currentIncidentData = { name, lat, lon };
-
     incidentLayer.clearLayers();
+    currentPlumeLayer = null;
 
+    // 1. สร้างรัศมีวงกลม 4 ชั้น (วาดวงใหญ่ก่อนเพื่อไม่ให้บังวงเล็ก)
+    const radii = [
+        { r: 2000, color: '#16a34a' }, // เขียว 2 กม.
+        { r: 1500, color: '#eab308' }, // เหลือง 1.5 กม.
+        { r: 1000, color: '#f97316' }, // ส้ม 1 กม.
+        { r: 500, color: '#ef4444' }   // แดง 500 ม.
+    ];
+
+    radii.forEach(item => {
+        L.circle([lat, lon], {
+            radius: item.r,
+            color: item.color,
+            fillColor: item.color,
+            fillOpacity: 0.15,
+            weight: 2,
+            dashArray: '5, 5'
+        }).addTo(incidentLayer);
+    });
+
+    // 2. สร้างไอคอนจุดเกิดเหตุ
     const fireIcon = L.divIcon({
         html: `<div style="font-size: 30px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); cursor: pointer;">🔥</div>`,
         className: '',
@@ -1743,7 +1788,6 @@ async function createIncidentMarker() {
 
     const marker = L.marker([lat, lon], { icon: fireIcon }).addTo(incidentLayer);
     
-    // เนื้อหา Popup (เหมือนเดิมที่เพิ่ม จังหวัด และ วันที่เวลา)
     const now = new Date();
     const timeStr = now.toLocaleTimeString('th-TH');
     const dateStr = now.toLocaleDateString('th-TH');
@@ -1754,7 +1798,7 @@ async function createIncidentMarker() {
                 <b>🚨 รายงานจุดเกิดเหตุ<br>(${name})</b>
             </div>
             <b>จังหวัด:</b> <span id="inc-province" style="color:#0284c7; font-weight:bold;">กำลังค้นหา...</span><br>
-            <b>พิกัด:</b> ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>
+            <b>พิกัด:</b> ${lat.toFixed(5)}  ${lon.toFixed(5)}<br>
             <b>เวลาที่รายงาน:</b> ${dateStr} ${timeStr}<br>
             
             <div style='background-color:#f8fafc; padding:8px; border:1px solid #e2e8f0; border-radius:6px; margin-top:8px;'>
@@ -1767,17 +1811,14 @@ async function createIncidentMarker() {
                 </div>
             </div>
             <br>
-            <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิด Google Maps</a>
+            <a href="https://www.google.com/maps?q=$${lat},${lon}" target="_blank" style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิด Google Maps</a>
         </div>
     `;
 
     marker.bindPopup(popupContent).openPopup();
     map.setView([lat, lon], 13);
 
-    // [โค้ดส่วน fetch ข้อมูลจังหวัดและทิศทางลม เหมือนเดิมกับ Version ก่อนหน้า]
-    // ... (ก๊อปปี้ส่วน fetch มาใส่ต่อท้ายได้เลยครับ)
-
-    // 1. ค้นหาจังหวัดจาก Longdo API
+    // ดึงข้อมูลจังหวัด
     fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
     .then(res => res.json())
     .then(data => {
@@ -1791,8 +1832,7 @@ async function createIncidentMarker() {
         if (document.getElementById('inc-province')) document.getElementById('inc-province').innerText = "ข้อผิดพลาดเครือข่าย";
     });
 
-
-    // 2. วิเคราะห์ลมและตำบลท้ายลม (เหมือนเดิม)
+    // วิเคราะห์ทิศทางลมและวาดทรงกรวย (Plume)
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m`)
     .then(res => res.json())
     .then(async data => {
@@ -1811,6 +1851,38 @@ async function createIncidentMarker() {
                 const smokeAngle = (dir + 180) % 360;
                 const bearing = smokeAngle > 180 ? smokeAngle - 360 : smokeAngle;
                 
+                // --- ส่วนคำนวณทรงกรวยทิศทางลม ---
+                const distance = 5; // ลากยาวไป 5 กม.
+                const spread = 40; // องศากางออก (ปรับความบานได้ตรงนี้)
+                
+                const leftBearing = bearing - (spread / 2);
+                const rightBearing = bearing + (spread / 2);
+                
+                // ใช้ Turf คำนวณจุดปลายซ้ายและขวา
+                const leftPt = turf.destination([lon, lat], distance, leftBearing, {units: 'kilometers'}).geometry.coordinates;
+                const rightPt = turf.destination([lon, lat], distance, rightBearing, {units: 'kilometers'}).geometry.coordinates;
+                
+                // แปลงพิกัดกลับมาเป็น [lat, lon] สำหรับ Leaflet
+                const coneCoords = [
+                    [lat, lon],
+                    [leftPt[1], leftPt[0]],
+                    [rightPt[1], rightPt[0]]
+                ];
+                
+                currentPlumeLayer = L.polygon(coneCoords, {
+                    color: '#64748b',
+                    fillColor: '#94a3b8',
+                    fillOpacity: 0.4,
+                    weight: 1,
+                    dashArray: '4, 4'
+                });
+                
+                // ตรวจสอบสถานะปุ่มตอนสร้างเสร็จ
+                if (document.getElementById('togglePlumeBtn').checked) {
+                    currentPlumeLayer.addTo(incidentLayer);
+                }
+                // ------------------------------
+
                 const pt1 = turf.destination([lon, lat], 2.5, bearing, {units: 'kilometers'}).geometry.coordinates;
                 const pt2 = turf.destination([lon, lat], 5, bearing, {units: 'kilometers'}).geometry.coordinates;
 
