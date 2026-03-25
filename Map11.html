@@ -1,9 +1,16 @@
 <!DOCTYPE html>
+
+<!--
+// MAPS 11: Modernized Air Protection System for EPO11
+// (c) 2026 Monte Kietpawpan
+// MIT License
+-->
+
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แผนที่จุดความร้อน VIIRS พื้นที่ สคพ.11 (Suomi-NPP)</title>
+    <title>ระบบเฝ้าระวังมลพิษพื้นที่ (สคพ.11)</title>
 
 <!----App Icon---->
 
@@ -195,8 +202,8 @@
 <body>
     <div id="toast-container"></div>
     <div class="container">
-        <h2>ระบบเฝ้าระวังจุดความร้อน VIIRS (สคพ.11)</h2>
-        <div class="subtitle">ครอบคลุมพื้นที่ นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ (ข้อมูล NASA FIRMS เฉพาะดาวเทียม Suomi-NPP)</div>
+        <h2>ระบบเฝ้าระวังมลพิษ (สคพ.11)</h2>
+        <div class="subtitle">ครอบคลุมพื้นที่ นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ (จุดความร้อน PM<sub>2.5</sub> โรงงานน้ำตาล  สถานที่กำจัดขยะ ก๊าซพิษ)</div>
         
         <div class="control-panel">
             <div class="status-box">
@@ -242,11 +249,19 @@
         <button id="editPinBtn" style="padding: 8px 12px; background-color: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">✏️ Edit</button>
         <button id="clearPinBtn" style="padding: 8px 12px; background-color: #64748b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🗑️ ล้าง</button>
         <label style="display: flex; align-items: center; cursor: pointer; margin-left: 5px; font-size: 14px; color: #475569; font-weight: bold;">
-            <input type="checkbox" id="togglePlumeBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #64748b;"> แสดงทิศทางควัน
+            <input type="checkbox" id="togglePlumeBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #64748b;"> แสดงควัน
+        </label>
+	<label style="display: flex; align-items: center; cursor: pointer; margin-left: 10px; font-size: 14px; color: #475569; font-weight: bold;">
+            <input type="checkbox" id="toggleRadiusBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #ef4444;"> แสดงรัศมี
         </label>
     </div>
-</div>
-        </div>
+
+    <div style="display: flex; gap: 5px; align-items: center; border-left: 2px solid #fda4af; padding-left: 10px; margin-left: 5px;">
+        <label style="font-size: 14px; font-weight: bold; color: #be123c;">ทิศลม (องศา):</label>
+        <input type="number" id="manualWindDir" placeholder="0-360" min="0" max="360" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 80px;">
+        <button id="updateWindBtn" style="padding: 8px 12px; background-color: #0284c7; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 ปรับทิศ</button>
+    </div>
+</div>        </div>
         
         <div id="map-wrapper">
             <div id="loadingOverlay">
@@ -360,7 +375,6 @@ const neighborHotspotLayer = L.markerClusterGroup({
     zoomToBoundsOnClick: true
 });
 
-
 // 4. นำ Layer ทั้งหมดมารวมไว้ในเมนู overlayMaps
 const overlayMaps = {
     "จุดความร้อน (NASA)": hotspotLayer,
@@ -374,7 +388,8 @@ const overlayMaps = {
 };
 
 // 5. นำเมนูไปแสดงบนแผนที่
-L.control.layers(baseMaps, overlayMaps).addTo(map);
+const layerControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
+// L.control.layers(baseMaps, overlayMaps).addTo(map);
 
         const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
         const targetProvincesThai = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
@@ -559,6 +574,25 @@ function updateDynamicLegend() {
         html += '<div class="legend-title">💨 ทิศทางและความเร็วลม</div>';
         html += '<div style="font-size: 13px; color: #64748b;">แสดงทิศทางและความเร็วลมปัจจุบัน ช่วยประเมินทิศทางผลกระทบฝุ่นควันและมลพิษ</div>';
     }
+/*
+// สร้างส่วนอธิบายรัศมีจุดเกิดเหตุ (แสดงเมื่อมีการปักหมุด)
+    if (currentIncidentData) {
+        html += '<div class="legend-title">🚨 รัศมีจุดเกิดเหตุ</div>';
+        html += '<div><span style="display:inline-block; width:15px; border-top:2px dashed #ef4444; margin-right:5px; vertical-align:middle;"></span> ระยะ 500 เมตร</div>';
+        html += '<div><span style="display:inline-block; width:15px; border-top:2px dashed #f97316; margin-right:5px; vertical-align:middle;"></span> ระยะ 1 กม.</div>';
+        html += '<div><span style="display:inline-block; width:15px; border-top:2px dashed #eab308; margin-right:5px; vertical-align:middle;"></span> ระยะ 1.5 กม.</div>';
+        html += '<div><span style="display:inline-block; width:15px; border-top:2px dashed #16a34a; margin-right:5px; vertical-align:middle;"></span> ระยะ 2 กม.</div>';
+    }
+*/
+// สร้างส่วนอธิบายรัศมีจุดเกิดเหตุ (ผูกกับ Layer จุดเกิดเหตุด่วน)
+    if (activeLayers.has("จุดเกิดเหตุด่วน (🚨)") && currentIncidentData && document.getElementById('toggleRadiusBtn').checked) {
+        html += '<div class="legend-title">🚨 รัศมีจุดเกิดเหตุ</div>';
+        html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #ef4444; margin-right:5px; vertical-align:middle;"></span> ระยะ 500 เมตร</div>';
+        html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #f97316; margin-right:5px; vertical-align:middle;"></span> ระยะ 1 กิโมเมตร</div>';
+        html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #eab308; margin-right:5px; vertical-align:middle;"></span> ระยะ 1.5 กิโลเมตร</div>';
+        html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #16a34a; margin-right:5px; vertical-align:middle;"></span> ระยะ 2 กิโลเมตร</div>';
+    }
+
 
     legendDiv.innerHTML = html;
 }
@@ -713,7 +747,7 @@ map.on('overlayremove', function(e) {
             if (totalSpots === 0 && globalFeatures.length === 0) {
                 document.getElementById('lastUpdateDisplay').innerText = "ไม่พบจุดความร้อนในรอบ " + currentTimeframe + " ชม. ล่าสุด";
             } else {
-                let displayTxt = "แสดงข้อมูลรอบ " + currentTimeframe + " ชม. ล่าสุด";
+                let displayTxt = "แสดงจุดความร้อนรอบ " + currentTimeframe + " ชม. ล่าสุด";
                 if (currentTimeframe === 12) {
                     if (currentTimeOfDay === 'morning') displayTxt += " (เฉพาะรอบเช้า)";
                     else if (currentTimeOfDay === 'afternoon') displayTxt += " (เฉพาะรอบบ่าย)";
@@ -819,7 +853,7 @@ function renderMap(features, counts, total) {
 
 
 	    let popupContent = "<div style='font-size: 14px;'>";
-            popupContent += "<div style='background-color:#4a148c; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>รายละเอียดจุดความร้อน (NASA)</b></div>";
+            popupContent += "<div style='background-color:#4a148c; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>รายละเอียดจุดความร้อน (NASA VIIRS)</b></div>";
             popupContent += "<b>พิกัด:</b> " + lat + "  " + lon + "<br>";
             popupContent += "<b>ตำบล:</b> <span class='tb-name' style='color:#0284c7; font-weight:bold;'>กำลังค้นหา...</span><br>";
             popupContent += "<b>อำเภอ:</b> <span class='ap-name' style='color:#0284c7; font-weight:bold;'>กำลังค้นหา...</span><br>";
@@ -1684,7 +1718,9 @@ fetchRealtimeWind();
 
 // สร้าง Layer สำหรับจุดเกิดเหตุชั่วคราว
 const incidentLayer = L.layerGroup().addTo(map);
-overlayMaps["จุดเกิดเหตุด่วน (🚨)"] = incidentLayer;
+layerControl.addOverlay(incidentLayer, "จุดเกิดเหตุด่วน (🚨)");
+activeLayers.add("จุดเกิดเหตุด่วน (🚨)"); // เพิ่มเข้าสถานะเลเยอร์ที่เปิดใช้งาน
+
 
 document.getElementById('dropPinBtn').addEventListener('click', createIncidentMarker);
 
@@ -1693,11 +1729,39 @@ document.getElementById('dropPinBtn').addEventListener('click', createIncidentMa
     input.addEventListener('keypress', (e) => { if (e.key === 'Enter') createIncidentMarker(); });
 });
 
-// ตัวแปรเก็บข้อมูลหมุดปัจจุบันเพื่อใช้ในการ Edit
 let currentIncidentData = null;
-
-// ตัวแปรเก็บ Layer ของกรวยทิศทางลม
 let currentPlumeLayer = null;
+let currentRadiiLayer = null; // เพิ่มบรรทัดนี้สำหรับเก็บกลุ่มวงกลมรัศมี
+let currentWindSpeed = 0; // เพิ่มตัวแปรเก็บความเร็วลมล่าสุด
+
+// ฟังก์ชันสำหรับเปิด-ปิดวงกลมรัศมี
+document.getElementById('toggleRadiusBtn').addEventListener('change', function() {
+    if (currentRadiiLayer) {
+        if (this.checked) {
+            currentRadiiLayer.addTo(incidentLayer);
+        } else {
+            incidentLayer.removeLayer(currentRadiiLayer);
+        }
+        updateDynamicLegend(); // อัปเดตกล่องคำอธิบายด้วย
+    }
+});
+
+// อัปเดตปุ่มล้างจุดปักหมุด
+document.getElementById('clearPinBtn').addEventListener('click', function() {
+    incidentLayer.clearLayers();
+    currentIncidentData = null;
+    currentPlumeLayer = null;
+    currentRadiiLayer = null; // เพิ่มเคลียร์ค่าเลเยอร์รัศมี
+    document.getElementById('incidentName').value = "";
+    document.getElementById('latInput').value = "";
+    document.getElementById('lonInput').value = "";
+    document.getElementById('manualWindDir').value = "";
+    showToast("ล้างจุดปักหมุดเรียบร้อยแล้ว", "info");
+    
+    updateDynamicLegend();
+});
+
+
 
 // ฟังก์ชันสำหรับเปิด-ปิดทรงกรวย
 document.getElementById('togglePlumeBtn').addEventListener('change', function() {
@@ -1710,27 +1774,21 @@ document.getElementById('togglePlumeBtn').addEventListener('change', function() 
     }
 });
 
-// อัปเดตปุ่มล้างจุดปักหมุดให้ล้างตัวแปรรูปกรวยด้วย
+// อัปเดตปุ่มล้างจุดปักหมุด
 document.getElementById('clearPinBtn').addEventListener('click', function() {
     incidentLayer.clearLayers();
     currentIncidentData = null;
     currentPlumeLayer = null;
+    currentWindSpeed = 0;
     document.getElementById('incidentName').value = "";
     document.getElementById('latInput').value = "";
     document.getElementById('lonInput').value = "";
+    document.getElementById('manualWindDir').value = "";
     showToast("ล้างจุดปักหมุดเรียบร้อยแล้ว", "info");
+    
+    updateDynamicLegend(); // เพิ่มบรรทัดนี้เพื่อเคลียร์คำอธิบายออก
 });
 
-
-// ปุ่มล้างจุดปักหมุด
-document.getElementById('clearPinBtn').addEventListener('click', function() {
-    incidentLayer.clearLayers();
-    currentIncidentData = null;
-    document.getElementById('incidentName').value = "";
-    document.getElementById('latInput').value = "";
-    document.getElementById('lonInput').value = "";
-    showToast("ล้างจุดปักหมุดเรียบร้อยแล้ว", "info");
-});
 
 // ปุ่ม Edit (ดึงค่าจากหมุดล่าสุดกลับมาที่ช่องกรอก)
 document.getElementById('editPinBtn').addEventListener('click', function() {
@@ -1741,8 +1799,38 @@ document.getElementById('editPinBtn').addEventListener('click', function() {
     document.getElementById('incidentName').value = currentIncidentData.name;
     document.getElementById('latInput').value = currentIncidentData.lat;
     document.getElementById('lonInput').value = currentIncidentData.lon;
+    if (currentIncidentData.windDir !== undefined) {
+        document.getElementById('manualWindDir').value = currentIncidentData.windDir;
+    }
     showToast("ดึงข้อมูลมาที่ช่องแก้ไขแล้ว", "success");
 });
+
+// ฟังก์ชันใหม่: อัปเดตทิศทางลมด้วยตัวเอง
+document.getElementById('updateWindBtn').addEventListener('click', function() {
+    if (!currentIncidentData) {
+        showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
+        return;
+    }
+    
+    const manualDir = parseFloat(document.getElementById('manualWindDir').value);
+    if (isNaN(manualDir) || manualDir < 0 || manualDir > 360) {
+        showToast("กรุณาระบุองศาลมระหว่าง 0-360", "warning");
+        return;
+    }
+
+    currentIncidentData.windDir = manualDir;
+    
+    // อัปเดต UI ใน Popup (ถ้าเปิดอยู่)
+    const dirEl = document.getElementById('inc-wind-dir');
+    if (dirEl) {
+        dirEl.innerHTML = `<span style="display:inline-block; transform: rotate(${manualDir + 180}deg); color:#0284c7;">⬆️</span> <span style="color:#0284c7; font-weight:bold;">${manualDir}° (ปรับแก้เอง)</span>`;
+    }
+    
+    // วาดกรวยและคำนวณพื้นที่ท้ายลมใหม่
+    drawPlumeAndCalculateRisk(currentIncidentData.lat, currentIncidentData.lon, manualDir, currentWindSpeed);
+    showToast("อัปเดตทิศทางควันเรียบร้อยแล้ว", "success");
+});
+
 
 async function createIncidentMarker() {
     const name = document.getElementById('incidentName').value.trim() || "ไม่ได้ระบุชื่อเหตุการณ์";
@@ -1755,15 +1843,21 @@ async function createIncidentMarker() {
     }
 
     currentIncidentData = { name, lat, lon };
+
+    updateDynamicLegend(); // เพิ่มบรรทัดนี้เพื่อแสดงคำอธิบายรัศมีทันที
+
     incidentLayer.clearLayers();
     currentPlumeLayer = null;
 
-    // 1. สร้างรัศมีวงกลม 4 ชั้น (วาดวงใหญ่ก่อนเพื่อไม่ให้บังวงเล็ก)
+
+// 1. สร้างรัศมีวงกลม 4 ชั้น
+    currentRadiiLayer = L.layerGroup(); // สร้างกลุ่มเลเยอร์ใหม่
+
     const radii = [
-        { r: 2000, color: '#16a34a' }, // เขียว 2 กม.
-        { r: 1500, color: '#eab308' }, // เหลือง 1.5 กม.
-        { r: 1000, color: '#f97316' }, // ส้ม 1 กม.
-        { r: 500, color: '#ef4444' }   // แดง 500 ม.
+        { r: 2000, color: '#16a34a' },
+        { r: 1500, color: '#eab308' },
+        { r: 1000, color: '#f97316' },
+        { r: 500, color: '#ef4444' }
     ];
 
     radii.forEach(item => {
@@ -1773,9 +1867,15 @@ async function createIncidentMarker() {
             fillColor: item.color,
             fillOpacity: 0.15,
             weight: 2,
-            dashArray: '5, 5'
-        }).addTo(incidentLayer);
+            dashArray: '5 5'
+        }).addTo(currentRadiiLayer); // นำไปใส่ในกลุ่มที่เพิ่งสร้าง
     });
+
+    // เช็กสถานะปุ่มติ๊กว่าให้แสดงรัศมีหรือไม่
+    if (document.getElementById('toggleRadiusBtn').checked) {
+        currentRadiiLayer.addTo(incidentLayer);
+    }
+
 
     // 2. สร้างไอคอนจุดเกิดเหตุ
     const fireIcon = L.divIcon({
@@ -1811,14 +1911,13 @@ async function createIncidentMarker() {
                 </div>
             </div>
             <br>
-            <a href="https://www.google.com/maps?q=$${lat},${lon}" target="_blank" style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิด Google Maps</a>
+            <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิด Google Maps</a>
         </div>
     `;
 
     marker.bindPopup(popupContent).openPopup();
     map.setView([lat, lon], 13);
 
-    // ดึงข้อมูลจังหวัด
     fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
     .then(res => res.json())
     .then(data => {
@@ -1832,85 +1931,95 @@ async function createIncidentMarker() {
         if (document.getElementById('inc-province')) document.getElementById('inc-province').innerText = "ข้อผิดพลาดเครือข่าย";
     });
 
-    // วิเคราะห์ทิศทางลมและวาดทรงกรวย (Plume)
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m`)
     .then(res => res.json())
-    .then(async data => {
+    .then(data => {
         if(data && data.current) {
-            const speed = data.current.wind_speed_10m;
-            const dir = data.current.wind_direction_10m;
+            currentWindSpeed = data.current.wind_speed_10m;
+            currentIncidentData.windDir = data.current.wind_direction_10m;
             
+            // นำค่าทิศลมจาก API ไปใส่ในช่องกรอกอัตโนมัติ
+            document.getElementById('manualWindDir').value = currentIncidentData.windDir;
+
             const dirEl = document.getElementById('inc-wind-dir');
             const speedEl = document.getElementById('inc-wind-speed');
-            const downwindEl = document.getElementById('inc-downwind');
 
-            if(dirEl) dirEl.innerHTML = `<span style="display:inline-block; transform: rotate(${dir + 180}deg);">⬆️</span> ${dir}°`;
-            if(speedEl) speedEl.innerText = `${speed} กม./ชม.`;
+            if(dirEl) dirEl.innerHTML = `<span style="display:inline-block; transform: rotate(${currentIncidentData.windDir + 180}deg);">⬆️</span> ${currentIncidentData.windDir}°`;
+            if(speedEl) speedEl.innerText = `${currentWindSpeed} กม./ชม.`;
 
-            if (speed > 1) {
-                const smokeAngle = (dir + 180) % 360;
-                const bearing = smokeAngle > 180 ? smokeAngle - 360 : smokeAngle;
-                
-                // --- ส่วนคำนวณทรงกรวยทิศทางลม ---
-                const distance = 5; // ลากยาวไป 5 กม.
-                const spread = 40; // องศากางออก (ปรับความบานได้ตรงนี้)
-                
-                const leftBearing = bearing - (spread / 2);
-                const rightBearing = bearing + (spread / 2);
-                
-                // ใช้ Turf คำนวณจุดปลายซ้ายและขวา
-                const leftPt = turf.destination([lon, lat], distance, leftBearing, {units: 'kilometers'}).geometry.coordinates;
-                const rightPt = turf.destination([lon, lat], distance, rightBearing, {units: 'kilometers'}).geometry.coordinates;
-                
-                // แปลงพิกัดกลับมาเป็น [lat, lon] สำหรับ Leaflet
-                const coneCoords = [
-                    [lat, lon],
-                    [leftPt[1], leftPt[0]],
-                    [rightPt[1], rightPt[0]]
-                ];
-                
-                currentPlumeLayer = L.polygon(coneCoords, {
-                    color: '#64748b',
-                    fillColor: '#94a3b8',
-                    fillOpacity: 0.4,
-                    weight: 1,
-                    dashArray: '4, 4'
-                });
-                
-                // ตรวจสอบสถานะปุ่มตอนสร้างเสร็จ
-                if (document.getElementById('togglePlumeBtn').checked) {
-                    currentPlumeLayer.addTo(incidentLayer);
-                }
-                // ------------------------------
-
-                const pt1 = turf.destination([lon, lat], 2.5, bearing, {units: 'kilometers'}).geometry.coordinates;
-                const pt2 = turf.destination([lon, lat], 5, bearing, {units: 'kilometers'}).geometry.coordinates;
-
-                try {
-                    const results = await Promise.all([
-                        fetch(`https://api.longdo.com/map/services/address?lon=${pt1[0]}&lat=${pt1[1]}&key=${longdoApiKey}`).then(r => r.json()),
-                        fetch(`https://api.longdo.com/map/services/address?lon=${pt2[0]}&lat=${pt2[1]}&key=${longdoApiKey}`).then(r => r.json())
-                    ]);
-
-                    let riskAreas = [];
-                    results.forEach(res => {
-                        if (res && res.subdistrict) {
-                            const t = res.subdistrict.replace(/^ตำบล|แขวง/g, '').trim();
-                            const a = res.district ? res.district.replace(/^อำเภอ|เขต/g, '').trim() : '';
-                            if (!riskAreas.includes(`${t} ${a}`)) riskAreas.push(`${t} ${a}`);
-                        }
-                    });
-                    if(downwindEl) downwindEl.innerHTML = riskAreas.length > 0 ? riskAreas.join(' และ ') : "ไม่พบข้อมูลชุมชน";
-                } catch(e) {
-                    if(downwindEl) downwindEl.innerHTML = "การวิเคราะห์พิกัดขัดข้อง";
-                }
-            } else {
-                if(downwindEl) downwindEl.innerHTML = "ลมสงบ ควันอาจสะสมในพื้นที่เกิดเหตุ";
-            }
+            // เรียกฟังก์ชันวาดกรวยและคำนวณพื้นที่เสี่ยง
+            drawPlumeAndCalculateRisk(lat, lon, currentIncidentData.windDir, currentWindSpeed);
         }
     });
 }
 
+// ฟังก์ชันสำหรับวาดรูปทรงกรวยและประมวลผลตำบลท้ายลม
+async function drawPlumeAndCalculateRisk(lat, lon, dir, speed) {
+    if (currentPlumeLayer) {
+        incidentLayer.removeLayer(currentPlumeLayer);
+        currentPlumeLayer = null;
+    }
+
+    const downwindEl = document.getElementById('inc-downwind');
+
+    if (speed > 1) {
+        const smokeAngle = (dir + 180) % 360;
+        const bearing = smokeAngle > 180 ? smokeAngle - 360 : smokeAngle;
+        
+        const distance = 5; 
+        const spread = 40; 
+        
+        const leftBearing = bearing - (spread / 2);
+        const rightBearing = bearing + (spread / 2);
+        
+        const leftPt = turf.destination([lon, lat], distance, leftBearing, {units: 'kilometers'}).geometry.coordinates;
+        const rightPt = turf.destination([lon, lat], distance, rightBearing, {units: 'kilometers'}).geometry.coordinates;
+        
+        const coneCoords = [
+            [lat, lon],
+            [leftPt[1], leftPt[0]],
+            [rightPt[1], rightPt[0]]
+        ];
+        
+        currentPlumeLayer = L.polygon(coneCoords, {
+            color: '#64748b',
+            fillColor: '#94a3b8',
+            fillOpacity: 0.4,
+            weight: 1,
+            dashArray: '4, 4'
+        });
+        
+        if (document.getElementById('togglePlumeBtn').checked) {
+            currentPlumeLayer.addTo(incidentLayer);
+        }
+
+        const pt1 = turf.destination([lon, lat], 2.5, bearing, {units: 'kilometers'}).geometry.coordinates;
+        const pt2 = turf.destination([lon, lat], 5, bearing, {units: 'kilometers'}).geometry.coordinates;
+
+        if (downwindEl) downwindEl.innerHTML = "<span style='color:#64748b;'>กำลังคำนวณพื้นที่ใหม่...</span>";
+
+        try {
+            const results = await Promise.all([
+                fetch(`https://api.longdo.com/map/services/address?lon=${pt1[0]}&lat=${pt1[1]}&key=${longdoApiKey}`).then(r => r.json()),
+                fetch(`https://api.longdo.com/map/services/address?lon=${pt2[0]}&lat=${pt2[1]}&key=${longdoApiKey}`).then(r => r.json())
+            ]);
+
+            let riskAreas = [];
+            results.forEach(res => {
+                if (res && res.subdistrict) {
+                    const t = res.subdistrict.replace(/^ตำบล|แขวง/g, '').trim();
+                    const a = res.district ? res.district.replace(/^อำเภอ|เขต/g, '').trim() : '';
+                    if (!riskAreas.includes(`${t} ${a}`)) riskAreas.push(`${t} ${a}`);
+                }
+            });
+            if(downwindEl) downwindEl.innerHTML = riskAreas.length > 0 ? riskAreas.join(' และ ') : "ไม่พบข้อมูลชุมชน";
+        } catch(e) {
+            if(downwindEl) downwindEl.innerHTML = "การวิเคราะห์พิกัดขัดข้อง";
+        }
+    } else {
+        if(downwindEl) downwindEl.innerHTML = "ลมสงบ ควันอาจสะสมในพื้นที่เกิดเหตุ";
+    }
+}
 function fetchSugarData() {
     // ใช้ URL เดิมแต่เพิ่มพารามิเตอร์ ?sheet=Sugar เพื่อระบุหน้าชีตที่ต้องการดึง
     const gasUrl = 'https://script.google.com/macros/s/AKfycbwWI0NvtyToeNBq5Y0Yu6VCKiJh27JDSDBZTJ0IbQ1mGsErkJfFdzYdkiVAw72GGWKZ/exec?sheet=Sugar';
@@ -2046,14 +2155,14 @@ map.on('click', function(e) {
     // ดึงค่าละติจูดและลองจิจูด ทศนิยม 5 ตำแหน่ง
     let clickLat = e.latlng.lat.toFixed(5);
     let clickLon = e.latlng.lng.toFixed(5);
-
-    // 1. สร้างและแสดง Popup ณ จุดที่คลิก
+// 1. สร้างและแสดง Popup ณ จุดที่คลิก (แบบเรียบง่ายเพื่อดึงพิกัด)
     let popupContent = `<div style='text-align:center; font-size:14px;'>
         <b>📍 พิกัดที่เลือก</b><br>
         Lat: <span style='color:#e11d48; font-weight:bold;'>${clickLat}</span><br>
         Lon: <span style='color:#e11d48; font-weight:bold;'>${clickLon}</span>
     </div>`;
 
+    // 1. สร้างและแสดง Popup ณ จุดที่คลิก (แบบเรียบง่ายเพื่อดึงพิกัด)
     L.popup()
         .setLatLng(e.latlng)
         .setContent(popupContent)
