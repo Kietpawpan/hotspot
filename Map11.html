@@ -405,8 +405,20 @@ fetch(geojsonBoundariesUrl)
             })
         };
 
-        // วาดเส้นขอบเขตเฉพาะ สคพ11 ให้เหมือนเดิม
-        const boundaryLayer = L.geoJSON(boundaryGeoJSON, {
+        // ---> เพิ่มโค้ดส่วนนี้เพื่อสร้างพื้นที่กัมพูชา <---
+        const cambodiaBorder = turf.polygon([[
+            [102.5, 14.6], // มุมซ้ายบน (เหนือแนวชายแดนเล็กน้อย)
+            [105.0, 14.6], // มุมขวาบน
+            [105.0, 13.5], // มุมขวาล่าง (ลึกลงไปในกัมพูชา)
+            [102.5, 13.5], // มุมซ้ายล่าง
+            [102.5, 14.6]  // วนกลับมาจุดเริ่มต้น
+        ]], { pro_th: "กัมพูชา (ชายแดน)" });
+        
+        neighborGeoJSON.features.push(cambodiaBorder);
+        // ----------------------------------------
+
+        // วาดเส้นขอบเขตเฉพาะ สคพ.11 ให้เหมือนเดิม
+        const boundaryLayer = L.geoJSON(boundaryGeoJSON, {        // วาดเส้นขอบเขตเฉพาะ สคพ11 ให้เหมือนเดิม
             style: {
                 color: "#4a148c", 
                 weight: 5,         
@@ -502,7 +514,7 @@ function updateDynamicLegend() {
             html += '<div style="color:#64748b; margin-bottom:5px;">ไม่พบจุดความร้อนในพื้นที่ข้างเคียง</div>';
         } else {
             html += 'รวมพบ: <b>' + currentNeighborTotal + '</b> จุด<br>';
-            html += '<div style="font-size: 13px; color:#64748b;">(ขอนแก่น มหาสารคาม ร้อยเอ็ด ศรีสะเกษ สระแก้ว ปราจีนบุรี นครนายก สระบุรี ลพบุรี เพชรบูรณ์)</div>';
+            html += '<div style="font-size: 13px; color:#64748b;">(ขอนแก่น มหาสารคาม ร้อยเอ็ด ศรีสะเกษ สระแก้ว ปราจีนบุรี นครนายก สระบุรี ลพบุรี เพชรบูรณ์ และกัมพูชา)</div>';
         }
     }
 
@@ -542,9 +554,9 @@ function updateDynamicLegend() {
     }
 
 // สร้างส่วนอธิบายทิศทางลม
-    if (activeLayers.has("ทิศทางลม (เคลื่อนไหว)")) {
+    if (activeLayers.has("ทิศทางลม (รายจังหวัด)")) {
         html += '<div class="legend-title">💨 ทิศทางและความเร็วลม</div>';
-        html += '<div style="font-size: 13px; color: #64748b;">แสดงแอนิเมชันการพัดพาของลมผิวพื้น ช่วยประเมินทิศทางผลกระทบฝุ่นควันและมลพิษ</div>';
+        html += '<div style="font-size: 13px; color: #64748b;">แสดงทิศทางและความเร็วลมปัจจุบัน ช่วยประเมินทิศทางผลกระทบฝุ่นควันและมลพิษ</div>';
     }
 
     legendDiv.innerHTML = html;
