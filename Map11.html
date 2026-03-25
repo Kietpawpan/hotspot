@@ -2156,11 +2156,12 @@ map.on('click', function(e) {
     let clickLat = e.latlng.lat.toFixed(5);
     let clickLon = e.latlng.lng.toFixed(5);
 // 1. สร้างและแสดง Popup ณ จุดที่คลิก (แบบเรียบง่ายเพื่อดึงพิกัด)
-    let popupContent = `<div style='text-align:center; font-size:14px;'>
-        <b>📍 พิกัดที่เลือก</b><br>
-        Lat: <span style='color:#e11d48; font-weight:bold;'>${clickLat}</span><br>
-        Lon: <span style='color:#e11d48; font-weight:bold;'>${clickLon}</span>
-    </div>`;
+let popupContent = `<div style='text-align:center; font-size:14px;'>
+    <b>📍 พิกัดที่เลือก</b><br>
+    Lat: <span style='color:#e11d48; font-weight:bold;'>${clickLat}</span><br>
+    Lon: <span style='color:#e11d48; font-weight:bold;'>${clickLon}</span><br>
+    <a href="https://www.google.com/maps/search/?api=1&query=${clickLat},${clickLon}" target="_blank" style="display:block; text-align:center; background-color:#3b82f6; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold; margin-top:10px;">🔍 เปิดดูพื้นที่บน Google Maps</a>
+</div>`;
 
     // 1. สร้างและแสดง Popup ณ จุดที่คลิก (แบบเรียบง่ายเพื่อดึงพิกัด)
     L.popup()
