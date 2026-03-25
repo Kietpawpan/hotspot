@@ -13,7 +13,7 @@
 
 <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/Kietpawpan/hotspot/main/img/EPO11App.png">
 
-<link rel="manifest" href="data:application/manifest+json;base64,ewogICJkZWZhdWx0X2xvY2FsZSI6ICJ0aCIsCiAgIm5hbWUiOiAiระบบเฝ้าระวังจุดความร้อน สคพ.11IiwKICAic2hvcnRfbmFtZSI6ICJIb3RzcG90IDExIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmZmZmZmYiLAogICJ0aGVtZV9jb2xvciI6ICIjNGExNDhjIgp9">
+<link rel="manifest" href="data:application/manifest+json;base64,ewogICJkZWZhdWx0X2xvY2FsZSI6ICJ0aCIsCiAgIm5hbWUiOiAi4Lij4Liw4Lia4Lia4LmA4Lid4LmJ4Liy4Lij4Liw4Lin4Lix4LiH4LiI4Li44LiU4LiE4Lin4Liy4Lih4Lij4LmJ4Lit4LiuIOC4quC4hOC4ni4xMSIsCiAgInNob3J0X25hbWUiOiAiSG90c3BvdCAxMSIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjZmZmZmZmIiwKICAidGhlbWVfY29sb3IiOiAiIzRhMTQ4YyIKfQ==">
 
 <!----End App Icon---->
 
@@ -337,11 +337,15 @@ const hotspotLayer = L.markerClusterGroup({
 // สร้าง Layer สำหรับแสดงลูกศรลมแบบเรียลไทม์ (ต้องวางก่อน overlayMaps)
 const windArrowLayer = L.layerGroup();
 
+// สร้าง Layer สำหรับโรงงานน้ำตาลและไฟฟ้าชีวมวล
+const sugarFactoryLayer = L.layerGroup();
+
 // 4. นำ Layer ทั้งหมดมารวมไว้ในเมนู overlayMaps
 const overlayMaps = {
     "จุดความร้อน (NASA)": hotspotLayer,
     "สถานีตรวจวัดคุณภาพอากาศ": aqmLayer,
     "สถานที่กำจัดขยะ": landfillLayer,
+    "โรงงานน้ำตาลและไฟฟ้าชีวมวล": sugarFactoryLayer,
     "ทิศทางลม (รายจังหวัด)": windArrowLayer
 };
 
@@ -478,6 +482,14 @@ function updateDynamicLegend() {
         html += '<div><span class="dot" style="background:#7f1d1d;"></span> เสี่ยงขยะล้น/พื้นที่เต็ม ⚠️ (' + landfillCounts.risk + ' แห่ง)</div>';
         html += '<div><span class="dot" style="background:#1f2937;"></span> ปิด/ไม่ได้ดำเนินการ (' + landfillCounts.closed + ' แห่ง)</div>';
     }
+
+
+// สร้างส่วนอธิบายโรงงานน้ำตาล
+    if (activeLayers.has("โรงงานน้ำตาลและไฟฟ้าชีวมวล")) {
+        html += '<div class="legend-title">🏭 โรงงานน้ำตาลและไฟฟ้าชีวมวล</div>';
+        html += '<div><span style="font-size:16px; margin-right:5px;">🏭</span> ตำแหน่งที่ตั้งโรงงาน</div>';
+    }
+
 // สร้างส่วนอธิบายทิศทางลม
     if (activeLayers.has("ทิศทางลม (เคลื่อนไหว)")) {
         html += '<div class="legend-title">💨 ทิศทางและความเร็วลม</div>';
@@ -1468,6 +1480,8 @@ fetchWindData();
 // เรียกใช้งานฟังก์ชัน
 fetchLandfillData();
 
+fetchSugarData();
+
 document.getElementById('siteSearchBtn').addEventListener('click', doSiteSearch);
 document.getElementById('siteSearchInput').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') doSiteSearch();
@@ -1724,6 +1738,102 @@ async function createIncidentMarker() {
     });
 }
 
+function fetchSugarData() {
+    // ใช้ URL เดิมแต่เพิ่มพารามิเตอร์ ?sheet=Sugar เพื่อระบุหน้าชีตที่ต้องการดึง
+    const gasUrl = 'https://script.google.com/macros/s/AKfycbwWI0NvtyToeNBq5Y0Yu6VCKiJh27JDSDBZTJ0IbQ1mGsErkJfFdzYdkiVAw72GGWKZ/exec?sheet=Sugar';
+
+    fetch(gasUrl)
+        .then(res => res.json())
+        .then(data => {
+            const targetProvinces = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
+
+            data.forEach(row => {
+                let prov = row["จังหวัด"] || "";
+                let isTarget = targetProvinces.some(p => prov.includes(p));
+
+                if (isTarget) {
+                    let lat = parseFloat(row["ละติจูด"]);
+                    let lon = parseFloat(row["ลองจิจูด"]);
+                    
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        let fName = row["ชื่อโรงงานน้ำตาล"] || "-";
+                        let pName = row["ชื่อโรงไฟฟ้า"] || "-";
+                        let capSugar = row["กำลังการผลิตน้ำตาล (ตันอ้อย/วัน)"] || "-";
+                        let wasteSys = row["ระบบบำบัดน้ำเสีย"] || "-";
+                        let wasteCap = row["ความจุระบบน้ำเสีย (ลูกบาศก์เมตร/วัน)"] || "-";
+                        let capPower = row["กำลังการผลิตไฟฟ้า (เมกะวัตต์)"] || "-";
+                        let airSys = row["ระบบบำบัดอากาศ"] || "-";
+                        let dustMeasure = row["มาตรการจัดการฝุ่น"] || "-";
+
+                        // สร้าง Icon รูปโรงงาน
+                        const factorySvg = `<div style="font-size: 24px; filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));">🏭</div>`;
+                        const factoryIcon = L.divIcon({
+                            html: factorySvg,
+                            className: '',
+                            iconSize: [24, 24],
+                            iconAnchor: [12, 12],
+                            popupAnchor: [0, -12]
+                        });
+
+                        let marker = L.marker([lat, lon], { icon: factoryIcon });
+                        
+                        let mapNavUrl = "https://www.google.com/maps/dir/?api=1&destination=$" + lat + "," + lon;
+                        
+                        let popupHTML = `<div style='font-size: 14px; min-width: 250px;'>
+                            <div style='background-color:#d97706; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>โรงงานน้ำตาลและไฟฟ้าชีวมวล</b></div>
+                            <b>ชื่อโรงงาน:</b> ${fName}<br>
+                            <b>ชื่อโรงไฟฟ้า:</b> ${pName}<br>
+                            <b>จังหวัด:</b> <span style='color:#0284c7; font-weight:bold;'>${prov}</span><br>
+                            <b>กำลังผลิตน้ำตาล:</b> ${capSugar} ตัน/วัน<br>
+                            <b>กำลังผลิตไฟฟ้า:</b> ${capPower} เมกะวัตต์<br>
+                            <hr style='border: 0; border-top: 1px dashed #ccc; margin: 8px 0;'>
+                            <b>ระบบบำบัดน้ำเสีย:</b> ${wasteSys}<br>
+                            <b>ความจุระบบน้ำเสีย:</b> ${wasteCap} ลบ.ม./วัน<br>
+                            <b>ระบบบำบัดอากาศ:</b> ${airSys}<br>
+                            <b>มาตรการจัดการฝุ่น:</b> ${dustMeasure}<br>
+                            <br><a href='${mapNavUrl}' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>
+                        </div>`;
+
+                        marker.bindPopup(popupHTML);
+                        sugarFactoryLayer.addLayer(marker);
+                    }
+                }
+            });
+            updateDynamicLegend();
+        })
+        .catch(err => console.error("เกิดข้อผิดพลาดในการโหลดข้อมูลโรงงานน้ำตาล", err));
+}
+
+
+// ดักจับเหตุการณ์เมื่อมีการคลิกบนแผนที่
+map.on('click', function(e) {
+    // ดึงค่าละติจูดและลองจิจูด ทศนิยม 5 ตำแหน่ง
+    let clickLat = e.latlng.lat.toFixed(5);
+    let clickLon = e.latlng.lng.toFixed(5);
+
+    // 1. สร้างและแสดง Popup ณ จุดที่คลิก
+    let popupContent = `<div style='text-align:center; font-size:14px;'>
+        <b>📍 พิกัดที่เลือก</b><br>
+        Lat: <span style='color:#e11d48; font-weight:bold;'>${clickLat}</span><br>
+        Lon: <span style='color:#e11d48; font-weight:bold;'>${clickLon}</span>
+    </div>`;
+
+    L.popup()
+        .setLatLng(e.latlng)
+        .setContent(popupContent)
+        .openOn(map);
+
+    // 2. นำพิกัดไปใส่ในช่องกรอกของ "จุดเกิดเหตุด่วน" อัตโนมัติ
+    let latInputEl = document.getElementById('latInput');
+    let lonInputEl = document.getElementById('lonInput');
+
+    if (latInputEl && lonInputEl) {
+        latInputEl.value = clickLat;
+        lonInputEl.value = clickLon;
+        // แจ้งเตือนผู้ใช้ว่าดึงข้อมูลไปใส่ให้แล้ว
+        showToast("ดึงพิกัดลงช่องเกิดเหตุด่วนเรียบร้อยแล้ว", "success");
+    }
+});
     </script>
 </body>
 </html>
