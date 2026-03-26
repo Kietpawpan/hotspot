@@ -229,15 +229,16 @@
     <div id="toast-container"></div>
     <div class="container">
 
-
+   
 <h2>MAPS 11 (Monitoring Air Protection System)</h2>
         <div class="subtitle">ระบบติดตามการคุ้มครองคุณภาพอากาศพื้นที่ นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์</div>
           
         <div class="control-panel">
-            <div class="status-box">
+
+           <div class="status-box">
                 🛰️ <b>สถานะข้อมูล:</b> <span id="lastUpdateDisplay" style="color: #b91c1c; font-weight: bold;">กำลังดาวน์โหลดและประมวลผลข้อมูล NASA...</span>
             </div>
-            
+          
             <div id="timeSelectorContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
                 <label style="font-size: 16px; margin-bottom: 10px; display: block;">
                     <b>แสดงจุดความร้อนย้อนหลัง: </b>
@@ -255,9 +256,6 @@
                     </label>
                 </div>
             </div>
-
-
-
 
 <div id="searchContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
     <label style="font-size: 16px; font-weight: bold;">🔍 ค้นหาสถานที่กำจัดขยะ:</label>
@@ -291,7 +289,7 @@
     </div>
 </div>        </div>
         
-        <div id="map-wrapper">
+          <div id="map-wrapper">
    	<div id="loadingOverlay">
                 <div class="maps-logo-text">MAPS 11</div>
                 <div class="maps-sub-text">Monitoring Air Protection System</div>
@@ -301,7 +299,8 @@
 
             <div id="map"></div>
         </div>
-  
+
+
 </div> 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
@@ -342,7 +341,7 @@
 // Use cutMap.html to cut the four provinces' boundary from https://raw.githubusercontent.com/cvibhagool/thailand-map/master/thailand-provinces.geojson
 //    	 const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/REO11_boundary.geojson';
 // เปลี่ยนไปใช้แผนที่ประเทศไทยทั้งหมดเพื่อให้มีข้อมูลจังหวัดข้างเคียง
-const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/thailand-provinces.geojson';
+const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres.geojson';
 
 // กำหนดคีย์เวิร์ดของจังหวัดข้างเคียง
 const neighborKeywords = ["ขอนแก่น", "มหาสารคาม", "ร้อยเอ็ด", "ศรีสะเกษ", "สระแก้ว", "ปราจีนบุรี", "นครนายก", "สระบุรี", "ลพบุรี", "เพชรบูรณ์", "Khon Kaen", "Maha Sarakham", "Roi Et", "Si Sa Ket", "Sa Kaeo", "Prachin Buri", "Nakhon Nayok", "Saraburi", "Lop Buri", "Lopburi", "Phetchabun"];
