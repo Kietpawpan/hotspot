@@ -19,11 +19,11 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
 
 
-    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-      <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
+      <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
    
     <style>
         .leaflet-control-download {
@@ -341,7 +341,7 @@
 // Use cutMap.html to cut the four provinces' boundary from https://raw.githubusercontent.com/cvibhagool/thailand-map/master/thailand-provinces.geojson
 //    	 const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/REO11_boundary.geojson';
 // เปลี่ยนไปใช้แผนที่ประเทศไทยทั้งหมดเพื่อให้มีข้อมูลจังหวัดข้างเคียง
-const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres.geojson';
+const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres.json';
 
 // กำหนดคีย์เวิร์ดของจังหวัดข้างเคียง
 const neighborKeywords = ["ขอนแก่น", "มหาสารคาม", "ร้อยเอ็ด", "ศรีสะเกษ", "สระแก้ว", "ปราจีนบุรี", "นครนายก", "สระบุรี", "ลพบุรี", "เพชรบูรณ์", "Khon Kaen", "Maha Sarakham", "Roi Et", "Si Sa Ket", "Sa Kaeo", "Prachin Buri", "Nakhon Nayok", "Saraburi", "Lop Buri", "Lopburi", "Phetchabun"];
@@ -426,7 +426,13 @@ const layerControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
         
         let boundaryGeoJSON = null;
         let summaryControl;
-        let globalFeatures = [];
+
+// โหลดเมื่อสั่งการ
+let globalCoreFeatures = [];
+let rawNeighborCandidates = [];
+let globalNeighborFeatures = [];
+let isNeighborProcessed = false;
+
         let currentTimeframe = 24;
         let currentTimeOfDay = 'all';
 
@@ -635,148 +641,180 @@ function updateDynamicLegend() {
 // ดักจับ Event เมื่อมีการติ๊กเปิด-ปิด Layer ในเมนู
 map.on('overlayadd', function(e) {
     activeLayers.add(e.name);
-    updateDynamicLegend();
+    
+    // ถ้าเปิดเลเยอร์ข้างเคียงและยังไม่เคยประมวลผล ให้สั่งทำงาน
+    if (e.name === "จุดความร้อน (จังหวัดข้างเคียง)" && !isNeighborProcessed) {
+        processNeighborsAsync();
+    } else {
+        updateDynamicLegend();
+        applyTimeFilter(); // อัปเดตการแสดงผลหมุดทันที
+    }
 });
 
-map.on('overlayremove', function(e) {
-    activeLayers.delete(e.name);
-    updateDynamicLegend();
-});
+function fetchNasaData() {
+    fetch(gasWebappUrl)
+        .then(res => res.text())
+        .then(csvText => {
+            let allFeatures = [];
+            let apiError = null;
 
+            const lines = csvText.trim().split('\n');
+            
+            if (lines.length > 0 && !lines[0].includes('latitude')) {
+                apiError = lines[0];
+            }
 
-        function fetchNasaData() {
-            fetch(gasWebappUrl)
-                .then(res => res.text())
-                .then(csvText => {
-                    let allFeatures = [];
-                    let apiError = null;
+            if (!apiError && lines.length >= 2) {
+                const headers = lines[0].split(',');
+                let i = 1;
+                const chunkSize = 50; 
 
-                    const lines = csvText.trim().split('\n');
+                function processChunk() {
+                    let end = Math.min(i + chunkSize, lines.length);
                     
-                    if (lines.length > 0 && !lines[0].includes('latitude')) {
-                        apiError = lines[0];
-                    }
+                    for (; i < end; i++) {
+                        const values = lines[i].split(',');
+                        if(values.length < headers.length) continue;
+                        
+                        let props = {};
+                        headers.forEach((h, idx) => { props[h] = values[idx]; });
+                        
+                        const lat = parseFloat(props.latitude);
+                        const lon = parseFloat(props.longitude);
+                        
+                        const dateParts = props.acq_date.split('-');
+                        const timeStr = String(props.acq_time).padStart(4, '0');
+                        const hours = parseInt(timeStr.substring(0, 2), 10);
+                        const mins = parseInt(timeStr.substring(2, 4), 10);
+                        const acqDateTime = new Date(Date.UTC(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10), hours, mins));
+                        props.parsed_datetime = acqDateTime;
 
-if (!apiError && lines.length >= 2) {
-    const headers = lines[0].split(',');
-    let allFeatures = [];
-    let i = 1;
-    const chunkSize = 50; // ประมวลผลทีละ 50 จุด เพื่อไม่ให้ iPad ค้าง
+                        let pt = turf.point([lon, lat]);
+                        let provName = null;
+
+                        // 1. เช็กว่าอยู่ในพื้นที่ สคพ.11 หรือไม่ (รวม BBox เพื่อความเร็ว)
+                        for(let f of boundaryGeoJSON.features) {
+                            if (lon >= f.bbox[0] && lat >= f.bbox[1] && lon <= f.bbox[2] && lat <= f.bbox[3]) {
+                                if(turf.booleanPointInPolygon(pt, f)) {
+                                    const propStr = JSON.stringify(f.properties);
+                                    if(propStr.includes("นครราชสีมา") || propStr.includes("Nakhon Ratchasima")) provName = "นครราชสีมา";
+                                    else if(propStr.includes("ชัยภูมิ") || propStr.includes("Chaiyaphum")) provName = "ชัยภูมิ";
+                                    else if(propStr.includes("บุรีรัมย์") || propStr.includes("Buri Ram") || propStr.includes("Buriram")) provName = "บุรีรัมย์";
+                                    else if(propStr.includes("สุรินทร์") || propStr.includes("Surin")) provName = "สุรินทร์";
+                                    break;
+                                }
+                            }
+                        }
+
+                        if(provName) {
+                            props.prov_name = provName;
+                            props.is_neighbor = false;
+                            globalCoreFeatures.push({
+                                type: "Feature",
+                                geometry: { type: "Point", coordinates: [lon, lat] },
+                                properties: props
+                            });
+                        } else {
+                            // โยนจุดที่เหลือเข้าคิวรอประมวลผลทีหลัง
+                            rawNeighborCandidates.push({ pt: pt, props: props, lon: lon, lat: lat });
+                        }
+                    } // <========== เติมปีกกาปิดลูป for ให้ตรงนี้ครับ
+
+                    if (i < lines.length) {
+                        // อัปเดตสถานะบนหน้าจอ Loading ให้เห็นเปอร์เซ็นต์การประมวลผล
+                        let percent = Math.round((i / lines.length) * 100);
+                        let statusEl = document.getElementById('loadingStatusText');
+                        if (statusEl) {
+                            statusEl.innerText = `ANALYZING SPATIAL DATA... ${percent}%`;
+                        }
+                        // สั่งให้หยุดพัก 15 มิลลิวินาที แล้วค่อยกลับมาทำลูปก้อนถัดไป
+                        setTimeout(processChunk, 15);
+                    } else {
+                        // ประมวลผลเฉพาะ สคพ.11 เสร็จสิ้น
+                        document.getElementById('loadingOverlay').style.display = 'none';
+                        applyTimeFilter();
+                        showToast("โหลดข้อมูลจุดความร้อนพื้นที่หลักสำเร็จ", "success");
+                    }
+                }
+
+                // เริ่มต้นประมวลผลก้อนแรก
+                processChunk();
+            }
+        })
+        .catch(error => {
+            console.error('เกิดข้อผิดพลาด', error);
+            document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูลส่วนกลาง";
+            document.getElementById('loadingOverlay').style.display = 'none';
+        });
+}
+
+// ประมวลเมื่อเปิด layer
+function processNeighborsAsync() {
+    showToast("กำลังประมวลผลจุดความร้อนพื้นที่ข้างเคียงและชายแดน...", "info");
+    let i = 0;
+    const chunkSize = 150;
 
     function processChunk() {
-        let end = Math.min(i + chunkSize, lines.length);
-        
+        let end = Math.min(i + chunkSize, rawNeighborCandidates.length);
         for (; i < end; i++) {
-            const values = lines[i].split(',');
-            if(values.length < headers.length) continue;
-            
-            let props = {};
-            headers.forEach((h, idx) => { props[h] = values[idx]; });
-            
-            const lat = parseFloat(props.latitude);
-            const lon = parseFloat(props.longitude);
-            
-            const dateParts = props.acq_date.split('-');
-            const timeStr = String(props.acq_time).padStart(4, '0');
-            const hours = parseInt(timeStr.substring(0, 2), 10);
-            const mins = parseInt(timeStr.substring(2, 4), 10);
-            const acqDateTime = new Date(Date.UTC(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10), hours, mins));
-            props.parsed_datetime = acqDateTime;
-
-            let pt = turf.point([lon, lat]);
+            let item = rawNeighborCandidates[i];
             let provName = null;
-            let isNeighbor = false;
-
-// 1. เช็กว่าอยู่ในพื้นที่ สคพ.11 หรือไม่
-for(let f of boundaryGeoJSON.features) {
-    // เช็ก Bounding Box ก่อน (ทำงานเร็วมาก)
-    if (lon >= f.bbox[0] && lat >= f.bbox[1] && lon <= f.bbox[2] && lat <= f.bbox[3]) {
-        // ถ้าอยู่ในกรอบสี่เหลี่ยม ค่อยเช็กความแม่นยำด้วย Polygon
-        if(turf.booleanPointInPolygon(pt, f)) {
-            const propStr = JSON.stringify(f.properties);
-            if(propStr.includes("นครราชสีมา") || propStr.includes("Nakhon Ratchasima")) provName = "นครราชสีมา";
-            else if(propStr.includes("ชัยภูมิ") || propStr.includes("Chaiyaphum")) provName = "ชัยภูมิ";
-            else if(propStr.includes("บุรีรัมย์") || propStr.includes("Buri Ram") || propStr.includes("Buriram")) provName = "บุรีรัมย์";
-            else if(propStr.includes("สุรินทร์") || propStr.includes("Surin")) provName = "สุรินทร์";
-            break;
-        }
-    }
-}
-
-// 2. ถ้าไม่อยู่ ให้เช็กในจังหวัดข้างเคียง
-if (!provName && neighborGeoJSON) {
-    for(let f of neighborGeoJSON.features) {
-        if (lon >= f.bbox[0] && lat >= f.bbox[1] && lon <= f.bbox[2] && lat <= f.bbox[3]) {
-            if(turf.booleanPointInPolygon(pt, f)) {
-                provName = f.properties.pro_th || f.properties.NAME_1 || "จังหวัดข้างเคียง";
-                isNeighbor = true;
-                break;
+            for(let f of neighborGeoJSON.features) {
+                if (item.lon >= f.bbox[0] && item.lat >= f.bbox[1] && item.lon <= f.bbox[2] && item.lat <= f.bbox[3]) {
+                    if(turf.booleanPointInPolygon(item.pt, f)) {
+                        provName = f.properties.pro_th || f.properties.NAME_1 || "จังหวัดข้างเคียง";
+                        break;
+                    }
+                }
             }
-        }
-    }
-}
-
-
-            if(provName) {
-                props.prov_name = provName;
-                props.is_neighbor = isNeighbor;
-                allFeatures.push({
+            if (provName) {
+                item.props.prov_name = provName;
+                item.props.is_neighbor = true;
+                globalNeighborFeatures.push({
                     type: "Feature",
-                    geometry: { type: "Point", coordinates: [lon, lat] },
-                    properties: props
+                    geometry: item.pt.geometry,
+                    properties: item.props
                 });
             }
         }
 
-        if (i < lines.length) {
-            // อัปเดตสถานะบนหน้าจอ Loading ให้เห็นเปอร์เซ็นต์การประมวลผล
-            let percent = Math.round((i / lines.length) * 100);
-            let statusEl = document.getElementById('loadingStatusText');
-            if (statusEl) {
-                statusEl.innerText = `ANALYZING SPATIAL DATA... ${percent}%`;
-            }
-            // สั่งให้หยุดพัก 15 มิลลิวินาที แล้วค่อยกลับมาทำลูปก้อนถัดไป
+        if (i < rawNeighborCandidates.length) {
             setTimeout(processChunk, 15);
         } else {
-            // ประมวลผลเสร็จสิ้นทั้งหมด
-            globalFeatures = allFeatures;
-            document.getElementById('loadingOverlay').style.display = 'none';
-            applyTimeFilter();
-            showToast("อัปเดตข้อมูลจุดความร้อนล่าสุดเรียบร้อยแล้ว", "success");
+            isNeighborProcessed = true;
+            applyTimeFilter(); // สั่งวาดแผนที่ใหม่เมื่อคำนวณเสร็จ
+            showToast("อัปเดตจุดความร้อนพื้นที่ข้างเคียงเรียบร้อยแล้ว", "success");
         }
     }
-
-    // เริ่มต้นประมวลผลก้อนแรก
     processChunk();
 }
 
-                })
-                .catch(error => {
-                    console.error('เกิดข้อผิดพลาด', error);
-                    document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูลส่วนกลาง";
-                    document.getElementById('loadingOverlay').style.display = 'none';
-                });
-        }
 
-        function applyTimeFilter() {
-            let filteredFeatures = [];
-            let hotspotCounts = {};
-            hotspotCounts["นครราชสีมา"] = 0;
-            hotspotCounts["ชัยภูมิ"] = 0;
-            hotspotCounts["บุรีรัมย์"] = 0;
-            hotspotCounts["สุรินทร์"] = 0;
-            let totalSpots = 0;		
-    	    let neighborTotal = 0; // เพิ่มบรรทัดนี้
 
-            let now = new Date();
-            if (globalFeatures.length > 0) {
-                let maxTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()));
-                now = new Date(maxTime);
-            }
+function applyTimeFilter() {
+    let filteredFeatures = [];
+    let hotspotCounts = {"นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0};
+    let totalSpots = 0;
+    let neighborTotal = 0; 
 
-            let cutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
+    // ดึงข้อมูลมาใช้งานตามเลเยอร์ที่เปิด
+    let allFeaturesToFilter = globalCoreFeatures;
+    if (activeLayers.has("จุดความร้อน (จังหวัดข้างเคียง)") && isNeighborProcessed) {
+        allFeaturesToFilter = globalCoreFeatures.concat(globalNeighborFeatures);
+    }
 
-            globalFeatures.forEach(feature => {
+    let now = new Date();
+    if (allFeaturesToFilter.length > 0) {
+        let maxTime = Math.max(...allFeaturesToFilter.map(f => f.properties.parsed_datetime.getTime()));
+        now = new Date(maxTime);
+    }
+
+    let cutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
+
+    // เปลี่ยน globalFeatures เดิมเป็น allFeaturesToFilter
+    allFeaturesToFilter.forEach(feature => {
+        // (ส่วนนี้ใช้โค้ดเช็ก cutoffTime ข้างในเหมือนเดิม)
+
                 if (feature.properties.parsed_datetime >= cutoffTime) {
                     let dt = feature.properties.parsed_datetime;
                     
@@ -800,7 +838,9 @@ if (!provName && neighborGeoJSON) {
              }
             });
 
-            if (totalSpots === 0 && globalFeatures.length === 0) {
+
+
+		if (totalSpots === 0 && allFeaturesToFilter.length === 0) {
                 document.getElementById('lastUpdateDisplay').innerText = "ไม่พบจุดความร้อนในรอบ " + currentTimeframe + " ชม. ล่าสุด";
             } else {
                 let displayTxt = "แสดงจุดความร้อนรอบ " + currentTimeframe + " ชม. ล่าสุด";
@@ -1122,7 +1162,7 @@ btn.onclick = async function() {
     
  
     // --- โค้ดดาวน์โหลดเดิมเริ่มต้นที่นี่ ---
-    if (!globalFeatures || globalFeatures.length === 0) {
+    if (!globalCoreFeatures || globalCoreFeatures.length === 0) {
         showToast("ไม่พบข้อมูลจุดความร้อนในระบบ", "warning");
         return;
     }
@@ -1135,27 +1175,29 @@ btn.onclick = async function() {
         
         try {
             let now = new Date();
-            if (globalFeatures.length > 0) {
-                let maxTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()));
+            if (globalCoreFeatures.length > 0) {
+                let maxTime = Math.max(...globalCoreFeatures.map(f => f.properties.parsed_datetime.getTime()));
                 now = new Date(maxTime);
             }
             
             let exportCutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
             const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 
-            // 1. คัดกรองจุดความร้อนที่เข้าเงื่อนไขเวลา
-            let targetFeatures = globalFeatures.filter(feature => {
-                let dt = feature.properties.parsed_datetime;
-                let localHour = (dt.getUTCHours() + 7) % 24;
-                let isMorning = localHour >= 0 && localHour < 12;
-                let isAfternoon = localHour >= 12 && localHour < 24;
-                
-                let matchTimeOfDay = true;
-                if (currentTimeOfDay === 'morning' && !isMorning) matchTimeOfDay = false;
-                if (currentTimeOfDay === 'afternoon' && !isAfternoon) matchTimeOfDay = false;
 
-                return dt >= exportCutoffTime && matchTimeOfDay;
-            });
+// 1. คัดกรองจุดความร้อนที่เข้าเงื่อนไขเวลา และเฉพาะพื้นที่ สคพ.11
+let targetFeatures = globalCoreFeatures.filter(feature => {
+    let dt = feature.properties.parsed_datetime;
+    let localHour = (dt.getUTCHours() + 7) % 24;
+    let isMorning = localHour >= 0 && localHour < 12;
+    let isAfternoon = localHour >= 12 && localHour < 24;
+    
+    let matchTimeOfDay = true;
+    if (currentTimeOfDay === 'morning' && !isMorning) matchTimeOfDay = false;
+    if (currentTimeOfDay === 'afternoon' && !isAfternoon) matchTimeOfDay = false;
+
+    // เพิ่มเงื่อนไข !feature.properties.is_neighbor เพื่อตัดจังหวัดข้างเคียงออก
+    return dt >= exportCutoffTime && matchTimeOfDay && !feature.properties.is_neighbor;
+});
 
             if (targetFeatures.length === 0) {
                 showToast("ไม่มีข้อมูลจุดความร้อนในช่วงเวลาที่เลือก", "warning");
@@ -1266,8 +1308,8 @@ btn.onclick = async function() {
             let fileThaiDate = "";
             const fullThaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
-            if (globalFeatures.length > 0) {
-                let latestTime = Math.max(...globalFeatures.map(f => f.properties.parsed_datetime.getTime()));
+            if (globalCoreFeatures.length > 0) {
+                let latestTime = Math.max(...globalCoreFeatures.map(f => f.properties.parsed_datetime.getTime()));
                 let localDt = new Date(latestTime + (7 * 60 * 60 * 1000)); 
                 let d = localDt.getUTCDate();
                 let m = fullThaiMonths[localDt.getUTCMonth()];
