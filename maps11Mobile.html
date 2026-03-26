@@ -412,60 +412,78 @@ let isNeighborProcessed = false;
         let currentTimeframe = 24;
         let currentTimeOfDay = 'all';
 
-fetch(geojsonBoundariesUrl)
-    .then(res => res.json())
-    .then(data => {
-        boundaryGeoJSON = {
-            type: "FeatureCollection",
-            features: data.features.filter(f => {
-                const propStr = JSON.stringify(f.properties);
-                return targetKeywords.some(keyword => propStr.includes(keyword));
-            })
-        };
-        
-        neighborGeoJSON = {
-            type: "FeatureCollection",
-            features: data.features.filter(f => {
-                const propStr = JSON.stringify(f.properties);
-                return neighborKeywords.some(keyword => propStr.includes(keyword));
-            })
-        };
+const highresUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres.json';
+const simplifiedUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres4K.json'; // ใส่ลิงก์ไฟล์ใหม่ของ ผอ. ตรงนี้
 
-        const cambodiaBorder = turf.polygon([[
-            [102.5, 14.6],
-            [105.0, 14.6],
-            [105.0, 13.5],
-            [102.5, 13.5],
-            [102.5, 14.6] 
-        ]], { pro_th: "กัมพูชา (ชายแดน)" });
-        
-        neighborGeoJSON.features.push(cambodiaBorder);
+let drawBoundaryGeoJSON = null; // สำหรับโชว์เส้นขอบ
+let calcBoundaryGeoJSON = null; // สำหรับคำนวณเบื้องหลัง
 
-        const boundaryLayer = L.geoJSON(boundaryGeoJSON, {
-            style: {
-                color: "#4a148c", 
-                weight: 5,         
-                opacity: 1,        
-                fillOpacity: 0.05,
-                dashArray: ''
-            }
-        }).addTo(map);
+// โหลดไฟล์ 2 เวอร์ชันมาพร้อมกัน
+Promise.all([
+    fetch(highresUrl).then(res => res.json()),
+    fetch(simplifiedUrl).then(res => res.json())
+])
+.then(([highresData, simplifiedData]) => {
+    
+    // 1. เตรียมแผนที่สำหรับแสดงผล (High-res)
+    drawBoundaryGeoJSON = {
+        type: "FeatureCollection",
+        features: highresData.features.filter(f => {
+            const propStr = JSON.stringify(f.properties);
+            return targetKeywords.some(keyword => propStr.includes(keyword));
+        })
+    };
 
-        if (boundaryGeoJSON.features.length > 0) {
-            map.fitBounds(boundaryLayer.getBounds());
+    // 2. เตรียมแผนที่สำหรับคำนวณ (Simplified)
+    calcBoundaryGeoJSON = {
+        type: "FeatureCollection",
+        features: simplifiedData.features.filter(f => {
+            const propStr = JSON.stringify(f.properties);
+            return targetKeywords.some(keyword => propStr.includes(keyword));
+        })
+    };
+    
+    // (ข้อมูลจังหวัดข้างเคียงสามารถใช้แบบ Simplified ได้เลยเพื่อลดภาระ)
+    neighborGeoJSON = {
+        type: "FeatureCollection",
+        features: simplifiedData.features.filter(f => {
+            const propStr = JSON.stringify(f.properties);
+            return neighborKeywords.some(keyword => propStr.includes(keyword));
+        })
+    };
+
+    // โค้ดสร้างพื้นที่กัมพูชาเหมือนเดิม
+    const cambodiaBorder = turf.polygon([[
+        [102.5, 14.6], [105.0, 14.6], [105.0, 13.5], [102.5, 13.5], [102.5, 14.6] 
+    ]], { pro_th: "กัมพูชา (ชายแดน)" });
+    neighborGeoJSON.features.push(cambodiaBorder);
+
+    // 3. วาดเส้นขอบเขตลงแผนที่โดยใช้ไฟล์ High-res
+    const boundaryLayer = L.geoJSON(drawBoundaryGeoJSON, {
+        style: {
+            color: "#4a148c", 
+            weight: 5,         
+            opacity: 1,        
+            fillOpacity: 0.05,
+            dashArray: ''
         }
+    }).addTo(map);
 
+    if (drawBoundaryGeoJSON.features.length > 0) {
+        map.fitBounds(boundaryLayer.getBounds());
+    }
 
-        boundaryGeoJSON.features.forEach(f => f.bbox = turf.bbox(f));
-        neighborGeoJSON.features.forEach(f => f.bbox = turf.bbox(f));
+    // 4. สร้าง Bounding Box ทิ้งไว้โดยใช้ไฟล์ Simplified (ทำงานไวกว่ามาก)
+    calcBoundaryGeoJSON.features.forEach(f => f.bbox = turf.bbox(f));
+    neighborGeoJSON.features.forEach(f => f.bbox = turf.bbox(f));
 
-        const reo11Bbox = turf.bbox(boundaryGeoJSON);
-       // document.getElementById('loadingOverlay').style.display = 'none'; 
-       // ลบบรรทัดบน พื่อให้จอโหลดสีดำแสดงต่อไปจนกว่าจุดความร้อนหลักจะมาครบ
+    const reo11Bbox = turf.bbox(calcBoundaryGeoJSON);
 
-        fetchNasaData(reo11Bbox);
-    })
-    .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้', err));
+    // ปล่อยให้หน้าจอโหลดสีดำค้างไว้ แล้วส่ง Bounding Box หยาบๆ ไปคำนวณ
+    fetchNasaData(reo11Bbox);
+})
+
+.catch(err => console.error('ไม่สามารถโหลดข้อมูลแผนที่ได้', err));
 
 let activeLayers = new Set(["จุดความร้อน (NASA)"]);
 let currentHotspotTotal = 0;
@@ -641,7 +659,7 @@ function fetchNasaData(reo11Bbox) {
                             let pt = turf.point([lon, lat]);
                             let provName = null;
 
-                            for(let f of boundaryGeoJSON.features) {
+                            for(let f of calcBoundaryGeoJSON.features) {
                                 if (lon >= f.bbox[0] && lat >= f.bbox[1] && lon <= f.bbox[2] && lat <= f.bbox[3]) {
                                     if(turf.booleanPointInPolygon(pt, f)) {
                                         const propStr = JSON.stringify(f.properties);
@@ -714,7 +732,9 @@ function fetchNasaData(reo11Bbox) {
 function processNeighborsAsync() {
     showToast("กำลังคำนวณจุดความร้อนพื้นที่ข้างเคียง...", "info");
     let i = 0;
-    const chunkSize = 150;
+   // const chunkSize = 150;
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const chunkSize = isMobile ? 50 : 150;
 
     function processChunk() {
         let end = Math.min(i + chunkSize, rawNeighborCandidates.length);
