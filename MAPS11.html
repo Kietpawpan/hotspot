@@ -652,77 +652,91 @@ map.on('overlayremove', function(e) {
                         apiError = lines[0];
                     }
 
-                    if (!apiError && lines.length >= 2) {
-                        const headers = lines[0].split(',');
-                        for(let i = 1; i < lines.length; i++) {
-                            const values = lines[i].split(',');
-                            if(values.length < headers.length) continue;
-                            
-                            let props = {};
-                            headers.forEach((h, idx) => { props[h] = values[idx]; });
-                            
-                            const lat = parseFloat(props.latitude);
-                            const lon = parseFloat(props.longitude);
-                            
-                            const dateParts = props.acq_date.split('-');
-                            const timeStr = String(props.acq_time).padStart(4, '0');
-                            const hours = parseInt(timeStr.substring(0, 2), 10);
-                            const mins = parseInt(timeStr.substring(2, 4), 10);
-                            const acqDateTime = new Date(Date.UTC(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10), hours, mins));
-                            props.parsed_datetime = acqDateTime;
+if (!apiError && lines.length >= 2) {
+    const headers = lines[0].split(',');
+    let allFeatures = [];
+    let i = 1;
+    const chunkSize = 50; // ประมวลผลทีละ 50 จุด เพื่อไม่ให้ iPad ค้าง
 
-                            let pt = turf.point([lon, lat]);
+    function processChunk() {
+        let end = Math.min(i + chunkSize, lines.length);
+        
+        for (; i < end; i++) {
+            const values = lines[i].split(',');
+            if(values.length < headers.length) continue;
+            
+            let props = {};
+            headers.forEach((h, idx) => { props[h] = values[idx]; });
+            
+            const lat = parseFloat(props.latitude);
+            const lon = parseFloat(props.longitude);
+            
+            const dateParts = props.acq_date.split('-');
+            const timeStr = String(props.acq_time).padStart(4, '0');
+            const hours = parseInt(timeStr.substring(0, 2), 10);
+            const mins = parseInt(timeStr.substring(2, 4), 10);
+            const acqDateTime = new Date(Date.UTC(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10), hours, mins));
+            props.parsed_datetime = acqDateTime;
 
+            let pt = turf.point([lon, lat]);
+            let provName = null;
+            let isNeighbor = false;
+            
+            // 1. เช็กว่าอยู่ในพื้นที่ สคพ.11 หรือไม่
+            for(let f of boundaryGeoJSON.features) {
+                if(turf.booleanPointInPolygon(pt, f)) {
+                    const propStr = JSON.stringify(f.properties);
+                    if(propStr.includes("นครราชสีมา") || propStr.includes("Nakhon Ratchasima")) provName = "นครราชสีมา";
+                    else if(propStr.includes("ชัยภูมิ") || propStr.includes("Chaiyaphum")) provName = "ชัยภูมิ";
+                    else if(propStr.includes("บุรีรัมย์") || propStr.includes("Buri Ram") || propStr.includes("Buriram")) provName = "บุรีรัมย์";
+                    else if(propStr.includes("สุรินทร์") || propStr.includes("Surin")) provName = "สุรินทร์";
+                    break;
+                }
+            }
 
-		    let provName = null;
-                    let isNeighbor = false;
-                    
-                    // 1. เช็กว่าอยู่ในพื้นที่ สคพ11 หรือไม่
-                    for(let f of boundaryGeoJSON.features) {
-                        if(turf.booleanPointInPolygon(pt, f)) {
-                            const propStr = JSON.stringify(f.properties);
-                            if(propStr.includes("นครราชสีมา") || propStr.includes("Nakhon Ratchasima")) provName = "นครราชสีมา";
-                            else if(propStr.includes("ชัยภูมิ") || propStr.includes("Chaiyaphum")) provName = "ชัยภูมิ";
-                            else if(propStr.includes("บุรีรัมย์") || propStr.includes("Buri Ram") || propStr.includes("Buriram")) provName = "บุรีรัมย์";
-                            else if(propStr.includes("สุรินทร์") || propStr.includes("Surin")) provName = "สุรินทร์";
-                            break;
-                        }
+            // 2. ถ้าไม่อยู่ ให้เช็กในจังหวัดข้างเคียง
+            if (!provName && neighborGeoJSON) {
+                for(let f of neighborGeoJSON.features) {
+                    if(turf.booleanPointInPolygon(pt, f)) {
+                        provName = f.properties.pro_th || f.properties.NAME_1 || "จังหวัดข้างเคียง";
+                        isNeighbor = true;
+                        break;
                     }
+                }
+            }
 
-                    // 2. ถ้าไม่อยู่ใน สคพ11 ให้เช็กในจังหวัดข้างเคียง
-                    if (!provName && neighborGeoJSON) {
-                        for(let f of neighborGeoJSON.features) {
-                            if(turf.booleanPointInPolygon(pt, f)) {
-                                provName = f.properties.pro_th || f.properties.NAME_1 || "จังหวัดข้างเคียง";
-                                isNeighbor = true;
-                                break;
-                            }
-                        }
-                    }
+            if(provName) {
+                props.prov_name = provName;
+                props.is_neighbor = isNeighbor;
+                allFeatures.push({
+                    type: "Feature",
+                    geometry: { type: "Point", coordinates: [lon, lat] },
+                    properties: props
+                });
+            }
+        }
 
-                    if(provName) {
-                        props.prov_name = provName;
-                        props.is_neighbor = isNeighbor; // เก็บสถานะว่าเป็นจังหวัดข้างเคียง
-                        allFeatures.push({
-                            type: "Feature",
-                            geometry: { type: "Point", coordinates: [lon, lat] },
-                            properties: props
-                        });
-                    }
+        if (i < lines.length) {
+            // อัปเดตสถานะบนหน้าจอ Loading ให้เห็นเปอร์เซ็นต์การประมวลผล
+            let percent = Math.round((i / lines.length) * 100);
+            let statusEl = document.getElementById('loadingStatusText');
+            if (statusEl) {
+                statusEl.innerText = `ANALYZING SPATIAL DATA... ${percent}%`;
+            }
+            // สั่งให้หยุดพัก 15 มิลลิวินาที แล้วค่อยกลับมาทำลูปก้อนถัดไป
+            setTimeout(processChunk, 15);
+        } else {
+            // ประมวลผลเสร็จสิ้นทั้งหมด
+            globalFeatures = allFeatures;
+            document.getElementById('loadingOverlay').style.display = 'none';
+            applyTimeFilter();
+            showToast("อัปเดตข้อมูลจุดความร้อนล่าสุดเรียบร้อยแล้ว", "success");
+        }
+    }
 
-                        }
-                    }
-
-                    if (apiError && allFeatures.length === 0) {
-                        document.getElementById('lastUpdateDisplay').innerText = "⚠️ แจ้งเตือนจากระบบส่วนกลาง: " + apiError;
-                        document.getElementById('loadingOverlay').style.display = 'none';
-                        return;
-                    }
-
-                    globalFeatures = allFeatures;
-                    document.getElementById('loadingOverlay').style.display = 'none';
-                    applyTimeFilter();
-                    showToast("อัปเดตข้อมูลจุดความร้อนล่าสุดเรียบร้อยแล้ว", "success");
+    // เริ่มต้นประมวลผลก้อนแรก
+    processChunk();
+}
 
                 })
                 .catch(error => {
