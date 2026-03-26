@@ -805,7 +805,11 @@ function applyTimeFilter() {
 
     let now = new Date();
     if (allFeaturesToFilter.length > 0) {
-        let maxTime = Math.max(...allFeaturesToFilter.map(f => f.properties.parsed_datetime.getTime()));
+        let maxTime = 0;
+        allFeaturesToFilter.forEach(f => {
+            let t = f.properties.parsed_datetime.getTime();
+            if (t > maxTime) maxTime = t;
+        });
         now = new Date(maxTime);
     }
 
@@ -1173,10 +1177,14 @@ btn.onclick = async function() {
         btn.style.fontWeight = 'bold';
         btn.innerHTML = '0%'; // เริ่มต้นที่ 0%
         
-        try {
+	try {
             let now = new Date();
             if (globalCoreFeatures.length > 0) {
-                let maxTime = Math.max(...globalCoreFeatures.map(f => f.properties.parsed_datetime.getTime()));
+                let maxTime = 0;
+                globalCoreFeatures.forEach(f => {
+                    let t = f.properties.parsed_datetime.getTime();
+                    if (t > maxTime) maxTime = t;
+                });
                 now = new Date(maxTime);
             }
             
@@ -1308,9 +1316,15 @@ let targetFeatures = globalCoreFeatures.filter(feature => {
             let fileThaiDate = "";
             const fullThaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
-            if (globalCoreFeatures.length > 0) {
-                let latestTime = Math.max(...globalCoreFeatures.map(f => f.properties.parsed_datetime.getTime()));
-                let localDt = new Date(latestTime + (7 * 60 * 60 * 1000)); 
+
+	     if (globalCoreFeatures.length > 0) {
+                let latestTime = 0;
+                globalCoreFeatures.forEach(f => {
+                    let t = f.properties.parsed_datetime.getTime();
+                    if (t > latestTime) latestTime = t;
+                });
+                let localDt = new Date(latestTime + (7 * 60 * 60 * 1000));
+
                 let d = localDt.getUTCDate();
                 let m = fullThaiMonths[localDt.getUTCMonth()];
                 let y = localDt.getUTCFullYear() + 543;
