@@ -8,5 +8,5 @@ Management of Air Pollution Sector 11
 <img src="https://kietpawpan.github.io/hotspot/img/IMG_4336.jpeg"></img>
 3. ตรวจสอบค่าฝุ่น PM2.5 แบบ Realtime ผ่าน Air4Thai API พร้อมค่าฝุ่นและทิศทาง-ความเร็วลม
    <img src="https://kietpawpan.github.io/hotspot/img/IMG_4338.jpeg"></img>
-4. เฝ้าระวังเหตุไฟไหม้สถานที่กำจัดขยะมูลฝอยทุกแห่งในพื้นที่ สคพ.11
+4. เฝ้าระวังเหตุเพลิงไหม้สถานที่กำจัดขยะมูลฝอยทุกแห่งในพื้นที่ สคพ.11
    <img src="https://kietpawpan.github.io/hotspot/img/IMG_4340.jpeg"></img>
