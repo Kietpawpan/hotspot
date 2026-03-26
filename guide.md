@@ -2,6 +2,7 @@
 Management of Air Pollution Sector 11
 
 # Features
-1. Check hotspots via NASA API (VIIRS) 24 hrs (2 round2)
+1. ตรวจสอบจุดความร้อนในพื้นที่ สคพ.11 ผ่าน NASA API (VIIRS) ย้อนหลัง 24 ชม.
    <img src="https://kietpawpan.github.io/hotspot/img/IMG_4333.jpeg"></img>
-3. Do
+2. ตรวจสอบจุดความร้อนในพื้นที่จังหวัดข้างเคียงและชายแดนกัมพูชา ผ่าน NASA API (VIIRS) ย้อนหลัง 24 ชม.
+<img src="https://kietpawpan.github.io/hotspot/img/IMG_4334.jpeg"></img>
