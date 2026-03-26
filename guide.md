@@ -11,3 +11,6 @@ Management of Air Pollution Sector 11
 4. เฝ้าระวังเหตุเพลิงไหม้สถานที่กำจัดขยะมูลฝอยทุกแห่งในพื้นที่ สคพ.11
    <img src="https://kietpawpan.github.io/hotspot/img/IMG_4342.jpeg"></img>
       <img src="https://kietpawpan.github.io/hotspot/img/IMG_4343.jpeg"></img>
+5. รายงานจุดเกิดเหตุด่วนและประเมินรัศมีผลกระทบต่อพื้นที่ใต้ลม
+      <img src="https://kietpawpan.github.io/hotspot/img/IMG_4354.jpeg"></img>
+         <img src="https://kietpawpan.github.io/hotspot/img/IMG_4355.jpeg"></img>
