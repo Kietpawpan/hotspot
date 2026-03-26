@@ -19,11 +19,11 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
 
 
-    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-      <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+      <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
    
     <style>
         .leaflet-control-download {
@@ -478,9 +478,14 @@ fetch(geojsonBoundariesUrl)
             map.fitBounds(boundaryLayer.getBounds());
         }
 
+       // เพิ่มบรรทัดนี้เพื่อสร้าง Bounding Box ทิ้งไว้ล่วงหน้า
+        boundaryGeoJSON.features.forEach(f => f.bbox = turf.bbox(f));
+        neighborGeoJSON.features.forEach(f => f.bbox = turf.bbox(f));
+
         fetchNasaData();
     })
     .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้', err));
+
 
 
 // ตัวแปรเก็บสถานะว่า Layer ไหนเปิดอยู่บ้าง (ค่าเริ่มต้นให้เปิดจุดความร้อน)
@@ -681,29 +686,36 @@ if (!apiError && lines.length >= 2) {
             let pt = turf.point([lon, lat]);
             let provName = null;
             let isNeighbor = false;
-            
-            // 1. เช็กว่าอยู่ในพื้นที่ สคพ.11 หรือไม่
-            for(let f of boundaryGeoJSON.features) {
-                if(turf.booleanPointInPolygon(pt, f)) {
-                    const propStr = JSON.stringify(f.properties);
-                    if(propStr.includes("นครราชสีมา") || propStr.includes("Nakhon Ratchasima")) provName = "นครราชสีมา";
-                    else if(propStr.includes("ชัยภูมิ") || propStr.includes("Chaiyaphum")) provName = "ชัยภูมิ";
-                    else if(propStr.includes("บุรีรัมย์") || propStr.includes("Buri Ram") || propStr.includes("Buriram")) provName = "บุรีรัมย์";
-                    else if(propStr.includes("สุรินทร์") || propStr.includes("Surin")) provName = "สุรินทร์";
-                    break;
-                }
-            }
 
-            // 2. ถ้าไม่อยู่ ให้เช็กในจังหวัดข้างเคียง
-            if (!provName && neighborGeoJSON) {
-                for(let f of neighborGeoJSON.features) {
-                    if(turf.booleanPointInPolygon(pt, f)) {
-                        provName = f.properties.pro_th || f.properties.NAME_1 || "จังหวัดข้างเคียง";
-                        isNeighbor = true;
-                        break;
-                    }
-                }
+// 1. เช็กว่าอยู่ในพื้นที่ สคพ.11 หรือไม่
+for(let f of boundaryGeoJSON.features) {
+    // เช็ก Bounding Box ก่อน (ทำงานเร็วมาก)
+    if (lon >= f.bbox[0] && lat >= f.bbox[1] && lon <= f.bbox[2] && lat <= f.bbox[3]) {
+        // ถ้าอยู่ในกรอบสี่เหลี่ยม ค่อยเช็กความแม่นยำด้วย Polygon
+        if(turf.booleanPointInPolygon(pt, f)) {
+            const propStr = JSON.stringify(f.properties);
+            if(propStr.includes("นครราชสีมา") || propStr.includes("Nakhon Ratchasima")) provName = "นครราชสีมา";
+            else if(propStr.includes("ชัยภูมิ") || propStr.includes("Chaiyaphum")) provName = "ชัยภูมิ";
+            else if(propStr.includes("บุรีรัมย์") || propStr.includes("Buri Ram") || propStr.includes("Buriram")) provName = "บุรีรัมย์";
+            else if(propStr.includes("สุรินทร์") || propStr.includes("Surin")) provName = "สุรินทร์";
+            break;
+        }
+    }
+}
+
+// 2. ถ้าไม่อยู่ ให้เช็กในจังหวัดข้างเคียง
+if (!provName && neighborGeoJSON) {
+    for(let f of neighborGeoJSON.features) {
+        if (lon >= f.bbox[0] && lat >= f.bbox[1] && lon <= f.bbox[2] && lat <= f.bbox[3]) {
+            if(turf.booleanPointInPolygon(pt, f)) {
+                provName = f.properties.pro_th || f.properties.NAME_1 || "จังหวัดข้างเคียง";
+                isNeighbor = true;
+                break;
             }
+        }
+    }
+}
+
 
             if(provName) {
                 props.prov_name = provName;
