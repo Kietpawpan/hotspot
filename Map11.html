@@ -1,30 +1,16 @@
 <!DOCTYPE html>
-
-<!--
-// MAPS 11: Monitoring Air Pollution System for EPO11
-// (c) 2026 Monte Kietpawpan
-// MIT License
--->
-
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบเฝ้าระวังมลพิษพื้นที่ (สคพ.11)</title>
-
-<!----App Icon---->
-
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="สคพ.11 Map">
+   	<title>MAPS 11 - Monitoring Air Protection System by EPO11</title>
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<meta name="apple-mobile-web-app-title" content="MAPS 11">
 
 <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/Kietpawpan/hotspot/main/img/EPO11App.png">
 
-<link rel="manifest" href="data:application/manifest+json;base64,ewogICJkZWZhdWx0X2xvY2FsZSI6ICJ0aCIsCiAgIm5hbWUiOiAi4Lij4Liw4Lia4Lia4LmA4Lid4LmJ4Liy4Lij4Liw4Lin4Lix4LiH4LiI4Li44LiU4LiE4Lin4Liy4Lih4Lij4LmJ4Lit4LiuIOC4quC4hOC4ni4xMSIsCiAgInNob3J0X25hbWUiOiAiSG90c3BvdCAxMSIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjZmZmZmZmIiwKICAidGhlbWVfY29sb3IiOiAiIzRhMTQ4YyIKfQ==">
-
-<!----End App Icon---->
-
-
+<link rel="manifest" href="data:application/manifest+json;base64,eyJkZWZhdWx0X2xvY2FsZSI6ICJ0aCIsICJuYW1lIjogIk1BUFMgMTEgKE1vZGVybml6ZWQgQWlyIFByb3RlY3RpbmcgU3lzdGVtKSIsICJzaG9ydF9uYW1lIjogIk1BUFMgMTEiLCAic3RhcnRfdXJsIjogIi4iLCAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwgImJhY2tncm91bmRfY29sb3IiOiAiI2ZmZmZmZiIsICJ0aGVtZV9jb2xvciI6ICIjNGExNDhjIn0=">
 
 
 
@@ -37,7 +23,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+      <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
    
     <style>
         .leaflet-control-download {
@@ -71,28 +57,68 @@
         .status-box { font-size: 15px; color: #4a148c; margin-bottom: 5px; background: #e9d5ff; padding: 10px; border-radius: 6px; border: 1px solid #d8b4fe; }
         
         #map-wrapper { position: relative; }
-        #loadingOverlay {
+	#loadingOverlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(255, 255, 255, 0.85);
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+            backdrop-filter: blur(8px);
             z-index: 9999;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             border-radius: 8px;
+            color: white;
+            transition: opacity 0.5s ease;
         }
-        .spinner {
-            border: 5px solid #e2e8f0;
-            border-top: 5px solid #4a148c;
+        .maps-logo-text {
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            margin-bottom: 5px;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(56, 189, 248, 0.6), 0 0 30px rgba(56, 189, 248, 0.4);
+            animation: pulseText 2s infinite;
+        }
+        .maps-sub-text {
+            font-size: 16px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-bottom: 40px;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+        .cyber-spinner {
+            width: 70px;
+            height: 70px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #38bdf8;
+            border-right: 4px solid #818cf8;
+            border-bottom: 4px solid #c084fc;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
+            animation: spin 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+            margin-bottom: 25px;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+        }
+        .loading-status {
+            font-size: 15px;
+            color: #38bdf8;
+            font-weight: 500;
+            letter-spacing: 1px;
+            animation: blink 1.5s infinite;
+        }
+        @keyframes pulseText {
+            0% { transform: scale(0.98); opacity: 0.8; }
+            50% { transform: scale(1.02); opacity: 1; }
+            100% { transform: scale(0.98); opacity: 0.8; }
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         #map { height: 600px; width: 100%; border-radius: 8px; z-index: 10; }
@@ -202,9 +228,11 @@
 <body>
     <div id="toast-container"></div>
     <div class="container">
-        <h2>ระบบเฝ้าระวังมลพิษ (สคพ.11)</h2>
-        <div class="subtitle">ครอบคลุมพื้นที่ นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์ (จุดความร้อน PM<sub>2.5</sub> โรงงานน้ำตาล  สถานที่กำจัดขยะ ก๊าซพิษ)</div>
-        
+
+
+<h2>MAPS 11 (Monitoring Air Protection System)</h2>
+        <div class="subtitle">ระบบติดตามการคุ้มครองคุณภาพอากาศพื้นที่ นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์</div>
+          
         <div class="control-panel">
             <div class="status-box">
                 🛰️ <b>สถานะข้อมูล:</b> <span id="lastUpdateDisplay" style="color: #b91c1c; font-weight: bold;">กำลังดาวน์โหลดและประมวลผลข้อมูล NASA...</span>
@@ -264,10 +292,13 @@
 </div>        </div>
         
         <div id="map-wrapper">
-            <div id="loadingOverlay">
-                <div class="spinner"></div>
-                <div style="margin-top: 15px; font-weight: bold; color: #4a148c; font-size: 16px;">กำลังวิเคราะห์ข้อมูลเชิงพื้นที่...</div>
+   	<div id="loadingOverlay">
+                <div class="maps-logo-text">MAPS 11</div>
+                <div class="maps-sub-text">Monitoring Air Protection System</div>
+                <div class="cyber-spinner"></div>
+                <div class="loading-status" id="loadingStatusText">INITIATING SATELLITE CONNECTION...</div>
             </div>
+
             <div id="map"></div>
         </div>
   
@@ -2180,6 +2211,23 @@ let popupContent = `<div style='text-align:center; font-size:14px;'>
         showToast("ดึงพิกัดลงช่องเกิดเหตุด่วนเรียบร้อยแล้ว", "success");
     }
 });
+
+// ชุดข้อความสถานะตอนโหลดสำหรับ MAPS 11
+        const statusTexts = [
+            "INITIATING SATELLITE CONNECTION...",
+            "ANALYZING NASA FIRMS DATA...",
+            "RETRIEVING AIR4THAI AQI METRICS...",
+            "CALCULATING WIND VECTORS...",
+            "MAPPING POLLUTION HOTSPOTS..."
+        ];
+        let statusIndex = 0;
+        const loadingInterval = setInterval(() => {
+            const statusEl = document.getElementById('loadingStatusText');
+            if(statusEl) {
+                statusIndex = (statusIndex + 1) % statusTexts.length;
+                statusEl.innerText = statusTexts[statusIndex];
+            }
+        }, 1200);
 
     </script>
 </body>
