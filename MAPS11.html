@@ -2228,6 +2228,26 @@ let popupContent = `<div style='text-align:center; font-size:14px;'>
             }
         }, 1200);
 
+
+// โหลดข้อมูลสำคัญลำดับแรกทันที
+fetchAQMData()
+fetchRealtimeWind()
+
+// หน่วงเวลา 2 วินาที ค่อยโหลดข้อมูลสถานที่กำจัดขยะ
+setTimeout(() => {
+    fetchLandfillData()
+}, 2000)
+
+// หน่วงเวลา 3.5 วินาที ค่อยโหลดข้อมูลโรงงานน้ำตาล
+setTimeout(() => {
+    fetchSugarData()
+}, 3500)
+
+// หน่วงเวลา 5 วินาที ค่อยโหลดข้อมูลแหล่งธรรมชาติ
+setTimeout(() => {
+    fetchNaturalPlacesData()
+}, 5000)
+
     </script>
 </body>
 </html>
