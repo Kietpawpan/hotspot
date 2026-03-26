@@ -1445,7 +1445,7 @@ marker.bindPopup(popupHTML);
 }
 
 // เรียกดูสถานนีอากาศ
-fetchAQMData();
+// fetchAQMData();
 
 //เรียกดูสถานที่กำจัดขยะจาก APS WasteSiteEPO11 https://script.google.com/macros/s/AKfycbwWI0NvtyToeNBq5Y0Yu6VCKiJh27JDSDBZTJ0IbQ1mGsErkJfFdzYdkiVAw72GGWKZ/exec
 
@@ -1651,16 +1651,16 @@ function fetchWindData() {
 }
 
 // เรียกใช้งานฟังก์ชัน
-fetchWindData();
+// fetchWindData();
 
 */
 
 // เรียกใช้งานฟังก์ชัน
-fetchLandfillData();
+// fetchLandfillData();
 
-fetchSugarData();
+// fetchSugarData();
 
-fetchNaturalPlacesData();
+// fetchNaturalPlacesData();
 
 document.getElementById('siteSearchBtn').addEventListener('click', doSiteSearch);
 document.getElementById('siteSearchInput').addEventListener('keypress', function(e) {
@@ -1758,7 +1758,7 @@ function fetchRealtimeWind() {
 }
 
 // สั่งให้ระบบเริ่มทำงาน
-fetchRealtimeWind();
+// fetchRealtimeWind();
 
 // สร้าง Layer สำหรับจุดเกิดเหตุชั่วคราว
 const incidentLayer = L.layerGroup().addTo(map);
