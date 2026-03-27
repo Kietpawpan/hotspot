@@ -346,17 +346,17 @@ let currentNeighborTotal = 0;
 
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
            maxZoom: 18,
-           attribution: '© OpenStreetMap'
+           attribution: '© OpenStreetMap | MAPS 11'
         });
 
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
            maxZoom: 18,
-           attribution: '© Esri'
+           attribution: '© Esri | EPO11'
         });
 
 	const googleTrafficLayer = L.tileLayer('https://mt1.google.com/vt?lyrs=h,traffic&x={x}&y={y}&z={z}', {
 	 maxZoom: 20,
-	 attribution: '© Google Maps'
+	 attribution: '© Google Maps | MAPS 11'
 	});
 
         osmLayer.addTo(map);
