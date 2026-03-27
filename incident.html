@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MAPS 11 Lite - Incident Command</title>
+    <title>MAPS 11 - Incident Command</title>
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="MAPS 11 Lite">
-
+    <meta name="apple-mobile-web-app-title" content="MAPS 11">
     <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/Kietpawpan/hotspot/main/img/EPO11App.png?v=2026">
-    <link rel="manifest" href="data:application/manifest+json;base64,eyJkZWZhdWx0X2xvY2FsZSI6ICJ0aCIsICJuYW1lIjogIk1BUFMgMTEgKE1vZGVybml6ZWQgQWlyIFByb3RlY3RpbmcgU3lzdGVtKSIsICJzaG9ydF9uYW1lIjogIk1BUFMgMTEiLCAic3RhcnRfdXJsIjogIi4iLCAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwgImJhY2tncm91bmRfY29sb3IiOiAiI2ZmZmZmZiIsICJ0aGVtZV9jb2xvciI6ICIjNGExNDhjIn0=">
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4a148c">
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -57,7 +59,6 @@
         
         @media (max-width: 600px) { .legend-wrapper { width: 180px; } .legend-header { font-size: 12px; padding: 6px 10px; } .legend-box { font-size: 12px; padding: 8px 10px; width: 160px; } #map { height: 550px; } }
 
-        /* กล่อง Dashboard สรุปเหตุการณ์มุมซ้ายบน */
         .incident-dashboard {
             background: white;
             padding: 15px;
@@ -68,23 +69,20 @@
             max-height: 80vh;
             overflow-y: auto;
             pointer-events: auto;
-            position: relative; /* สำคัญสำหรับการวางปุ่มกากบาท */
+            position: relative; 
         }
 
-        .hidden-dashboard {
-            display: none;
-        }
+        .hidden-dashboard { display: none; }
         
-        /* สไตล์ของปุ่มปิดแบบล่องหน (Secret Button) */
         .close-dashboard-btn {
             position: absolute;
             top: 0;
             right: 0;
-            width: 40px; /* พื้นที่กดขนาดใหญ่พอให้คลิกง่าย */
+            width: 40px; 
             height: 40px;
-            background-color: transparent; /* โปร่งใสมองไม่เห็น */
+            background-color: transparent; 
             z-index: 1000;
-            cursor: default; /* ไม่เปลี่ยนรูปเมาส์เพื่อไม่ให้คนอื่นรู้ */
+            cursor: default; 
         }
     </style>
 </head>
@@ -95,7 +93,7 @@
         <h2>MAPS 11</h2>
         <div class="subtitle">ระบบผู้บัญชาการเหตุการณ์ (Incident Commander Mode)</div>
           
-<div class="control-panel">
+        <div class="control-panel">
             <div id="incidentContainer" style="display: flex; flex-direction: column; gap: 12px; background-color: #fff1f2; padding: 15px; border-radius: 8px; border: 1px solid #fda4af;">
                 
                 <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -134,17 +132,16 @@
 
                 <div style="width: 100%; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
                     <label style="font-size: 14px; font-weight: bold; color: #be123c;">☣️ สารอันตรายที่เฝ้าระวัง:</label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="VOCs"> VOCs</label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="CO"> CO</label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="SO<sub>2</sub>"> SO<sub>2</sub></label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="Cl2"> Cl<sub>2</sub></label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="Pb"> Pb</label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="PM<sub>2.5</sub>"> PM<sub>2.5</sub></label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="VOCs" onchange="updateMeasurementTable()"> VOCs</label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="CO" onchange="updateMeasurementTable()"> CO</label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="SO<sub>2</sub>" onchange="updateMeasurementTable()"> SO<sub>2</sub></label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="Cl<sub>2</sub>" onchange="updateMeasurementTable()"> Cl<sub>2</sub></label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="PM<sub>2.5</sub>" onchange="updateMeasurementTable()"> PM<sub>2.5</sub></label>
 
-                    <label style="font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                        <input type="checkbox" id="hazardOtherCb" value="อื่นๆ"> อื่นๆ
-                        <input type="text" id="hazardOtherText" placeholder="ระบุชื่อสาร..." style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; width: 120px; display: none;">
-                    </label>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <input type="text" id="customHazardName" placeholder="ระบุสารอื่นๆ..." style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; width: 110px;">
+                        <button type="button" onclick="addCustomHazard()" style="padding: 4px 8px; background: #be123c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">+ เพิ่มสาร</button>
+                    </div>
 
                     <div id="measurementContainer" style="width: 100%; display: none; margin-top: 5px; padding-top: 10px; border-top: 1px dashed #fda4af;">
                         <label style="font-size: 14px; font-weight: bold; color: #be123c; margin-bottom: 5px; display: block;">📊 ผลการตรวจวัดมลพิษภาคสนาม:</label>
@@ -158,6 +155,7 @@
                                         <th style="padding: 6px; border: 1px solid #cbd5e1;">1.5 กม.</th>
                                         <th style="padding: 6px; border: 1px solid #cbd5e1;">2.0 กม.</th>
                                         <th style="padding: 6px; border: 1px solid #cbd5e1;">หน่วย</th>
+                                        <th style="padding: 6px; border: 1px solid #cbd5e1;">จัดการ</th>
                                     </tr>
                                 </thead>
                                 <tbody id="measurementBody">
@@ -176,7 +174,6 @@
 
             </div>        
         </div>       
-        
         
         <div id="map-wrapper">
             <div id="loadingOverlay">
@@ -199,6 +196,27 @@
         const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
         let dashboardControl = null;
 
+        // ระบบเติมแท็กปิดอัตโนมัติ
+        document.getElementById('customHazardName').addEventListener('input', function(e) {
+            const cursorPosition = this.selectionStart;
+            const textBeforeCursor = this.value.substring(0, cursorPosition);
+            
+            if (textBeforeCursor.endsWith('<sub>')) {
+                this.value = textBeforeCursor + '</sub>' + this.value.substring(cursorPosition);
+                this.setSelectionRange(cursorPosition, cursorPosition);
+            } 
+            else if (textBeforeCursor.endsWith('<sup>')) {
+                this.value = textBeforeCursor + '</sup>' + this.value.substring(cursorPosition);
+                this.setSelectionRange(cursorPosition, cursorPosition);
+            }
+            else if (e.inputType === 'insertText' && e.data === '>') {
+                // เผื่อผู้ใช้พิมพ์ <sub> เองทีละตัว
+                if (textBeforeCursor.endsWith('<sub') || textBeforeCursor.endsWith('<sup')) {
+                    // Do nothing, handled above if full string matches
+                }
+            }
+        });
+
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
             if (!container) return;
@@ -216,21 +234,21 @@
             }, 3000);
         }
                   
- const map = L.map('map', {
-    wheelPxPerZoomLevel: 120,
-    zoomSnap: 0.1,
-    zoomDelta: 0.2,
-    preferCanvas: true // 🔥 เพิ่มบรรทัดนี้เพื่อบังคับใช้ Canvas เรนเดอร์เวกเตอร์
-}).setView([15.2, 102.5], 8);
+        const map = L.map('map', {
+            wheelPxPerZoomLevel: 120,
+            zoomSnap: 0.1,
+            zoomDelta: 0.2,
+            preferCanvas: true 
+        }).setView([15.2, 102.5], 8);
 
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-           maxZoom: 18,
-           attribution: '© OpenStreetMap | EPO11'
+            maxZoom: 18,
+            attribution: '© OpenStreetMap | EPO11'
         });
 
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-           maxZoom: 18,
-           attribution: '© Esri | EPO11'
+            maxZoom: 18,
+            attribution: '© Esri | EPO11'
         });
 
         osmLayer.addTo(map);
@@ -390,9 +408,9 @@
             document.getElementById('lonInput').value = "";
             document.getElementById('manualWindDir').value = "";
             document.querySelectorAll('input[name="hazard"]').forEach(cb => cb.checked = false);
-            document.getElementById('hazardOtherCb').checked = false;
-            document.getElementById('hazardOtherText').style.display = 'none';
-            document.getElementById('hazardOtherText').value = '';
+            
+            customHazardsList = [];
+            updateMeasurementTable();
             
             if (dashboardControl) {
                 map.removeControl(dashboardControl);
@@ -450,17 +468,6 @@
             showToast("อัปเดตทิศทางควันเรียบร้อยแล้ว", "success");
         });
 
-        document.getElementById('hazardOtherCb').addEventListener('change', function() {
-            const otherInput = document.getElementById('hazardOtherText');
-            if (this.checked) {
-                otherInput.style.display = 'block';
-                otherInput.focus();
-            } else {
-                otherInput.style.display = 'none';
-                otherInput.value = '';
-            }
-        });
-
         async function createIncidentMarker() {
             const name = document.getElementById('incidentName').value.trim() || "ไม่ได้ระบุชื่อเหตุการณ์";
             const lat = parseFloat(document.getElementById('latInput').value);
@@ -500,13 +507,14 @@
                 currentRadiiLayer.addTo(incidentLayer);
             }
 
-const fireIcon = L.divIcon({
-    html: `<div style="display: flex; justify-content: center; align-items: center; width: 30px; height: 30px; font-size: 26px; line-height: 1; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); cursor: pointer; margin: 0; padding: 0;">🔥</div>`,
-    className: '',
-    iconSize: [30, 30],
-    iconAnchor: [15, 15], // เปลี่ยนจุดยึดให้อยู่กึ่งกลางไอคอนพอดีในแกน X และ Y
-    popupAnchor: [0, -15] // ปรับให้กรอบ Popup ลอยขึ้นจากจุดกึ่งกลางเวลาคลิก
-});
+            const fireIcon = L.divIcon({
+                html: `<div style="display: flex; justify-content: center; align-items: center; width: 30px; height: 30px; font-size: 26px; line-height: 1; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); cursor: pointer; margin: 0; padding: 0;">🔥</div>`,
+                className: '',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15], 
+                popupAnchor: [0, -15] 
+            });
+            
             const dateInput = document.getElementById('incidentDate').value;
             const timeInput = document.getElementById('incidentTime').value;
             const now = new Date();
@@ -539,17 +547,7 @@ const fireIcon = L.divIcon({
                 windDir: currentIncidentData ? currentIncidentData.windDir : undefined
             };
             
-            let selectedHazards = [];
-            document.querySelectorAll('input[name="hazard"]:checked').forEach(cb => {
-                selectedHazards.push(cb.value);
-            });
-            if (document.getElementById('hazardOtherCb').checked) {
-                let otherVal = document.getElementById('hazardOtherText').value.trim();
-                if (otherVal) selectedHazards.push(otherVal);
-            }
-
-            let hazardString = selectedHazards.length > 0 ? selectedHazards.join(' ') : 'ไม่ได้ระบุ';
-            let googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+            let hazardString = currentSelectedHazards.length > 0 ? currentSelectedHazards.join(' ') : 'ไม่ได้ระบุ';
 
             let popupContent = `
                 <div id="closeDashboardBtn" class="close-dashboard-btn"></div>
@@ -574,10 +572,8 @@ const fireIcon = L.divIcon({
                             <span id="inc-downwind" style='color:#7f1d1d; font-size:13px; font-weight:bold;'>กำลังวิเคราะห์...</span>
                         </div>
                     </div>
-
              </div>
             `;
-
 
             if (dashboardControl) {
                 map.removeControl(dashboardControl);
@@ -644,16 +640,46 @@ const fireIcon = L.divIcon({
         }
 
         let measurementData = {};
+        let customHazardsList = [];
         let currentSelectedHazards = [];
 
-        function updateMeasurementTable() {
-            currentSelectedHazards = Array.from(document.querySelectorAll('input[name="hazard"]:checked')).map(cb => cb.value);
-            const otherCb = document.getElementById('hazardOtherCb');
-            const otherText = document.getElementById('hazardOtherText') ? document.getElementById('hazardOtherText').value.trim() : '';
+        function addCustomHazard() {
+            const input = document.getElementById('customHazardName');
+            let name = input.value.trim();
             
-            if (otherCb && otherCb.checked && otherText) {
-                currentSelectedHazards.push(otherText);
+            if (!name) return;
+
+            // แปลงเครื่องหมาย < > 
+            let safeName = name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            
+            // อนุญาตเฉพาะแท็ก sub และ sup
+            safeName = safeName.replace(/&lt;sub&gt;/gi, "<sub>").replace(/&lt;\/sub&gt;/gi, "</sub>");
+            safeName = safeName.replace(/&lt;sup&gt;/gi, "<sup>").replace(/&lt;\/sup&gt;/gi, "</sup>");
+
+            // ลบสระลอยภาษาไทยที่พิมพ์ผิดติดกับภาษาอังกฤษ
+            safeName = safeName.replace(/^[์็่้๊๋ิีึืุูั]+/g, '');
+            safeName = safeName.replace(/([A-Za-z0-9])[์็่้๊๋ิีึืุูั]+/g, '$1');
+
+            // ปิดแท็กที่ผู้ใช้อาจลืมปิด
+            const subOpenCount = (safeName.match(/<sub>/gi) || []).length;
+            const subCloseCount = (safeName.match(/<\/sub>/gi) || []).length;
+            if (subOpenCount > subCloseCount) safeName += "</sub>";
+
+            if (!customHazardsList.includes(safeName)) {
+                customHazardsList.push(safeName);
+                input.value = '';
+                updateMeasurementTable();
             }
+        }
+
+        function removeCustomHazard(name) {
+            customHazardsList = customHazardsList.filter(h => h !== name);
+            updateMeasurementTable();
+        }
+
+        function updateMeasurementTable() {
+            const baseHazards = Array.from(document.querySelectorAll('input[name="hazard"]:checked')).map(cb => cb.value);
+            currentSelectedHazards = [...baseHazards, ...customHazardsList];
 
             const container = document.getElementById('measurementContainer');
             const tbody = document.getElementById('measurementBody');
@@ -673,6 +699,7 @@ const fireIcon = L.divIcon({
                     measurementData[hazard] = { d05: '', d10: '', d15: '', d20: '', unit: 'ppm' };
                 }
                 const data = measurementData[hazard];
+                const isCustom = customHazardsList.includes(hazard);
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
@@ -690,6 +717,9 @@ const fireIcon = L.divIcon({
                             <option value="%LEL" ${data.unit === '%LEL' ? 'selected' : ''}>%LEL</option>
                         </select>
                     </td>
+                    <td style="padding: 2px; border: 1px solid #cbd5e1;">
+                        ${isCustom ? `<button onclick="removeCustomHazard('${hazard}')" style="background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:10px; padding:4px;">❌</button>` : '-'}
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -704,16 +734,6 @@ const fireIcon = L.divIcon({
             });
             
             updateDynamicLegend();
-        }
-
-        document.querySelectorAll('input[name="hazard"]').forEach(cb => {
-            cb.addEventListener('change', updateMeasurementTable);
-        });
-        if (document.getElementById('hazardOtherCb')) {
-            document.getElementById('hazardOtherCb').addEventListener('change', updateMeasurementTable);
-        }
-        if (document.getElementById('hazardOtherText')) {
-            document.getElementById('hazardOtherText').addEventListener('change', updateMeasurementTable);
         }
 
         async function drawPlumeAndCalculateRisk(lat, lon, dir, speed) {
@@ -784,7 +804,7 @@ const fireIcon = L.divIcon({
         map.on('click', function(e) {
             let clickLat = e.latlng.lat.toFixed(5);
             let clickLon = e.latlng.lng.toFixed(5);
-            let mapLinkUrl = `https://www.google.com/maps/search/?api=1&query=${clickLat},${clickLon}`;
+            let mapLinkUrl = `https://maps.google.com/?q=${clickLat},${clickLon}`;
             let popupContent = `<div style='text-align:center; font-size:14px;'>
             <b>📍 พิกัดที่เลือก</b><br>
             Lat: <span style='color:#e11d48; font-weight:bold;'>${clickLat}</span><br>
@@ -815,116 +835,128 @@ const fireIcon = L.divIcon({
             updateDynamicLegend();
         }, 800);
 
-
-// ฟังก์ชันเปิด Google Maps
-window.openGoogleMaps = function() {
-    if (!currentIncidentData) {
-        return showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
-    }
-    const url = `https://www.google.com/maps?q=$${currentIncidentData.lat},${currentIncidentData.lon}`;
-    window.open(url, '_blank');
-};
-
-// ฟังก์ชันคัดลอกเป็น Text เพื่อส่ง LINE
-window.copyIncidentReport = function() {
-    if (!currentIncidentData) return showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
-
-    const locationText = document.getElementById('inc-location') ? document.getElementById('inc-location').innerText : '-';
-    const windDirText = document.getElementById('inc-wind-dir') ? document.getElementById('inc-wind-dir').innerText.replace(/⬆️\s*/g, '') : '-';
-    const windSpeedText = document.getElementById('inc-wind-speed') ? document.getElementById('inc-wind-speed').innerText : '-';
-    const downwindText = document.getElementById('inc-downwind') ? document.getElementById('inc-downwind').innerText : '-';
-
-    let hazardText = "ไม่ได้ระบุ";
-    if (currentSelectedHazards && currentSelectedHazards.length > 0) {
-        hazardText = currentSelectedHazards.join(" และ ");
-    }
-
-    // แปลงรูปแบบวันที่เป็นแบบไทย (เช่น 21 มี.ค. 2569)
-    let reportDate = "";
-    if (currentIncidentData.date) {
-        const [y, m, d] = currentIncidentData.date.split('-');
-        const dateObj = new Date(y, m - 1, d);
-        reportDate = dateObj.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
-    } else {
-        reportDate = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
-    }
-    
-    let reportTime = currentIncidentData.time ? currentIncidentData.time + " น." : new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + " น.";
-
-    let report = `🚨 รายงานเหตุด่วน: ${currentIncidentData.name}\n`;
-    report += `📍 พื้นที่: ${locationText}\n`;
-    report += `พิกัด: ${currentIncidentData.lat.toFixed(5)} ${currentIncidentData.lon.toFixed(5)}\n`;
-    report += `เวลาประเมิน: ${reportDate} ${reportTime}\n\n`;
-    report += `💨 สภาพอากาศ:\n- ทิศทางลม: ${windDirText}\n- ความเร็วลม: ${windSpeedText}\n`;
-    report += `⚠️ พื้นที่ท้ายลม (คาดการณ์ 2-5 กม.): ${downwindText}\n\n`;
-    report += `☣️ สารที่เฝ้าระวัง: ${hazardText}\n\n`;
-
-    if (currentSelectedHazards && currentSelectedHazards.length > 0) {
-        report += `📊 ผลการตรวจวัดภาคสนาม:\n`;
-        currentSelectedHazards.forEach(h => {
-            let data = measurementData[h];
-            if (data && (data.d05 || data.d10 || data.d15 || data.d20)) {
-                report += `- ${h}: 0.5กม.=${data.d05||'-'} | 1กม.=${data.d10||'-'} | 1.5กม.=${data.d15||'-'} | 2กม.=${data.d20||'-'} ${data.unit}\n`;
+        window.openGoogleMaps = function() {
+            if (!currentIncidentData) {
+                return showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
             }
-        });
-        report += `\n`;
-    }
+            const url = `https://maps.google.com/?q=${currentIncidentData.lat},${currentIncidentData.lon}`;
+            window.open(url, '_blank');
+        };
 
-    report += `(รายงานโดย หน่วยพิทักษ์สิ่งแวดล้อมที่ 11)`;
-
-    navigator.clipboard.writeText(report).then(() => {
-        showToast("คัดลอกรายงานสำหรับส่ง LINE เรียบร้อยแล้ว", "success");
-    }).catch(err => {
-        showToast("เกิดข้อผิดพลาดในการคัดลอกข้อความ", "error");
-    });
-};
-
-
-// ฟังก์ชันบันทึกหน้าจอแผนที่เป็นภาพ
-window.exportIncidentImage = function() {
-    if (!currentIncidentData) return showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
-    
-    const mapWrapper = document.getElementById('map-wrapper');
-    if (!mapWrapper) return showToast("ไม่พบข้อมูลแผนที่", "error");
-
-    showToast("กำลังสร้างภาพรายงานเหตุการณ์...", "info");
-
-    const legendContent = document.getElementById('dynamic-legend');
-    const legendHeader = document.querySelector('.legend-header');
-    let legendWasClosed = false;
-
-    // บังคับเปิดคำอธิบายสัญลักษณ์ก่อนถ่ายภาพ
-    if (legendContent && legendContent.style.display === 'none') {
-        legendWasClosed = true;
-        legendContent.style.display = 'block';
-        if (legendHeader) legendHeader.className = 'legend-header open';
-    }
-
-    html2canvas(mapWrapper, {
-        backgroundColor: '#ffffff',
-        scale: 2, 
-        useCORS: true, 
-        logging: false,
-        width: mapWrapper.offsetWidth,
-        height: mapWrapper.offsetHeight
-    }).then(canvas => {
-        // คืนค่าการแสดงผลคำอธิบายสัญลักษณ์กลับเป็นเหมือนเดิม
-        if (legendWasClosed && legendContent) {
-            legendContent.style.display = 'none';
-            if (legendHeader) legendHeader.className = 'legend-header';
+        // ฟังก์ชันแปลงแท็ก HTML เป็นสัญลักษณ์พิเศษสำหรับส่งเข้า LINE
+        function formatForLine(text) {
+            const subMap = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','+':'₊','-':'₋'};
+            const supMap = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻'};
+            
+            if (!text) return text;
+            
+            // แปลงแท็ก <sub>
+            let formatted = text.replace(/<sub>(.*?)<\/sub>/g, function(match, p1) {
+                return p1.split('').map(c => subMap[c] || c).join('');
+            });
+            
+            // แปลงแท็ก <sup>
+            formatted = formatted.replace(/<sup>(.*?)<\/sup>/g, function(match, p1) {
+                return p1.split('').map(c => supMap[c] || c).join('');
+            });
+            
+            return formatted;
         }
 
-        const link = document.createElement('a');
-        const eventName = currentIncidentData.name || 'ฉุกเฉิน';
-        link.download = `รายงานสถานการณ์_${eventName}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        showToast("ดาวน์โหลดภาพรายงานเรียบร้อยแล้ว", "success");
-    }).catch(err => {
-        console.error("Error generating image:", err);
-        showToast("สร้างภาพไม่สำเร็จ กรุณาลองใหม่", "error");
-    });
-};
+        window.copyIncidentReport = function() {
+            if (!currentIncidentData) return showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
+
+            const locationText = document.getElementById('inc-location') ? document.getElementById('inc-location').innerText : '-';
+            const windDirText = document.getElementById('inc-wind-dir') ? document.getElementById('inc-wind-dir').innerText.replace(/⬆️\s*/g, '') : '-';
+            const windSpeedText = document.getElementById('inc-wind-speed') ? document.getElementById('inc-wind-speed').innerText : '-';
+            const downwindText = document.getElementById('inc-downwind') ? document.getElementById('inc-downwind').innerText : '-';
+
+            let hazardText = "ไม่ได้ระบุ";
+            if (currentSelectedHazards && currentSelectedHazards.length > 0) {
+                hazardText = formatForLine(currentSelectedHazards.join(" และ "));
+            }
+
+            let reportDate = "";
+            if (currentIncidentData.date) {
+                const [y, m, d] = currentIncidentData.date.split('-');
+                const dateObj = new Date(y, m - 1, d);
+                reportDate = dateObj.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+            } else {
+                reportDate = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+            }
+            
+            let reportTime = currentIncidentData.time ? currentIncidentData.time + " น." : new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + " น.";
+
+            let report = `🚨 รายงานเหตุด่วน: ${currentIncidentData.name}\n`;
+            report += `📍 พื้นที่: ${locationText}\n`;
+            report += `พิกัด: ${currentIncidentData.lat.toFixed(5)} ${currentIncidentData.lon.toFixed(5)}\n`;
+            report += `เวลาประเมิน: ${reportDate} ${reportTime}\n\n`;
+            report += `💨 สภาพอากาศ:\n- ทิศทางลม: ${windDirText}\n- ความเร็วลม: ${windSpeedText}\n`;
+            report += `⚠️ พื้นที่ท้ายลม (คาดการณ์ 2-5 กม.): ${downwindText}\n\n`;
+            report += `☣️ สารที่เฝ้าระวัง: ${hazardText}\n\n`;
+
+            if (currentSelectedHazards && currentSelectedHazards.length > 0) {
+                report += `📊 ผลการตรวจวัดภาคสนาม:\n`;
+                currentSelectedHazards.forEach(h => {
+                    let data = measurementData[h];
+                    if (data && (data.d05 || data.d10 || data.d15 || data.d20)) {
+                        report += `- ${formatForLine(h)}: 0.5กม.=${data.d05||'-'} | 1กม.=${data.d10||'-'} | 1.5กม.=${data.d15||'-'} | 2กม.=${data.d20||'-'} ${data.unit}\n`;
+                    }
+                });
+                report += `\n`;
+            }
+
+            report += `(รายงานโดย หน่วยพิทักษ์สิ่งแวดล้อมที่ 11)`;
+
+            navigator.clipboard.writeText(report).then(() => {
+                showToast("คัดลอกรายงานสำหรับส่ง LINE เรียบร้อยแล้ว", "success");
+            }).catch(err => {
+                showToast("เกิดข้อผิดพลาดในการคัดลอกข้อความ", "error");
+            });
+        };
+
+        window.exportIncidentImage = function() {
+            if (!currentIncidentData) return showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
+            
+            const mapWrapper = document.getElementById('map-wrapper');
+            if (!mapWrapper) return showToast("ไม่พบข้อมูลแผนที่", "error");
+
+            showToast("กำลังสร้างภาพรายงานเหตุการณ์...", "info");
+
+            const legendContent = document.getElementById('dynamic-legend');
+            const legendHeader = document.querySelector('.legend-header');
+            let legendWasClosed = false;
+
+            if (legendContent && legendContent.style.display === 'none') {
+                legendWasClosed = true;
+                legendContent.style.display = 'block';
+                if (legendHeader) legendHeader.className = 'legend-header open';
+            }
+
+            html2canvas(mapWrapper, {
+                backgroundColor: '#ffffff',
+                scale: 2, 
+                useCORS: true, 
+                logging: false,
+                width: mapWrapper.offsetWidth,
+                height: mapWrapper.offsetHeight
+            }).then(canvas => {
+                if (legendWasClosed && legendContent) {
+                    legendContent.style.display = 'none';
+                    if (legendHeader) legendHeader.className = 'legend-header';
+                }
+
+                const link = document.createElement('a');
+                const eventName = currentIncidentData.name || 'ฉุกเฉิน';
+                link.download = `รายงานสถานการณ์_${eventName}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast("ดาวน์โหลดภาพรายงานเรียบร้อยแล้ว", "success");
+            }).catch(err => {
+                console.error("Error generating image:", err);
+                showToast("สร้างภาพไม่สำเร็จ กรุณาลองใหม่", "error");
+            });
+        };
 
     </script>
 </body>
