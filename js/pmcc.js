@@ -72,12 +72,12 @@ async function fetchAiWithBackoff(url, options = {}, maxRetries = 4) {
         }
 
         function getHealthAdvice(value) {
-            if (isNaN(value)) return 'ไม่มีข้อมูลฝุ่น PM2.5 ในขณะนี้';
+            if (isNaN(value)) return 'ไม่มีข้อมูลฝุ่น PM₂.₅ ในขณะนี้';
             if (value <= 15) return 'ประชาชนทุกคนสามารถดำเนินชีวิตได้ตามปกติ';
             if (value <= 25) return 'สามารถทำกิจกรรมกลางแจ้งได้ตามปกติ';
             if (value <= 37.5) return 'ลดระยะเวลาทำกิจกรรมกลางแจ้งหรือออกกำลังกายที่ใช้แรงมาก';
-            if (value <= 75) return 'สวมหน้ากากป้องกันฝุ่น PM2.5 และจำกัดระยะเวลาทำกิจกรรมกลางแจ้ง';
-            return 'งดกิจกรรมกลางแจ้ง และสวมหน้ากากป้องกันฝุ่น PM2.5';
+            if (value <= 75) return 'สวมหน้ากากป้องกันฝุ่น PM₂.₅ และจำกัดระยะเวลาทำกิจกรรมกลางแจ้ง';
+            return 'งดกิจกรรมกลางแจ้ง และสวมหน้ากากป้องกันฝุ่น PM₂.₅';
         }
 
         function updateDateText() {
@@ -272,7 +272,7 @@ async function fetchAiWithBackoff(url, options = {}, maxRetries = 4) {
                 if (pmTodayNum >= 75.1) {
                     warningHtml = `
                         <div class="mt-3 text-xs p-3 bg-red-100 text-red-900 rounded-lg border-2 border-red-600 w-full text-left overflow-y-auto max-h-48 custom-scrollbar">
-                            <div class="font-bold text-sm mb-2 text-red-700">🚨 ยกระดับมาตรการรับมือฝุ่น PM2.5 สีแดง:</div>
+                            <div class="font-bold text-sm mb-2 text-red-700">🚨 ยกระดับมาตรการรับมือฝุ่น PM₂.₅ สีแดง:</div>
                             <div class="space-y-3">
                                 <div>
                                     <span class="font-bold">1. การป้องกันสุขภาพและบริหารจัดการภาพรวม</span>
@@ -311,12 +311,12 @@ async function fetchAiWithBackoff(url, options = {}, maxRetries = 4) {
                 } else if (pmTodayNum >= 37.6 && pmTodayNum <= 75.0) {
                     warningHtml = `
                         <div class="mt-3 text-xs p-3 bg-orange-100 text-orange-900 rounded-lg border-2 border-orange-500 w-full text-left overflow-y-auto max-h-48 custom-scrollbar">
-                            <div class="font-bold text-sm mb-2 text-orange-700">⚠️ ยกระดับมาตรการรับมือฝุ่น PM2.5 สีส้ม:</div>
+                            <div class="font-bold text-sm mb-2 text-orange-700">⚠️ ยกระดับมาตรการรับมือฝุ่น PM₂.₅ สีส้ม:</div>
                             <div class="space-y-3">
                                 <div>
                                     <span class="font-bold">1. การแจ้งเตือนและป้องกันสุขภาพของประชาชน</span>
                                     <ul class="list-disc pl-4 mt-1 space-y-1">
-                                        <li><span class="font-semibold">แจ้งเตือนภัย:</span> ยกระดับการแจ้งเตือนสถานการณ์ฝุ่น PM2.5</li>
+                                        <li><span class="font-semibold">แจ้งเตือนภัย:</span> ยกระดับการแจ้งเตือนสถานการณ์ฝุ่น PM₂.₅</li>
                                         <li><span class="font-semibold">ลดการรับสัมผัส:</span> ขอความร่วมมือประชาชนงดกิจกรรมกลางแจ้ง</li>
                                         <li><span class="font-semibold">สาธารณสุข:</span> จัดเตรียมห้องปลอดฝุ่นเพื่อดูแลกลุ่มเปราะบาง</li>
                                     </ul>
@@ -351,7 +351,7 @@ async function fetchAiWithBackoff(url, options = {}, maxRetries = 4) {
                            dayMinus2Num < dayMinus1Num && dayMinus1Num < pmTodayNum) {
                     warningHtml = `
                         <div class="mt-3 text-xs p-2 bg-yellow-100 text-yellow-800 rounded-lg font-bold border border-yellow-500 w-full text-left">
-                            ⚠️ แจ้งเตือน: ควรพิจารณายกระดับมาตรการป้องกันปัญหาฝุ่น PM2.5 ก่อนจะเริ่มมีผลกระทบต่อสุขภาพ
+                            ⚠️ แจ้งเตือน: ควรพิจารณายกระดับมาตรการป้องกันปัญหาฝุ่น PM₂.₅ ก่อนจะเริ่มมีผลกระทบต่อสุขภาพ
                         </div>
                     `;
                 }
@@ -428,7 +428,7 @@ async function fetchAiWithBackoff(url, options = {}, maxRetries = 4) {
                 data: {
                     labels: chartLabels,
                     datasets: [{
-                        label: 'ค่าฝุ่น PM2.5 วันนี้',
+                        label: 'ค่าฝุ่น PM₂.₅ วันนี้',
                         data: chartData,
                         backgroundColor: chartColors,
                         borderWidth: 1,
@@ -480,7 +480,7 @@ async function fetchAiWithBackoff(url, options = {}, maxRetries = 4) {
                 }
             });
 
-            // --- สร้างกราฟเส้นแนวโน้ม PM2.5 ---
+            // --- สร้างกราฟเส้นแนวโน้ม PM₂.₅ ---
             new Chart(document.getElementById('historyLineChart').getContext('2d'), {
                 type: 'line',
                 data: {
@@ -499,7 +499,7 @@ async function fetchAiWithBackoff(url, options = {}, maxRetries = 4) {
              // ทำให้เส้นไม่ไปชนขอบกราฟพอดีเป๊ะ ดูสบายตาขึ้น
              grace: '10%', 
 
-             title: { display: true, text: 'PM2.5 (มคก./ลบ.ม.)', font: { family: 'Sarabun' } }
+             title: { display: true, text: 'PM₂.₅ (มคก./ลบ.ม.)', font: { family: 'Sarabun' } }
               },
                     x: {
                  ticks: { font: { family: 'Sarabun' } }
@@ -615,7 +615,7 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
         }
 
 // ==========================================
-// ส่วนใหม่: กำหนด URL Proxy สำหรับดึง live PM2.5 (ผอ. นำ URL ที่ได้จาก GAS มาใส่ตรงนี้)
+// ส่วนใหม่: กำหนด URL Proxy สำหรับดึง live PM₂.₅ (ผอ. นำ URL ที่ได้จาก GAS มาใส่ตรงนี้)
 // ==========================================
 const GAS_LIVE_PM25_PROXY = 'https://script.google.com/macros/s/AKfycby2OvLen-3AxfZH2mJ9f-63DClvUT5RuSbbNDuD1_T6SqStLKDYKVapnPOVj_ir_ogj-Q/exec';
 
@@ -646,7 +646,7 @@ async function fetchWeatherData() {
         `;
     }
 
-    // ดึง Live PM2.5 แค่ครั้งเดียวนอกลูป
+    // ดึง Live PM₂.₅ แค่ครั้งเดียวนอกลูป
     let livePMData = {};
     try {
         const livePMResponse = await fetch(`${GAS_LIVE_PM25_PROXY}?action=live_pm25`);
@@ -654,7 +654,7 @@ async function fetchWeatherData() {
             livePMData = await livePMResponse.json();
         }
     } catch (e) {
-        console.error("ไม่สามารถดึงข้อมูล Live PM2.5 ได้:", e);
+        console.error("ไม่สามารถดึงข้อมูล Live PM₂.₅ ได้:", e);
     }
 
     // สั่งดึงข้อมูลสภาพอากาศของ 4 จังหวัดพร้อมกัน (Parallel)
@@ -734,7 +734,7 @@ async function fetchWeatherData() {
                         vrDisplay = `${vrValue} ตร.ม./วินาที (${vrStatus})`;
                     }
 
-                    // จัดการค่า Live PM2.5 ที่ดึงมาแล้ว
+                    // จัดการค่า Live PM₂.₅ ที่ดึงมาแล้ว
                     const currentLivePM = livePMData[prov.name] || 'N/A';
                     let livePMClass = 'text-gray-500';
                     let livePMIcon = '⚪';
@@ -750,7 +750,7 @@ async function fetchWeatherData() {
 
                     const livePMHtml = `
                         <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-gray-200 shadow-inner my-2">
-                            <span class="font-bold text-gray-800 flex items-center gap-1">${livePMIcon} ฝุ่น PM2.5:</span>
+                            <span class="font-bold text-gray-800 flex items-center gap-1">${livePMIcon} ฝุ่น PM₂.₅:</span>
                             <span class="font-extrabold text-lg ${livePMClass}">${currentLivePM} มคก./ลบ.ม.</span>
                         </div>
                     `;
@@ -933,7 +933,7 @@ async function fetchNasaHotspots() {
                             const w = globalWeatherData[province];
                             // ✨ เพิ่ม VR เข้าไปในข้อมูลสภาพอากาศที่ส่งให้ AI
                             weatherText = `สภาพอากาศ: ${w.cond} | อุณหภูมิ ${w.temp} °C | ความชื้น ${w.rh} % | โอกาสเกิดฝน ${w.rainChance} | ลม${w.windDir} ความเร็ว ${w.windSpeed} | เพดานการระบายอากาศ (BLH) ${w.blh} | อัตราการระบายอากาศ (VR) ${w.vr}`;
-                            livePMText = `PM2.5 ปัจจุบัน (Real-time): ${w.currentPM25} มคก./ลบ.ม.`;
+                            livePMText = `PM₂.₅ ปัจจุบัน (Real-time): ${w.currentPM25} มคก./ลบ.ม.`;
                         }
 
                         const pmVal = parseFloat(pmToday); // ค่ารอบ 07.00 น.
@@ -956,7 +956,7 @@ async function fetchNasaHotspots() {
                         }
 
 			let trendWarning = "";
-                        // ดึงค่า PM2.5 ปัจจุบัน และเวลาชั่วโมงปัจจุบัน (0-23)
+                        // ดึงค่า PM₂.₅ ปัจจุบัน และเวลาชั่วโมงปัจจุบัน (0-23)
                         let currentPMNum = parseFloat(globalWeatherData[province]?.currentPM25) || pmVal;
                         const currentHour = new Date().getHours();
                         
@@ -967,14 +967,14 @@ async function fetchNasaHotspots() {
                         } 
                         // เงื่อนไขที่ 2: แจ้งเตือนเทรนด์ฝุ่นขาขึ้นต่อเนื่องหลายวัน (ลอจิกเดิม)
                         else if (dayMinus2Num > 25.0 && dayMinus1Num > 25.0 && currentPMNum >= 30.0 && dayMinus2Num < dayMinus1Num && dayMinus1Num < currentPMNum) {
-                            trendWarning = "⚠️ แจ้งเตือนพิเศษ: แนวโน้มฝุ่นสูงขึ้นอย่างต่อเนื่อง ควรพิจารณายกระดับมาตรการป้องกันปัญหาฝุ่น PM2.5 ก่อนจะเริ่มมีผลกระทบต่อสุขภาพ";
+                            trendWarning = "⚠️ แจ้งเตือนพิเศษ: แนวโน้มฝุ่นสูงขึ้นอย่างต่อเนื่อง ควรพิจารณายกระดับมาตรการป้องกันปัญหาฝุ่น PM₂.₅ ก่อนจะเริ่มมีผลกระทบต่อสุขภาพ";
                         }
 
                         // ปรับโครงสร้างข้อความที่ส่งให้ AI ใหม่ทั้งหมดให้เป็นระเบียบและครบถ้วน
                         contextData += `* ${province}:\n`;
                         contextData += `  - ${livePMText}\n`;
-                        contextData += `  - PM2.5 รอบ 07.00 น. เช้านี้: ${pmToday} มคก./ลบ.ม.\n`;
-                        contextData += `  - PM2.5 ย้อนหลัง 4 วัน: (เมื่อวาน: ${dayMinus1Num} | 2 วันก่อน: ${dayMinus2Num} | 3 วันก่อน: ${dayMinus3Num} | 4 วันก่อน: ${dayMinus4Num})\n`;
+                        contextData += `  - PM₂.₅ รอบ 07.00 น. เช้านี้: ${pmToday} มคก./ลบ.ม.\n`;
+                        contextData += `  - PM₂.₅ ย้อนหลัง 4 วัน: (เมื่อวาน: ${dayMinus1Num} | 2 วันก่อน: ${dayMinus2Num} | 3 วันก่อน: ${dayMinus3Num} | 4 วันก่อน: ${dayMinus4Num})\n`;
                         contextData += `  - สถานะเป้าหมายปี 2569: ${quotaText} | พบจุดความร้อน ${hotspot} จุด\n`;
                         contextData += `  - ${weatherText}\n`;
                         contextData += `  - คำแนะนำสุขภาพ: ${healthAdv}\n`;
