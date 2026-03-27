@@ -13,6 +13,7 @@
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     
     <style>
         body { font-family: sans-serif; background-color: #f3f4f6; padding: 20px; }
@@ -94,40 +95,46 @@
         <h2>MAPS 11 Incident</h2>
         <div class="subtitle">ระบบผู้บัญชาการเหตุการณ์ (Incident Command Mode)</div>
           
-        <div class="control-panel">
-            <div id="incidentContainer" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background-color: #fff1f2; padding: 10px; border-radius: 8px;">
-                <label style="font-size: 16px; font-weight: bold; color: #be123c;">🚨 จุดเกิดเหตุด่วน:</label>
-                <input type="text" id="incidentName" placeholder="ชื่อเหตุการณ์" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; flex: 1; min-width: 150px;">
-                <input type="number" id="latInput" placeholder="Lat" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 90px;">
-                <input type="number" id="lonInput" placeholder="Lon" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 90px;">
+<div class="control-panel">
+            <div id="incidentContainer" style="display: flex; flex-direction: column; gap: 12px; background-color: #fff1f2; padding: 15px; border-radius: 8px; border: 1px solid #fda4af;">
                 
-                <div style="display: flex; gap: 5px; align-items: center;">
-                    <button id="dropPinBtn" style="padding: 8px 12px; background-color: #e11d48; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">📍 ปักหมุด</button>
-
-                    <div style="display: flex; gap: 5px; align-items: center; border-left: 2px solid #fda4af; padding-left: 10px; margin-left: 5px;">
-                        <label style="font-size: 14px; font-weight: bold; color: #be123c;">🕒 วันเวลา:</label>
-                        <input type="date" id="incidentDate" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px;">
-                        <input type="time" id="incidentTime" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px;">
-                    </div>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <label style="font-size: 16px; font-weight: bold; color: #be123c;">🚨 จุดเกิดเหตุด่วน:</label>
+                    <input type="text" id="incidentName" placeholder="ชื่อเหตุการณ์" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; flex: 1; min-width: 150px;">
+                    <input type="number" id="latInput" placeholder="Lat" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 90px;">
+                    <input type="number" id="lonInput" placeholder="Lon" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 90px;">
+                    
+                    <button id="dropPinBtn" style="padding: 8px 15px; background-color: #e11d48; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(225,29,72,0.3);">📍 ปักหมุด</button>
                     <button id="editPinBtn" style="padding: 8px 12px; background-color: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">✏️ แก้ไข</button>
                     <button id="clearPinBtn" style="padding: 8px 12px; background-color: #64748b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🗑️ ล้าง</button>
-                    <label style="display: flex; align-items: center; cursor: pointer; margin-left: 5px; font-size: 14px; color: #475569; font-weight: bold;">
-                        <input type="checkbox" id="togglePlumeBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #64748b;"> แสดงควัน
-                    </label>
-                    <label style="display: flex; align-items: center; cursor: pointer; margin-left: 10px; font-size: 14px; color: #475569; font-weight: bold;">
-                        <input type="checkbox" id="toggleRadiusBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #ef4444;"> แสดงรัศมี
-                    </label>
                 </div>
 
-                <div style="display: flex; gap: 5px; align-items: center; border-left: 2px solid #fda4af; padding-left: 10px; margin-left: 5px;">
-                    <label style="font-size: 14px; font-weight: bold; color: #be123c;">ทิศลม (องศา):</label>
-                    <input type="number" id="manualWindDir" placeholder="0-360" min="0" max="360" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 80px;">
-                    <button id="updateWindBtn" style="padding: 8px 12px; background-color: #0284c7; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 ปรับทิศ</button>
+                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; background-color: white; padding: 10px 15px; border-radius: 6px; border: 1px solid #fecdd3;">
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        <label style="font-size: 14px; font-weight: bold; color: #be123c;">🕒 วันเวลา:</label>
+                        <input type="date" id="incidentDate" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                        <input type="time" id="incidentTime" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                    </div>
+
+                    <div style="display: flex; gap: 5px; align-items: center; border-left: 2px solid #e2e8f0; padding-left: 15px;">
+                        <label style="font-size: 14px; font-weight: bold; color: #be123c;">💨 ทิศลม:</label>
+                        <input type="number" id="manualWindDir" placeholder="องศา (0-360)" min="0" max="360" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; width: 90px; font-size: 13px;">
+                        <button id="updateWindBtn" style="padding: 6px 10px; background-color: #0284c7; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">🔄 ปรับ</button>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; align-items: center; border-left: 2px solid #e2e8f0; padding-left: 15px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 14px; color: #475569; font-weight: bold;">
+                            <input type="checkbox" id="togglePlumeBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #64748b;"> แสดงควัน
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 14px; color: #475569; font-weight: bold;">
+                            <input type="checkbox" id="toggleRadiusBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #ef4444;"> แสดงรัศมี
+                        </label>
+                    </div>
                 </div>
 
-                <div style="width: 100%; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; align-items: center; border-top: 1px dashed #fda4af; padding-top: 10px;">
+                <div style="width: 100%; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
                     <label style="font-size: 14px; font-weight: bold; color: #be123c;">☣️ สารอันตรายที่เฝ้าระวัง:</label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="VOCs">VOCs</label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="VOCs"> VOCs</label>
                     <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="CO"> CO</label>
                     <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="SO2"> SO2</label>
                     <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="ก๊าซคลอรีน (Cl2)"> ก๊าซคลอรีน</label>
@@ -137,18 +144,18 @@
                         <input type="text" id="hazardOtherText" placeholder="ระบุชื่อสาร..." style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; width: 120px; display: none;">
                     </label>
 
-                    <div id="measurementContainer" style="width: 100%; display: none; margin-top: 15px; border-top: 1px dashed #fda4af; padding-top: 10px;">
+                    <div id="measurementContainer" style="width: 100%; display: none; margin-top: 5px; padding-top: 10px; border-top: 1px dashed #fda4af;">
                         <label style="font-size: 14px; font-weight: bold; color: #be123c; margin-bottom: 5px; display: block;">📊 ผลการตรวจวัดมลพิษภาคสนาม:</label>
                         <div style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; background: white;">
                                 <thead>
                                     <tr style="background-color: #f1f5f9;">
-                                        <th style="padding: 5px; border: 1px solid #cbd5e1; min-width: 80px;">สารอันตราย</th>
-                                        <th style="padding: 5px; border: 1px solid #cbd5e1;">0.5 กม.</th>
-                                        <th style="padding: 5px; border: 1px solid #cbd5e1;">1.0 กม.</th>
-                                        <th style="padding: 5px; border: 1px solid #cbd5e1;">1.5 กม.</th>
-                                        <th style="padding: 5px; border: 1px solid #cbd5e1;">2.0 กม.</th>
-                                        <th style="padding: 5px; border: 1px solid #cbd5e1;">หน่วย</th>
+                                        <th style="padding: 6px; border: 1px solid #cbd5e1; min-width: 80px;">สารอันตราย</th>
+                                        <th style="padding: 6px; border: 1px solid #cbd5e1;">0.5 กม.</th>
+                                        <th style="padding: 6px; border: 1px solid #cbd5e1;">1.0 กม.</th>
+                                        <th style="padding: 6px; border: 1px solid #cbd5e1;">1.5 กม.</th>
+                                        <th style="padding: 6px; border: 1px solid #cbd5e1;">2.0 กม.</th>
+                                        <th style="padding: 6px; border: 1px solid #cbd5e1;">หน่วย</th>
                                     </tr>
                                 </thead>
                                 <tbody id="measurementBody">
@@ -156,10 +163,18 @@
                             </table>
                         </div>
                     </div>
-
                 </div>
+
+                <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 5px; padding-top: 15px; border-top: 2px solid #ffe4e6;">
+                    <span style="font-size: 13px; color: #94a3b8; margin-right: auto;">เครื่องมือส่งออกรายงาน:</span>
+                    <button onclick="openGoogleMaps()" style="padding: 8px 15px; background-color: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(16,185,129,0.3);">🗺️ แผนที่ Google Maps</button>
+                    <button onclick="copyIncidentReport()" style="padding: 8px 15px; background-color: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(139,92,246,0.3);">📋 คัดลอกข้อความลง LINE</button>
+                    <button onclick="exportIncidentImage()" style="padding: 8px 15px; background-color: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(59,130,246,0.3);">📷 บันทึกภาพหน้าจอ</button>
+                </div>
+
             </div>        
-        </div>
+        </div>       
+        
         
         <div id="map-wrapper">
             <div id="loadingOverlay">
@@ -199,11 +214,12 @@
             }, 3000);
         }
                   
-        const map = L.map('map', {
-            wheelPxPerZoomLevel: 120, 
-            zoomSnap: 0.1,            
-            zoomDelta: 0.2            
-        }).setView([15.2, 102.5], 8);
+ const map = L.map('map', {
+    wheelPxPerZoomLevel: 120,
+    zoomSnap: 0.1,
+    zoomDelta: 0.2,
+    preferCanvas: true // 🔥 เพิ่มบรรทัดนี้เพื่อบังคับใช้ Canvas เรนเดอร์เวกเตอร์
+}).setView([15.2, 102.5], 8);
 
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
            maxZoom: 18,
@@ -482,14 +498,13 @@
                 currentRadiiLayer.addTo(incidentLayer);
             }
 
-            const fireIcon = L.divIcon({
-                html: `<div style="font-size: 30px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); cursor: pointer;">🔥</div>`,
-                className: '',
-                iconSize: [30, 30],
-                iconAnchor: [15, 30],
-                popupAnchor: [0, -30]
-            });
-
+const fireIcon = L.divIcon({
+    html: `<div style="display: flex; justify-content: center; align-items: center; width: 30px; height: 30px; font-size: 26px; line-height: 1; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); cursor: pointer; margin: 0; padding: 0;">🔥</div>`,
+    className: '',
+    iconSize: [30, 30],
+    iconAnchor: [15, 15], // เปลี่ยนจุดยึดให้อยู่กึ่งกลางไอคอนพอดีในแกน X และ Y
+    popupAnchor: [0, -15] // ปรับให้กรอบ Popup ลอยขึ้นจากจุดกึ่งกลางเวลาคลิก
+});
             const dateInput = document.getElementById('incidentDate').value;
             const timeInput = document.getElementById('incidentTime').value;
             const now = new Date();
@@ -557,10 +572,10 @@
                             <span id="inc-downwind" style='color:#7f1d1d; font-size:13px; font-weight:bold;'>กำลังวิเคราะห์...</span>
                         </div>
                     </div>
-                    <br>
-                    <a href="${googleMapsUrl}" target="_blank" style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิด Google Maps</a>
-                </div>
+
+             </div>
             `;
+
 
             if (dashboardControl) {
                 map.removeControl(dashboardControl);
@@ -797,6 +812,117 @@
             }
             updateDynamicLegend();
         }, 800);
+
+
+// ฟังก์ชันเปิด Google Maps
+window.openGoogleMaps = function() {
+    if (!currentIncidentData) {
+        return showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
+    }
+    const url = `https://www.google.com/maps?q=$${currentIncidentData.lat},${currentIncidentData.lon}`;
+    window.open(url, '_blank');
+};
+
+// ฟังก์ชันคัดลอกเป็น Text เพื่อส่ง LINE
+window.copyIncidentReport = function() {
+    if (!currentIncidentData) return showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
+
+    const locationText = document.getElementById('inc-location') ? document.getElementById('inc-location').innerText : '-';
+    const windDirText = document.getElementById('inc-wind-dir') ? document.getElementById('inc-wind-dir').innerText.replace(/⬆️\s*/g, '') : '-';
+    const windSpeedText = document.getElementById('inc-wind-speed') ? document.getElementById('inc-wind-speed').innerText : '-';
+    const downwindText = document.getElementById('inc-downwind') ? document.getElementById('inc-downwind').innerText : '-';
+
+    let hazardText = "ไม่ได้ระบุ";
+    if (currentSelectedHazards && currentSelectedHazards.length > 0) {
+        hazardText = currentSelectedHazards.join(" และ ");
+    }
+
+    // แปลงรูปแบบวันที่เป็นแบบไทย (เช่น 21 มี.ค. 2569)
+    let reportDate = "";
+    if (currentIncidentData.date) {
+        const [y, m, d] = currentIncidentData.date.split('-');
+        const dateObj = new Date(y, m - 1, d);
+        reportDate = dateObj.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+    } else {
+        reportDate = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+    
+    let reportTime = currentIncidentData.time ? currentIncidentData.time + " น." : new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + " น.";
+
+    let report = `🚨 รายงานเหตุด่วน: ${currentIncidentData.name}\n`;
+    report += `📍 พื้นที่: ${locationText}\n`;
+    report += `พิกัด: ${currentIncidentData.lat.toFixed(5)} ${currentIncidentData.lon.toFixed(5)}\n`;
+    report += `เวลาประเมิน: ${reportDate} ${reportTime}\n\n`;
+    report += `💨 สภาพอากาศ:\n- ทิศทางลม: ${windDirText}\n- ความเร็วลม: ${windSpeedText}\n`;
+    report += `⚠️ พื้นที่ท้ายลม (คาดการณ์ 2-5 กม.): ${downwindText}\n\n`;
+    report += `☣️ สารที่เฝ้าระวัง: ${hazardText}\n\n`;
+
+    if (currentSelectedHazards && currentSelectedHazards.length > 0) {
+        report += `📊 ผลการตรวจวัดภาคสนาม:\n`;
+        currentSelectedHazards.forEach(h => {
+            let data = measurementData[h];
+            if (data && (data.d05 || data.d10 || data.d15 || data.d20)) {
+                report += `- ${h}: 0.5กม.=${data.d05||'-'} | 1กม.=${data.d10||'-'} | 1.5กม.=${data.d15||'-'} | 2กม.=${data.d20||'-'} ${data.unit}\n`;
+            }
+        });
+        report += `\n`;
+    }
+
+    report += `(รายงานโดย ศูนย์ปฏิบัติการพิทักษ์สิ่งแวดล้อม สคพ.11)`;
+
+    navigator.clipboard.writeText(report).then(() => {
+        showToast("คัดลอกรายงานสำหรับส่ง LINE เรียบร้อยแล้ว", "success");
+    }).catch(err => {
+        showToast("เกิดข้อผิดพลาดในการคัดลอกข้อความ", "error");
+    });
+};
+
+
+// ฟังก์ชันบันทึกหน้าจอแผนที่เป็นภาพ
+window.exportIncidentImage = function() {
+    if (!currentIncidentData) return showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
+    
+    const mapWrapper = document.getElementById('map-wrapper');
+    if (!mapWrapper) return showToast("ไม่พบข้อมูลแผนที่", "error");
+
+    showToast("กำลังสร้างภาพรายงานเหตุการณ์...", "info");
+
+    const legendContent = document.getElementById('dynamic-legend');
+    const legendHeader = document.querySelector('.legend-header');
+    let legendWasClosed = false;
+
+    // บังคับเปิดคำอธิบายสัญลักษณ์ก่อนถ่ายภาพ
+    if (legendContent && legendContent.style.display === 'none') {
+        legendWasClosed = true;
+        legendContent.style.display = 'block';
+        if (legendHeader) legendHeader.className = 'legend-header open';
+    }
+
+    html2canvas(mapWrapper, {
+        backgroundColor: '#ffffff',
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        width: mapWrapper.offsetWidth,
+        height: mapWrapper.offsetHeight
+    }).then(canvas => {
+        // คืนค่าการแสดงผลคำอธิบายสัญลักษณ์กลับเป็นเหมือนเดิม
+        if (legendWasClosed && legendContent) {
+            legendContent.style.display = 'none';
+            if (legendHeader) legendHeader.className = 'legend-header';
+        }
+
+        const link = document.createElement('a');
+        const eventName = currentIncidentData.name || 'ฉุกเฉิน';
+        link.download = `รายงานสถานการณ์_${eventName}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showToast("ดาวน์โหลดภาพรายงานเรียบร้อยแล้ว", "success");
+    }).catch(err => {
+        console.error("Error generating image:", err);
+        showToast("สร้างภาพไม่สำเร็จ กรุณาลองใหม่", "error");
+    });
+};
 
     </script>
 </body>
