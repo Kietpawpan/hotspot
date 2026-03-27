@@ -92,8 +92,8 @@
     <div id="toast-container"></div>
     <div class="container">
 
-        <h2>MAPS 11 Incident</h2>
-        <div class="subtitle">ระบบผู้บัญชาการเหตุการณ์ (Incident Command Mode)</div>
+        <h2>MAPS 11</h2>
+        <div class="subtitle">ระบบผู้บัญชาการเหตุการณ์ (Incident Commander Mode)</div>
           
 <div class="control-panel">
             <div id="incidentContainer" style="display: flex; flex-direction: column; gap: 12px; background-color: #fff1f2; padding: 15px; border-radius: 8px; border: 1px solid #fda4af;">
@@ -136,9 +136,11 @@
                     <label style="font-size: 14px; font-weight: bold; color: #be123c;">☣️ สารอันตรายที่เฝ้าระวัง:</label>
                     <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="VOCs"> VOCs</label>
                     <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="CO"> CO</label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="SO2"> SO2</label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="ก๊าซคลอรีน (Cl2)"> ก๊าซคลอรีน</label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="ตะกั่ว (Pb)"> ตะกั่ว (Pb)</label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="SO<sub>2</sub>"> SO<sub>2</sub></label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="Cl2"> Cl<sub>2</sub></label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="Pb"> Pb</label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="PM<sub>2.5</sub>"> PM<sub>2.5</sub></label>
+
                     <label style="font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer;">
                         <input type="checkbox" id="hazardOtherCb" value="อื่นๆ"> อื่นๆ
                         <input type="text" id="hazardOtherText" placeholder="ระบุชื่อสาร..." style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; width: 120px; display: none;">
@@ -193,7 +195,7 @@
     <script>
         const longdoApiKey = 'bce812933744d2530d26f0fabb0017cf';
         const addressCache = {};
-        const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres.json';
+        const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres4K.json';
         const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
         let dashboardControl = null;
 
@@ -868,7 +870,7 @@ window.copyIncidentReport = function() {
         report += `\n`;
     }
 
-    report += `(รายงานโดย ศูนย์ปฏิบัติการพิทักษ์สิ่งแวดล้อม สคพ.11)`;
+    report += `(รายงานโดย หน่วยพิทักษ์สิ่งแวดล้อมที่ 11)`;
 
     navigator.clipboard.writeText(report).then(() => {
         showToast("คัดลอกรายงานสำหรับส่ง LINE เรียบร้อยแล้ว", "success");
