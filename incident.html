@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAPS 11 Lite - Incident Command</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MAPS 11 Lite">
+
+    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/Kietpawpan/hotspot/main/img/EPO11App.png?v=2026">
+    <link rel="manifest" href="data:application/manifest+json;base64,eyJkZWZhdWx0X2xvY2FsZSI6ICJ0aCIsICJuYW1lIjogIk1BUFMgMTEgKE1vZGVybml6ZWQgQWlyIFByb3RlY3RpbmcgU3lzdGVtKSIsICJzaG9ydF9uYW1lIjogIk1BUFMgMTEiLCAic3RhcnRfdXJsIjogIi4iLCAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwgImJhY2tncm91bmRfY29sb3IiOiAiI2ZmZmZmZiIsICJ0aGVtZV9jb2xvciI6ICIjNGExNDhjIn0=">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+    
+    <style>
+        body { font-family: sans-serif; background-color: #f3f4f6; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #4a148c; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 20px; }
+        .control-panel { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
+        #map-wrapper { position: relative; }
+        #loadingOverlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95)); backdrop-filter: blur(8px); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 8px; color: white; transition: opacity 0.5s ease; }
+        .maps-logo-text { font-size: 48px; font-weight: 900; letter-spacing: 4px; margin-bottom: 5px; color: #fff; text-shadow: 0 0 15px rgba(56, 189, 248, 0.6), 0 0 30px rgba(56, 189, 248, 0.4); animation: pulseText 2s infinite; }
+        .maps-sub-text { font-size: 16px; font-weight: 300; letter-spacing: 2px; margin-bottom: 40px; color: #94a3b8; text-transform: uppercase; }
+        .cyber-spinner { width: 70px; height: 70px; border: 4px solid rgba(255, 255, 255, 0.1); border-top: 4px solid #38bdf8; border-right: 4px solid #818cf8; border-bottom: 4px solid #c084fc; border-radius: 50%; animation: spin 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite; margin-bottom: 25px; box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
+        .loading-status { font-size: 15px; color: #38bdf8; font-weight: 500; letter-spacing: 1px; animation: blink 1.5s infinite; }
+        @keyframes pulseText { 0% { transform: scale(0.98); opacity: 0.8; } 50% { transform: scale(1.02); opacity: 1; } 100% { transform: scale(0.98); opacity: 0.8; } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        #map { height: 600px; width: 100%; border-radius: 8px; z-index: 10; }
+        
+        .legend-wrapper { background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex; flex-direction: column; width: 280px; }
+        .legend-header { background: #4a148c; color: white; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; display: flex; justify-content: space-between; align-items: center; user-select: none; transition: background-color 0.2s; }
+        .legend-header:hover { background: #3b0f70; }
+        .legend-header.open { border-radius: 8px 8px 0 0; }
+        .legend-box { padding: 10px 15px; font-size: 14px; line-height: 1.6; max-height: 450px; overflow-y: auto; width: 100%; box-sizing: border-box; }
+        .legend-title { font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 10px; }
+        .legend-title:first-child { margin-top: 0; }
+        
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { min-width: 280px; padding: 12px 20px; border-radius: 8px; color: white; font-size: 15px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); display: flex; align-items: center; opacity: 0; transform: translateX(100%); animation: slideIn 0.3s forwards; }
+        .toast.success { background-color: #16a34a; }
+        .toast.error { background-color: #dc2626; }
+        .toast.warning { background-color: #f59e0b; color: white; }
+        .toast.info { background-color: #2563eb; }
+        @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeOut { to { opacity: 0; transform: translateX(100%); } }
+        @media (max-width: 600px) { .legend-wrapper { width: 180px; } .legend-header { font-size: 12px; padding: 6px 10px; } .legend-box { font-size: 12px; padding: 8px 10px; width: 160px; } #map { height: 450px; } }
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+    <div class="container">
+
+        <h2>MAPS 11 Pro 1.0</h2>
+        <div class="subtitle">ระบบผู้บัญชาการเหตุการณ์ (Incident Command Mode)</div>
+          
+        <div class="control-panel">
+            <div id="incidentContainer" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background-color: #fff1f2; padding: 10px; border-radius: 8px;">
+                <label style="font-size: 16px; font-weight: bold; color: #be123c;">🚨 จุดเกิดเหตุด่วน:</label>
+                <input type="text" id="incidentName" placeholder="ชื่อเหตุการณ์" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; flex: 1; min-width: 150px;">
+                <input type="number" id="latInput" placeholder="Lat" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 90px;">
+                <input type="number" id="lonInput" placeholder="Lon" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 90px;">
+                
+                <div style="display: flex; gap: 5px; align-items: center;">
+                    <button id="dropPinBtn" style="padding: 8px 12px; background-color: #e11d48; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">📍 ปักหมุด</button>
+                    <button id="editPinBtn" style="padding: 8px 12px; background-color: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">✏️ แก้ไข</button>
+                    <button id="clearPinBtn" style="padding: 8px 12px; background-color: #64748b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🗑️ ล้าง</button>
+                    <label style="display: flex; align-items: center; cursor: pointer; margin-left: 5px; font-size: 14px; color: #475569; font-weight: bold;">
+                        <input type="checkbox" id="togglePlumeBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #64748b;"> แสดงควัน
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer; margin-left: 10px; font-size: 14px; color: #475569; font-weight: bold;">
+                        <input type="checkbox" id="toggleRadiusBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #ef4444;"> แสดงรัศมี
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 5px; align-items: center; border-left: 2px solid #fda4af; padding-left: 10px; margin-left: 5px;">
+                    <label style="font-size: 14px; font-weight: bold; color: #be123c;">ทิศลม (องศา):</label>
+                    <input type="number" id="manualWindDir" placeholder="0-360" min="0" max="360" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 80px;">
+                    <button id="updateWindBtn" style="padding: 8px 12px; background-color: #0284c7; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 ปรับทิศ</button>
+                </div>
+            </div>        
+        </div>
+        
+        <div id="map-wrapper">
+            <div id="loadingOverlay">
+                <div class="maps-logo-text">MAPS 11</div>
+                <div class="maps-sub-text">Incident Command Mode</div>
+                <div class="cyber-spinner"></div>
+                <div class="loading-status" id="loadingStatusText">INITIALIZING MAP ENGINES...</div>
+            </div>
+            <div id="map"></div>
+        </div>
+
+    </div> 
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        const longdoApiKey = 'bce812933744d2530d26f0fabb0017cf';
+        const addressCache = {};
+        const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres.json';
+        const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            let icon = 'ℹ️';
+            if (type === 'success') icon = '✅';
+            if (type === 'error') icon = '❌';
+            if (type === 'warning') icon = '⚠️';
+            toast.innerHTML = `<span style="margin-right:8px; font-size:16px;">${icon}</span> ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s forwards';
+                setTimeout(() => { toast.remove(); }, 300);
+            }, 3000);
+        }
+                  
+        const map = L.map('map').setView([15.2, 102.5], 8);
+
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+           maxZoom: 18,
+           attribution: '© OpenStreetMap | MAPS 11'
+        });
+
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+           maxZoom: 18,
+           attribution: '© Esri | MAPS 11'
+        });
+
+        osmLayer.addTo(map);
+
+        const baseMaps = {
+            "แผนที่ถนน (OSM)": osmLayer,
+            "ภาพถ่ายดาวเทียม (Esri)": satelliteLayer
+        };
+
+        const incidentLayer = L.layerGroup().addTo(map);
+        let activeLayers = new Set(["จุดเกิดเหตุด่วน (🚨)"]);
+
+        const overlayMaps = {
+            "จุดเกิดเหตุด่วน (🚨)": incidentLayer
+        };
+
+        const layerControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
+
+        // ดึงข้อมูลขอบเขต สคพ.11
+        fetch(geojsonBoundariesUrl)
+            .then(res => res.json())
+            .then(data => {
+                const boundaryGeoJSON = {
+                    type: "FeatureCollection",
+                    features: data.features.filter(f => {
+                        const propStr = JSON.stringify(f.properties);
+                        return targetKeywords.some(keyword => propStr.includes(keyword));
+                    })
+                };
+                
+                const boundaryLayer = L.geoJSON(boundaryGeoJSON, {
+                    style: {
+                        color: "#4a148c", 
+                        weight: 4,         
+                        opacity: 1,        
+                        fillOpacity: 0.05,
+                        dashArray: '5, 5'
+                    }
+                }).addTo(map);
+
+                if (boundaryGeoJSON.features.length > 0) {
+                    map.fitBounds(boundaryLayer.getBounds());
+                }
+            })
+            .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้', err));
+
+        const dynamicLegendControl = L.control({position: 'bottomright'});
+        dynamicLegendControl.onAdd = function (map) {
+            const wrapper = L.DomUtil.create('div', 'legend-wrapper');
+            L.DomEvent.disableClickPropagation(wrapper);
+            L.DomEvent.disableScrollPropagation(wrapper);
+
+            const header = L.DomUtil.create('div', 'legend-header open', wrapper);
+            header.innerHTML = '<span>📋 คำอธิบายสัญลักษณ์</span><span id="legend-toggle-icon">▼</span>';
+            
+            const content = L.DomUtil.create('div', 'legend-box', wrapper);
+            content.id = 'dynamic-legend';
+
+            header.onclick = function() {
+                if (content.style.display === 'none') {
+                    content.style.display = 'block';
+                    header.className = 'legend-header open';
+                    document.getElementById('legend-toggle-icon').innerText = '▼';
+                } else {
+                    content.style.display = 'none';
+                    header.className = 'legend-header';
+                    document.getElementById('legend-toggle-icon').innerText = '▲';
+                }
+            };
+            return wrapper;
+        };
+        dynamicLegendControl.addTo(map);
+
+        function updateDynamicLegend() {
+            const legendDiv = document.getElementById('dynamic-legend');
+            if (!legendDiv) return;
+
+            if (activeLayers.size === 0) {
+                legendDiv.innerHTML = '<div style="color:#64748b; text-align:center;">ไม่ได้เลือกข้อมูลแสดงผล</div>';
+                return;
+            }
+
+            let html = '';
+            if (activeLayers.has("จุดเกิดเหตุด่วน (🚨)") && currentIncidentData && document.getElementById('toggleRadiusBtn').checked) {
+                html += '<div class="legend-title">🚨 รัศมีจุดเกิดเหตุ</div>';
+                html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #ef4444; margin-right:5px; vertical-align:middle;"></span> ระยะ 500 เมตร</div>';
+                html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #f97316; margin-right:5px; vertical-align:middle;"></span> ระยะ 1 กิโมเมตร</div>';
+                html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #eab308; margin-right:5px; vertical-align:middle;"></span> ระยะ 1.5 กิโลเมตร</div>';
+                html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #16a34a; margin-right:5px; vertical-align:middle;"></span> ระยะ 2 กิโลเมตร</div>';
+            } else {
+                html += '<div style="color:#64748b; text-align:center;">รอการปักหมุดจุดเกิดเหตุ</div>';
+            }
+            legendDiv.innerHTML = html;
+        }
+
+        map.on('overlayadd', function(e) {
+            activeLayers.add(e.name);
+            updateDynamicLegend();
+        });
+
+        map.on('overlayremove', function(e) {
+            activeLayers.delete(e.name);
+            updateDynamicLegend();
+        });
+
+        document.getElementById('dropPinBtn').addEventListener('click', createIncidentMarker);
+
+        [document.getElementById('latInput'), document.getElementById('lonInput')].forEach(input => {
+            input.addEventListener('keypress', (e) => { if (e.key === 'Enter') createIncidentMarker(); });
+        });
+
+        let currentIncidentData = null;
+        let currentPlumeLayer = null;
+        let currentRadiiLayer = null; 
+        let currentWindSpeed = 0; 
+
+        document.getElementById('toggleRadiusBtn').addEventListener('change', function() {
+            if (currentRadiiLayer) {
+                if (this.checked) {
+                    currentRadiiLayer.addTo(incidentLayer);
+                } else {
+                    incidentLayer.removeLayer(currentRadiiLayer);
+                }
+                updateDynamicLegend(); 
+            }
+        });
+
+        document.getElementById('clearPinBtn').addEventListener('click', function() {
+            incidentLayer.clearLayers();
+            currentIncidentData = null;
+            currentPlumeLayer = null;
+            currentRadiiLayer = null; 
+            document.getElementById('incidentName').value = "";
+            document.getElementById('latInput').value = "";
+            document.getElementById('lonInput').value = "";
+            document.getElementById('manualWindDir').value = "";
+            showToast("ล้างจุดปักหมุดเรียบร้อยแล้ว", "info");
+            updateDynamicLegend();
+        });
+
+        document.getElementById('togglePlumeBtn').addEventListener('change', function() {
+            if (currentPlumeLayer) {
+                if (this.checked) {
+                    currentPlumeLayer.addTo(incidentLayer);
+                } else {
+                    incidentLayer.removeLayer(currentPlumeLayer);
+                }
+            }
+        });
+
+        document.getElementById('editPinBtn').addEventListener('click', function() {
+            if (!currentIncidentData) {
+                showToast("ไม่พบจุดที่ปักไว้ให้แก้ไข", "warning");
+                return;
+            }
+            document.getElementById('incidentName').value = currentIncidentData.name;
+            document.getElementById('latInput').value = currentIncidentData.lat;
+            document.getElementById('lonInput').value = currentIncidentData.lon;
+            if (currentIncidentData.windDir !== undefined) {
+                document.getElementById('manualWindDir').value = currentIncidentData.windDir;
+            }
+            showToast("ดึงข้อมูลมาที่ช่องแก้ไขแล้ว", "success");
+        });
+
+        document.getElementById('updateWindBtn').addEventListener('click', function() {
+            if (!currentIncidentData) {
+                showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
+                return;
+            }
+            
+            const manualDir = parseFloat(document.getElementById('manualWindDir').value);
+            if (isNaN(manualDir) || manualDir < 0 || manualDir > 360) {
+                showToast("กรุณาระบุองศาลมระหว่าง 0-360", "warning");
+                return;
+            }
+
+            currentIncidentData.windDir = manualDir;
+            
+            const dirEl = document.getElementById('inc-wind-dir');
+            if (dirEl) {
+                dirEl.innerHTML = `<span style="display:inline-block; transform: rotate(${manualDir + 180}deg); color:#0284c7;">⬆️</span> <span style="color:#0284c7; font-weight:bold;">${manualDir}° (ปรับแก้เอง)</span>`;
+            }
+            
+            drawPlumeAndCalculateRisk(currentIncidentData.lat, currentIncidentData.lon, manualDir, currentWindSpeed);
+            showToast("อัปเดตทิศทางควันเรียบร้อยแล้ว", "success");
+        });
+
+        async function createIncidentMarker() {
+            const name = document.getElementById('incidentName').value.trim() || "ไม่ได้ระบุชื่อเหตุการณ์";
+            const lat = parseFloat(document.getElementById('latInput').value);
+            const lon = parseFloat(document.getElementById('lonInput').value);
+
+            if (isNaN(lat) || isNaN(lon)) {
+                showToast("กรุณากรอกพิกัดให้ครบถ้วน", "warning");
+                return;
+            }
+
+            currentIncidentData = { name, lat, lon };
+            updateDynamicLegend(); 
+
+            incidentLayer.clearLayers();
+            currentPlumeLayer = null;
+            currentRadiiLayer = L.layerGroup(); 
+
+            const radii = [
+                { r: 2000, color: '#16a34a' },
+                { r: 1500, color: '#eab308' },
+                { r: 1000, color: '#f97316' },
+                { r: 500, color: '#ef4444' }
+            ];
+
+            radii.forEach(item => {
+                L.circle([lat, lon], {
+                    radius: item.r,
+                    color: item.color,
+                    fillColor: item.color,
+                    fillOpacity: 0.15,
+                    weight: 2,
+                    dashArray: '5 5'
+                }).addTo(currentRadiiLayer); 
+            });
+
+            if (document.getElementById('toggleRadiusBtn').checked) {
+                currentRadiiLayer.addTo(incidentLayer);
+            }
+
+            const fireIcon = L.divIcon({
+                html: `<div style="font-size: 30px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); cursor: pointer;">🔥</div>`,
+                className: '',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+                popupAnchor: [0, -30]
+            });
+
+            const marker = L.marker([lat, lon], { icon: fireIcon }).addTo(incidentLayer);
+            
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('th-TH');
+            const dateStr = now.toLocaleDateString('th-TH');
+
+            let popupContent = `
+                <div style='font-size: 14px; min-width: 220px;'>
+                    <div style='background-color:#e11d48; color:white; padding:6px; border-radius:4px; margin-bottom:8px; text-align:center; line-height:1.4;'>
+                        <b>🚨 รายงานจุดเกิดเหตุ<br>(${name})</b>
+                    </div>
+                    <b>จังหวัด:</b> <span id="inc-province" style="color:#0284c7; font-weight:bold;">กำลังค้นหา...</span><br>
+                    <b>พิกัด:</b> ${lat.toFixed(5)}  ${lon.toFixed(5)}<br>
+                    <b>เวลาที่รายงาน:</b> ${dateStr} ${timeStr}<br>
+                    
+                    <div style='background-color:#f8fafc; padding:8px; border:1px solid #e2e8f0; border-radius:6px; margin-top:8px;'>
+                        <div style='color:#475569; font-weight:bold; margin-bottom:4px; font-size:13px;'>💨 สภาพลม ณ จุดเกิดเหตุ</div>
+                        <b>ทิศทางลม:</b> <span id="inc-wind-dir">กำลังโหลด...</span><br>
+                        <b>ความเร็ว:</b> <span id="inc-wind-speed">กำลังโหลด...</span>
+                        <div style='background-color:#fef2f2; padding:6px; border:1px solid #fca5a5; border-radius:4px; margin-top:6px;'>
+                            <div style='color:#b91c1c; font-weight:bold; font-size:12px; margin-bottom:2px;'>⚠️ คาดการณ์ตำบลท้ายลม (2-5 กม.)</div>
+                            <span id="inc-downwind" style='color:#7f1d1d; font-size:13px; font-weight:bold;'>กำลังวิเคราะห์...</span>
+                        </div>
+                    </div>
+                    <br>
+                    <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิด Google Maps</a>
+                </div>
+            `;
+
+            marker.bindPopup(popupContent).openPopup();
+            map.setView([lat, lon], 13);
+
+            fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
+            .then(res => res.json())
+            .then(data => {
+                const provEl = document.getElementById('inc-province');
+                if (provEl && data && data.province) {
+                    provEl.innerText = data.province.replace(/^จังหวัด/g, '').trim();
+                } else if (provEl) {
+                    provEl.innerText = "ไม่พบข้อมูลจังหวัด";
+                }
+            }).catch(() => {
+                if (document.getElementById('inc-province')) document.getElementById('inc-province').innerText = "ข้อผิดพลาดเครือข่าย";
+            });
+
+            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m`)
+            .then(res => res.json())
+            .then(data => {
+                if(data && data.current) {
+                    currentWindSpeed = data.current.wind_speed_10m;
+                    currentIncidentData.windDir = data.current.wind_direction_10m;
+                    
+                    document.getElementById('manualWindDir').value = currentIncidentData.windDir;
+
+                    const dirEl = document.getElementById('inc-wind-dir');
+                    const speedEl = document.getElementById('inc-wind-speed');
+
+                    if(dirEl) dirEl.innerHTML = `<span style="display:inline-block; transform: rotate(${currentIncidentData.windDir + 180}deg);">⬆️</span> ${currentIncidentData.windDir}°`;
+                    if(speedEl) speedEl.innerText = `${currentWindSpeed} กม./ชม.`;
+
+                    drawPlumeAndCalculateRisk(lat, lon, currentIncidentData.windDir, currentWindSpeed);
+                }
+            });
+        }
+
+        async function drawPlumeAndCalculateRisk(lat, lon, dir, speed) {
+            if (currentPlumeLayer) {
+                incidentLayer.removeLayer(currentPlumeLayer);
+                currentPlumeLayer = null;
+            }
+
+            const downwindEl = document.getElementById('inc-downwind');
+
+            if (speed > 1) {
+                const smokeAngle = (dir + 180) % 360;
+                const bearing = smokeAngle > 180 ? smokeAngle - 360 : smokeAngle;
+                const distance = 5; 
+                const spread = 40; 
+                const leftBearing = bearing - (spread / 2);
+                const rightBearing = bearing + (spread / 2);
+                
+                const leftPt = turf.destination([lon, lat], distance, leftBearing, {units: 'kilometers'}).geometry.coordinates;
+                const rightPt = turf.destination([lon, lat], distance, rightBearing, {units: 'kilometers'}).geometry.coordinates;
+                
+                const coneCoords = [
+                    [lat, lon],
+                    [leftPt[1], leftPt[0]],
+                    [rightPt[1], rightPt[0]]
+                ];
+                
+                currentPlumeLayer = L.polygon(coneCoords, {
+                    color: '#64748b',
+                    fillColor: '#94a3b8',
+                    fillOpacity: 0.4,
+                    weight: 1,
+                    dashArray: '4 4'
+                });
+                
+                if (document.getElementById('togglePlumeBtn').checked) {
+                    currentPlumeLayer.addTo(incidentLayer);
+                }
+
+                const pt1 = turf.destination([lon, lat], 2.5, bearing, {units: 'kilometers'}).geometry.coordinates;
+                const pt2 = turf.destination([lon, lat], 5, bearing, {units: 'kilometers'}).geometry.coordinates;
+
+                if (downwindEl) downwindEl.innerHTML = "<span style='color:#64748b;'>กำลังคำนวณพื้นที่ใหม่...</span>";
+
+                try {
+                    const results = await Promise.all([
+                        fetch(`https://api.longdo.com/map/services/address?lon=${pt1[0]}&lat=${pt1[1]}&key=${longdoApiKey}`).then(r => r.json()),
+                        fetch(`https://api.longdo.com/map/services/address?lon=${pt2[0]}&lat=${pt2[1]}&key=${longdoApiKey}`).then(r => r.json())
+                    ]);
+
+                    let riskAreas = [];
+                    results.forEach(res => {
+                        if (res && res.subdistrict) {
+                            const t = res.subdistrict.replace(/^ตำบล|แขวง/g, '').trim();
+                            const a = res.district ? res.district.replace(/^อำเภอ|เขต/g, '').trim() : '';
+                            if (!riskAreas.includes(`${t} ${a}`)) riskAreas.push(`${t} ${a}`);
+                        }
+                    });
+                    if(downwindEl) downwindEl.innerHTML = riskAreas.length > 0 ? riskAreas.join(' และ ') : "ไม่พบข้อมูลชุมชน";
+                } catch(e) {
+                    if(downwindEl) downwindEl.innerHTML = "การวิเคราะห์พิกัดขัดข้อง";
+                }
+            } else {
+                if(downwindEl) downwindEl.innerHTML = "ลมสงบ ควันอาจสะสมในพื้นที่เกิดเหตุ";
+            }
+        }
+
+        map.on('click', function(e) {
+            let clickLat = e.latlng.lat.toFixed(5);
+            let clickLon = e.latlng.lng.toFixed(5);
+            let popupContent = `<div style='text-align:center; font-size:14px;'>
+            <b>📍 พิกัดที่เลือก</b><br>
+            Lat: <span style='color:#e11d48; font-weight:bold;'>${clickLat}</span><br>
+            Lon: <span style='color:#e11d48; font-weight:bold;'>${clickLon}</span><br>
+            <a href="https://www.google.com/maps/search/?api=1&query=${clickLat},${clickLon}" target="_blank" style="display:block; text-align:center; background-color:#3b82f6; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold; margin-top:10px;">🔍 เปิดดูพื้นที่บน Google Maps</a>
+            </div>`;
+
+            L.popup().setLatLng(e.latlng).setContent(popupContent).openOn(map);
+
+            let latInputEl = document.getElementById('latInput');
+            let lonInputEl = document.getElementById('lonInput');
+
+            if (latInputEl && lonInputEl) {
+                latInputEl.value = clickLat;
+                lonInputEl.value = clickLon;
+                showToast("ดึงพิกัดลงช่องเกิดเหตุด่วนเรียบร้อยแล้ว", "success");
+            }
+        });
+
+        setTimeout(() => {
+            let loadingOverlay = document.getElementById('loadingOverlay');
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'none';
+                setTimeout(() => {
+                    map.invalidateSize();
+                }, 300);
+            }
+            updateDynamicLegend();
+        }, 800);
+
+    </script>
+</body>
+</html>
