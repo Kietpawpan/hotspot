@@ -119,7 +119,6 @@
                 </div>
             </div>        
         </div>
-        
         <div id="map-wrapper">
             <div id="loadingOverlay">
                 <div class="maps-logo-text">MAPS 11</div>
@@ -129,8 +128,6 @@
             </div>
             <div id="map"></div>
         </div>
-
-    </div> 
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
@@ -441,8 +438,16 @@
                                 
                                 setTimeout(processChunk, 15);
                             } else {
-                                let loadingOverlay = document.getElementById('loadingOverlay');
-                                if (loadingOverlay) loadingOverlay.style.display = 'none';
+// ให้แผนที่อัปเดตขนาดตัวเองใหม่ทันทีที่หน้าจอโหลดถูกซ่อนไป
+let loadingOverlay = document.getElementById('loadingOverlay');
+if (loadingOverlay) {
+    loadingOverlay.style.display = 'none';
+
+    // เพิ่มการหน่วงเวลาเล็กน้อยแล้วสั่งให้แผนที่วาดตัวเองใหม่
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 400);
+}
 
                                 applyTimeFilter();
                                 showToast("โหลดข้อมูลจุดความร้อนพื้นที่หลักสำเร็จ", "success");
@@ -455,7 +460,16 @@
                     console.error('เกิดข้อผิดพลาด', error);
                     document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูลส่วนกลาง";
                     let loadingOverlay = document.getElementById('loadingOverlay');
-                    if (loadingOverlay) loadingOverlay.style.display = 'none';
+
+if (loadingOverlay) {
+    loadingOverlay.style.display = 'none';
+
+    // เพิ่มการหน่วงเวลาเล็กน้อยแล้วสั่งให้แผนที่วาดตัวเองใหม่
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 400);
+}
+
                 });
         }
 
