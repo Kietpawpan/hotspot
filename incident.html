@@ -54,7 +54,7 @@
     <div id="toast-container"></div>
     <div class="container">
 
-        <h2>MAPS 11 Pro 1.0</h2>
+        <h2>MAPS 11 Incident Beta 1.0</h2>
         <div class="subtitle">ระบบผู้บัญชาการเหตุการณ์ (Incident Command Mode)</div>
           
         <div class="control-panel">
@@ -66,6 +66,13 @@
                 
                 <div style="display: flex; gap: 5px; align-items: center;">
                     <button id="dropPinBtn" style="padding: 8px 12px; background-color: #e11d48; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">📍 ปักหมุด</button>
+
+
+<div style="display: flex; gap: 5px; align-items: center; border-left: 2px solid #fda4af; padding-left: 10px; margin-left: 5px;">
+    <label style="font-size: 14px; font-weight: bold; color: #be123c;">🕒 วันเวลา:</label>
+    <input type="date" id="incidentDate" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px;">
+    <input type="time" id="incidentTime" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px;">
+</div>
                     <button id="editPinBtn" style="padding: 8px 12px; background-color: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">✏️ แก้ไข</button>
                     <button id="clearPinBtn" style="padding: 8px 12px; background-color: #64748b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🗑️ ล้าง</button>
                     <label style="display: flex; align-items: center; cursor: pointer; margin-left: 5px; font-size: 14px; color: #475569; font-weight: bold;">
@@ -81,6 +88,46 @@
                     <input type="number" id="manualWindDir" placeholder="0-360" min="0" max="360" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 80px;">
                     <button id="updateWindBtn" style="padding: 8px 12px; background-color: #0284c7; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 ปรับทิศ</button>
                 </div>
+
+<div style="width: 100%; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; align-items: center; border-top: 1px dashed #fda4af; padding-top: 10px;">
+    <label style="font-size: 14px; font-weight: bold; color: #be123c;">☣️ สารอันตรายที่เฝ้าระวัง:</label>
+    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="VOCs">VOCs</label>
+    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="CO"> CO</label>
+    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="SO2"> SO2</label>
+    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="ก๊าซคลอรีน (Cl2)"> ก๊าซคลอรีน</label>
+    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="ตะกั่ว (Pb)"> ตะกั่ว (Pb)</label>
+    <label style="font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+        <input type="checkbox" id="hazardOtherCb" value="อื่นๆ"> อื่นๆ
+        <input type="text" id="hazardOtherText" placeholder="ระบุชื่อสาร..." style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; width: 120px; display: none;">
+    </label>
+
+
+<div id="measurementContainer" style="width: 100%; display: none; margin-top: 15px; border-top: 1px dashed #fda4af; padding-top: 10px;">
+    <label style="font-size: 14px; font-weight: bold; color: #be123c; margin-bottom: 5px; display: block;">📊 ผลการตรวจวัดมลพิษภาคสนาม:</label>
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center;">
+            <thead>
+                <tr style="background-color: #f1f5f9;">
+                    <th style="padding: 5px; border: 1px solid #cbd5e1; min-width: 80px;">สารอันตราย</th>
+                    <th style="padding: 5px; border: 1px solid #cbd5e1;">0.5 กม.</th>
+                    <th style="padding: 5px; border: 1px solid #cbd5e1;">1.0 กม.</th>
+                    <th style="padding: 5px; border: 1px solid #cbd5e1;">1.5 กม.</th>
+                    <th style="padding: 5px; border: 1px solid #cbd5e1;">2.0 กม.</th>
+                    <th style="padding: 5px; border: 1px solid #cbd5e1;">หน่วย</th>
+                </tr>
+            </thead>
+            <tbody id="measurementBody">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+
+</div>
+
+
+
+
             </div>        
         </div>
         
@@ -125,12 +172,12 @@
 
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
            maxZoom: 18,
-           attribution: '© OpenStreetMap | MAPS 11'
+           attribution: '© OpenStreetMap | สคพ. 11'
         });
 
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
            maxZoom: 18,
-           attribution: '© Esri | MAPS 11'
+           attribution: '© Esri | สคพ. 11'
         });
 
         osmLayer.addTo(map);
@@ -216,14 +263,42 @@
             let html = '';
             if (activeLayers.has("จุดเกิดเหตุด่วน (🚨)") && currentIncidentData && document.getElementById('toggleRadiusBtn').checked) {
                 html += '<div class="legend-title">🚨 รัศมีจุดเกิดเหตุ</div>';
-                html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #ef4444; margin-right:5px; vertical-align:middle;"></span> ระยะ 500 เมตร</div>';
+                html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #ef4444; margin-right:5px; vertical-align:middle;"></span> ระยะ 0.5 กิโลเมตร</div>';
                 html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #f97316; margin-right:5px; vertical-align:middle;"></span> ระยะ 1 กิโมเมตร</div>';
                 html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #eab308; margin-right:5px; vertical-align:middle;"></span> ระยะ 1.5 กิโลเมตร</div>';
                 html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #16a34a; margin-right:5px; vertical-align:middle;"></span> ระยะ 2 กิโลเมตร</div>';
             } else {
                 html += '<div style="color:#64748b; text-align:center;">รอการปักหมุดจุดเกิดเหตุ</div>';
             }
-            legendDiv.innerHTML = html;
+        //    legendDiv.innerHTML = html;
+
+// ตรวจสอบว่ามีสารอันตรายที่ถูกเลือกอยู่หรือไม่
+if (currentSelectedHazards && currentSelectedHazards.length > 0) {
+    html += '<div class="legend-title" style="margin-top: 10px; color: #be123c; font-size: 13px;">📊 ผลการตรวจวัด (ระยะทาง: กม.)</div>';
+    html += '<table style="width: 100%; font-size: 11px; border-collapse: collapse; margin-top: 5px; text-align: center;">';
+    html += '<tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1;">';
+    html += '<th style="text-align:left; padding:4px 2px;">สาร</th><th>0.5</th><th>1.0</th><th>1.5</th><th>2.0</th><th>หน่วย</th>';
+    html += '</tr>';
+    
+    currentSelectedHazards.forEach(h => {
+        const data = measurementData[h];
+        if (data) {
+            html += '<tr style="border-bottom: 1px dotted #e2e8f0;">';
+            html += `<td style="text-align:left; padding:4px 2px; font-weight:bold; color:#475569;">${h}</td>`;
+            html += `<td>${data.d05 || '-'}</td>`;
+            html += `<td>${data.d10 || '-'}</td>`;
+            html += `<td>${data.d15 || '-'}</td>`;
+            html += `<td>${data.d20 || '-'}</td>`;
+            html += `<td style="color:#64748b;">${data.unit}</td>`;
+            html += '</tr>';
+        }
+    });
+    html += '</table>';
+}
+
+   legendDiv.innerHTML = html;
+
+
         }
 
         map.on('overlayadd', function(e) {
@@ -267,6 +342,10 @@
             document.getElementById('latInput').value = "";
             document.getElementById('lonInput').value = "";
             document.getElementById('manualWindDir').value = "";
+	    document.querySelectorAll('input[name="hazard"]').forEach(cb => cb.checked = false);
+	    document.getElementById('hazardOtherCb').checked = false;
+	    document.getElementById('hazardOtherText').style.display = 'none';
+	    document.getElementById('hazardOtherText').value = '';
             showToast("ล้างจุดปักหมุดเรียบร้อยแล้ว", "info");
             updateDynamicLegend();
         });
@@ -300,6 +379,18 @@
                 showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
                 return;
             }
+
+
+	document.getElementById('hazardOtherCb').addEventListener('change', function() {
+   	 const otherInput = document.getElementById('hazardOtherText');
+   	 if (this.checked) {
+        otherInput.style.display = 'block';
+        otherInput.focus();
+   	 } else {
+        otherInput.style.display = 'none';
+        otherInput.value = '';
+  	  }
+	});
             
             const manualDir = parseFloat(document.getElementById('manualWindDir').value);
             if (isNaN(manualDir) || manualDir < 0 || manualDir > 360) {
@@ -366,33 +457,93 @@
             });
 
             const marker = L.marker([lat, lon], { icon: fireIcon }).addTo(incidentLayer);
-            
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('th-TH');
-            const dateStr = now.toLocaleDateString('th-TH');
 
-            let popupContent = `
-                <div style='font-size: 14px; min-width: 220px;'>
-                    <div style='background-color:#e11d48; color:white; padding:6px; border-radius:4px; margin-bottom:8px; text-align:center; line-height:1.4;'>
-                        <b>🚨 รายงานจุดเกิดเหตุ<br>(${name})</b>
-                    </div>
-                    <b>จังหวัด:</b> <span id="inc-province" style="color:#0284c7; font-weight:bold;">กำลังค้นหา...</span><br>
-                    <b>พิกัด:</b> ${lat.toFixed(5)}  ${lon.toFixed(5)}<br>
-                    <b>เวลาที่รายงาน:</b> ${dateStr} ${timeStr}<br>
-                    
-                    <div style='background-color:#f8fafc; padding:8px; border:1px solid #e2e8f0; border-radius:6px; margin-top:8px;'>
-                        <div style='color:#475569; font-weight:bold; margin-bottom:4px; font-size:13px;'>💨 สภาพลม ณ จุดเกิดเหตุ</div>
-                        <b>ทิศทางลม:</b> <span id="inc-wind-dir">กำลังโหลด...</span><br>
-                        <b>ความเร็ว:</b> <span id="inc-wind-speed">กำลังโหลด...</span>
-                        <div style='background-color:#fef2f2; padding:6px; border:1px solid #fca5a5; border-radius:4px; margin-top:6px;'>
-                            <div style='color:#b91c1c; font-weight:bold; font-size:12px; margin-bottom:2px;'>⚠️ คาดการณ์ตำบลท้ายลม (2-5 กม.)</div>
-                            <span id="inc-downwind" style='color:#7f1d1d; font-size:13px; font-weight:bold;'>กำลังวิเคราะห์...</span>
-                        </div>
-                    </div>
-                    <br>
-                    <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิด Google Maps</a>
-                </div>
-            `;
+const dateInput = document.getElementById('incidentDate').value;
+const timeInput = document.getElementById('incidentTime').value;
+const now = new Date();
+
+let dateStr = "";
+let timeStr = "";
+
+// ตรวจสอบวันที่
+if (dateInput) {
+    const d = new Date(dateInput);
+    dateStr = d.toLocaleDateString('th-TH');
+} else {
+    dateStr = now.toLocaleDateString('th-TH');
+}
+
+// ตรวจสอบเวลา
+if (timeInput) {
+    timeStr = timeInput + " น.";
+} else {
+    timeStr = now.toLocaleTimeString('th-TH');
+}
+
+// อัปเดตข้อมูลที่จะเก็บไว้เพื่อให้ดึงกลับมาแก้ไขได้
+currentIncidentData = { 
+    name: name, 
+    lat: lat, 
+    lon: lon, 
+    date: dateInput, 
+    time: timeInput,
+    windDir: currentIncidentData ? currentIncidentData.windDir : undefined
+};
+            
+            //const timeStr = now.toLocaleTimeString('th-TH');
+            //const dateStr = now.toLocaleDateString('th-TH');
+
+
+
+// ดึงค่าสารอันตรายที่เจ้าหน้าที่ติ๊กเลือก
+let selectedHazards = [];
+document.querySelectorAll('input[name="hazard"]:checked').forEach(cb => {
+    selectedHazards.push(cb.value);
+});
+if (document.getElementById('hazardOtherCb').checked) {
+    let otherVal = document.getElementById('hazardOtherText').value.trim();
+    if (otherVal) selectedHazards.push(otherVal);
+}
+// เชื่อมคำด้วยช่องว่างแทนเครื่องหมายจุลภาคเพื่อให้แสดงผลภาษาไทยได้สวยงาม
+let hazardString = selectedHazards.length > 0 ? selectedHazards.join(' ') : 'ไม่ได้ระบุ';
+
+// อัปเดตโครงสร้าง popupContent เดิมให้มีช่องแสดงสารอันตราย
+let popupContent = `
+    <div style='font-size: 14px; min-width: 220px;'>
+        <div style='background-color:#e11d48; color:white; padding:6px; border-radius:4px; margin-bottom:8px; text-align:center; line-height:1.4;'>
+            <b>🚨 รายงานจุดเกิดเหตุ<br>(${name})</b>
+        </div>
+        <b>จังหวัด:</b> <span id="inc-province" style="color:#0284c7; font-weight:bold;">กำลังค้นหา...</span><br>
+        <b>พิกัด:</b> ${lat.toFixed(5)}  ${lon.toFixed(5)}<br>
+        <b>เวลาที่รายงาน:</b> ${dateStr} ${timeStr}<br>
+        
+        <div style='margin-top: 8px; padding: 6px; background-color: #fff1f2; border-left: 3px solid #be123c; border-radius: 4px;'>
+            <b>☣️ สารที่แพร่กระจาย:</b> <br><span style="color:#be123c; font-weight:bold; font-size: 13px;">${hazardString}</span>
+        </div>
+        
+        <div style='background-color:#f8fafc; padding:8px; border:1px solid #e2e8f0; border-radius:6px; margin-top:8px;'>
+            <div style='color:#475569; font-weight:bold; margin-bottom:4px; font-size:13px;'>💨 สภาพลม ณ จุดเกิดเหตุ</div>
+            <b>ทิศทางลม:</b> <span id="inc-wind-dir">กำลังโหลด...</span><br>
+            <b>ความเร็ว:</b> <span id="inc-wind-speed">กำลังโหลด...</span>
+            <div style='background-color:#fef2f2; padding:6px; border:1px solid #fca5a5; border-radius:4px; margin-top:6px;'>
+                <div style='color:#b91c1c; font-weight:bold; font-size:12px; margin-bottom:2px;'>⚠️ คาดการณ์ตำบลท้ายลม (2-5 กม.)</div>
+                <span id="inc-downwind" style='color:#7f1d1d; font-size:13px; font-weight:bold;'>กำลังวิเคราะห์...</span>
+            </div>
+        </div>
+        <br>
+        <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิด Google Maps</a>
+    </div>
+`;
+
+
+
+
+
+
+
+
+
+
 
             marker.bindPopup(popupContent).openPopup();
             map.setView([lat, lon], 13);
@@ -429,6 +580,84 @@
                 }
             });
         }
+
+
+
+//ตรวจค่า
+let measurementData = {};
+let currentSelectedHazards = [];
+
+function updateMeasurementTable() {
+    currentSelectedHazards = Array.from(document.querySelectorAll('input[name="hazard"]:checked')).map(cb => cb.value);
+    const otherCb = document.getElementById('hazardOtherCb');
+    const otherText = document.getElementById('hazardOtherText') ? document.getElementById('hazardOtherText').value.trim() : '';
+    
+    if (otherCb && otherCb.checked && otherText) {
+        currentSelectedHazards.push(otherText);
+    }
+
+    const container = document.getElementById('measurementContainer');
+    const tbody = document.getElementById('measurementBody');
+    
+    if (currentSelectedHazards.length === 0) {
+        container.style.display = 'none';
+        tbody.innerHTML = '';
+        updateDynamicLegend();
+        return;
+    }
+
+    container.style.display = 'block';
+    tbody.innerHTML = '';
+
+    currentSelectedHazards.forEach(hazard => {
+        if (!measurementData[hazard]) {
+            measurementData[hazard] = { d05: '', d10: '', d15: '', d20: '', unit: 'ppm' };
+        }
+        const data = measurementData[hazard];
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: left; font-weight: bold; color: #be123c;">${hazard}</td>
+            <td style="padding: 2px; border: 1px solid #cbd5e1;"><input type="number" class="meas-input" data-hazard="${hazard}" data-dist="d05" value="${data.d05}" style="width: 45px; text-align: center; border: 1px solid #ccc; border-radius: 4px;"></td>
+            <td style="padding: 2px; border: 1px solid #cbd5e1;"><input type="number" class="meas-input" data-hazard="${hazard}" data-dist="d10" value="${data.d10}" style="width: 45px; text-align: center; border: 1px solid #ccc; border-radius: 4px;"></td>
+            <td style="padding: 2px; border: 1px solid #cbd5e1;"><input type="number" class="meas-input" data-hazard="${hazard}" data-dist="d15" value="${data.d15}" style="width: 45px; text-align: center; border: 1px solid #ccc; border-radius: 4px;"></td>
+            <td style="padding: 2px; border: 1px solid #cbd5e1;"><input type="number" class="meas-input" data-hazard="${hazard}" data-dist="d20" value="${data.d20}" style="width: 45px; text-align: center; border: 1px solid #ccc; border-radius: 4px;"></td>
+            <td style="padding: 2px; border: 1px solid #cbd5e1;">
+                <select class="meas-input" data-hazard="${hazard}" data-dist="unit" style="width: 60px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="ppm" ${data.unit === 'ppm' ? 'selected' : ''}>ppm</option>
+                    <option value="ppb" ${data.unit === 'ppb' ? 'selected' : ''}>ppb</option>
+                    <option value="mg/m³" ${data.unit === 'mg/m³' ? 'selected' : ''}>mg/m³</option>
+                    <option value="μg/m³" ${data.unit === 'μg/m³' ? 'selected' : ''}>μg/m³</option>
+                    <option value="%LEL" ${data.unit === '%LEL' ? 'selected' : ''}>%LEL</option>
+                </select>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.querySelectorAll('.meas-input').forEach(input => {
+        input.addEventListener('input', (e) => {
+            const h = e.target.getAttribute('data-hazard');
+            const d = e.target.getAttribute('data-dist');
+            measurementData[h][d] = e.target.value;
+            updateDynamicLegend();
+        });
+    });
+    
+    updateDynamicLegend();
+}
+
+// ผูก Event Listener กับปุ่มตัวเลือกสารอันตรายเพื่อให้ตารางอัปเดตอัตโนมัติ
+document.querySelectorAll('input[name="hazard"]').forEach(cb => {
+    cb.addEventListener('change', updateMeasurementTable);
+});
+if (document.getElementById('hazardOtherCb')) {
+    document.getElementById('hazardOtherCb').addEventListener('change', updateMeasurementTable);
+}
+if (document.getElementById('hazardOtherText')) {
+    document.getElementById('hazardOtherText').addEventListener('change', updateMeasurementTable);
+}
+
 
         async function drawPlumeAndCalculateRisk(lat, lon, dir, speed) {
             if (currentPlumeLayer) {
