@@ -90,12 +90,20 @@
     <div id="toast-container"></div>
     <div class="container">
 
-        <h2>MAPS 11</h2>
+        <h2>MAPS 11 Pro 1.0</h2>
         <div class="subtitle">ระบบผู้บัญชาการเหตุการณ์ (Incident Commander Mode)</div>
           
         <div class="control-panel">
             <div id="incidentContainer" style="display: flex; flex-direction: column; gap: 12px; background-color: #fff1f2; padding: 15px; border-radius: 8px; border: 1px solid #fda4af;">
                 
+
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #fda4af;">
+    <label style="font-size: 14px; font-weight: bold; color: #0284c7;">🔍 ค้นหาสถานที่:</label>
+    <input type="text" id="searchPlaceInput" placeholder="พิมพ์ชื่อสถานที่ หรือวางลิงก์แผนที่..." style="padding: 8px; border: 1px solid #7dd3fc; border-radius: 6px; flex: 1; min-width: 150px;">
+    <button id="searchPlaceBtn" style="padding: 8px 15px; background-color: #0284c7; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(2, 132, 199, 0.3);">ค้นหาพิกัด</button>
+</div>
+
+
                 <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <label style="font-size: 16px; font-weight: bold; color: #be123c;">🚨 จุดเกิดเหตุด่วน:</label>
                     <input type="text" id="incidentName" placeholder="ชื่อเหตุการณ์" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; flex: 1; min-width: 150px;">
@@ -136,7 +144,11 @@
                     <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="CO" onchange="updateMeasurementTable()"> CO</label>
                     <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="SO<sub>2</sub>" onchange="updateMeasurementTable()"> SO<sub>2</sub></label>
                     <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="Cl<sub>2</sub>" onchange="updateMeasurementTable()"> Cl<sub>2</sub></label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="PM<sub>2.5</sub>" onchange="updateMeasurementTable()"> PM<sub>2.5</sub></label>
+
+
+<label style="font-size: 13px; cursor: pointer;"><input type="checkbox" id="pm25Checkbox" name="hazard" value="PM<sub>2.5</sub>" onchange="handlePM25Toggle(this)"> PM<sub>2.5</sub></label>
+
+              </label>
 
                     <div style="display: flex; align-items: center; gap: 5px;">
                         <input type="text" id="customHazardName" placeholder="ระบุสารอื่นๆ..." style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; width: 110px;">
@@ -183,6 +195,14 @@
                 <div class="loading-status" id="loadingStatusText">INITIALIZING MAP ENGINES...</div>
             </div>
             <div id="map"></div>
+
+
+<div id="pm25-remark" style="display: none; margin-top: 15px; padding: 15px; background-color: #f0fdf4; border-left: 4px solid #16a34a; border-radius: 8px; font-size: 14px; color: #166534; box-shadow: 0 2px 4px rgba(0 0 0 0.05);">
+            <b>📌 หมายเหตุการประเมินฝุ่นละออง (PM<sub>2.5</sub>) พื้นหลัง:</b>
+            <div id="pm25-remark-content" style="margin-top: 8px;">กำลังรอข้อมูล...</div>
+        </div>
+
+
         </div>
 
     </div> 
@@ -957,6 +977,160 @@
                 showToast("สร้างภาพไม่สำเร็จ กรุณาลองใหม่", "error");
             });
         };
+
+// ดึงพิกัดจาก Google Maps
+document.getElementById('searchPlaceBtn').addEventListener('click', async function() {
+    const keyword = document.getElementById('searchPlaceInput').value.trim();
+    if (!keyword) {
+        showToast("กรุณาพิมพ์ชื่อสถานที่ หรือวางลิงก์ที่ต้องการค้นหา", "warning");
+        return;
+    }
+
+
+
+// ปรับปรุงการตรวจสอบพิกัดให้ครอบคลุมทุกรูปแบบที่มีตัวเลขทศนิยม 2 ชุด
+    const latLngMatch = keyword.match(/(-?\d{1,2}\.\d+)(?:[,\s]+|%2C)(-?\d{1,3}\.\d+)/);
+    
+    if (latLngMatch) {
+        let lat = parseFloat(latLngMatch[1]);
+        let lon = parseFloat(latLngMatch[2]);
+        
+        // ตรวจสอบว่าพิกัดอยู่ในประเทศไทยโดยประมาณหรือไม่ (ป้องกันการดึงตัวเลขผิดพลาด)
+        if (lat > 5 && lat < 21 && lon > 97 && lon < 106) {
+            document.getElementById('latInput').value = lat.toFixed(5);
+            document.getElementById('lonInput').value = lon.toFixed(5);
+            map.setView([lat, lon], 14);
+            showToast("ดึงพิกัดจากข้อความสำเร็จ (คลิกปุ่ม ปักหมุด)", "success");
+            return;
+        }
+ }
+    showToast("กำลังค้นหาพิกัด...", "info");
+
+try {
+        // เปลี่ยนมาใช้ Longdo Map Search API (ฐานข้อมูลสถานที่ไทยแม่นยำกว่า)
+        const searchUrl = `https://search.longdo.com/mapsearch/json/search?keyword=${encodeURIComponent(keyword)}&limit=1&key=${longdoApiKey}`;
+        const response = await fetch(searchUrl);
+        const data = await response.json();
+
+        // โครงสร้างข้อมูลของ Longdo จะอยู่ใน data.data
+        if (data && data.data && data.data.length > 0) {
+            const lat = parseFloat(data.data[0].lat);
+            const lon = parseFloat(data.data[0].lon);
+            
+            document.getElementById('latInput').value = lat.toFixed(5);
+            document.getElementById('lonInput').value = lon.toFixed(5);
+            
+            map.setView([lat, lon], 14);
+            showToast("พบสถานที่แล้ว กรุณากดปุ่ม ปักหมุด เพื่อเริ่มวิเคราะห์", "success");
+        } else {
+            showToast("ไม่พบสถานที่ กรุณาลองใช้คำค้นหาที่สั้นลง หรือวางลิงก์ Google Maps", "error");
+        }
+    } catch (error) {
+        console.error(error);
+        showToast("เกิดข้อผิดพลาดในการเชื่อมต่อระบบค้นหาแผนที่", "error");
+    }
+});
+
+document.getElementById('searchPlaceInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        document.getElementById('searchPlaceBtn').click();
+    }
+});
+
+//ดึงค่า PM2.5 โดยใช้ Open-Meteo Air Quality API ซึ่งเป็นค่ายเดียวกับระบบดึงทิศลม ฟรี เสถียร และไม่ต้องสมัคร API Key
+// ฟังก์ชันจัดการเมื่อติ๊กเลือก PM2.5
+const GAS_LIVE_PM25_PROXY = 'https://script.google.com/macros/s/AKfycby2OvLen-3AxfZH2mJ9f-63DClvUT5RuSbbNDuD1_T6SqStLKDYKVapnPOVj_ir_ogj-Q/exec';
+
+        window.handlePM25Toggle = function(cb) {
+            updateMeasurementTable();
+            const remarkDiv = document.getElementById('pm25-remark');
+            
+            if (cb.checked) {
+                remarkDiv.style.display = 'block';
+                document.getElementById('pm25-remark-content').innerHTML = 'กำลังดึงข้อมูลเปรียบเทียบจาก Open-Meteo และ Air4Thai...';
+                
+                if (currentIncidentData && currentIncidentData.lat) {
+                    fetchBackgroundPM25(currentIncidentData.lat, currentIncidentData.lon);
+                } else {
+                    showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนดึงค่า PM2.5", "warning");
+                    document.getElementById('pm25-remark-content').innerHTML = '<span style="color: #dc2626;">กรุณาปักหมุดจุดเกิดเหตุก่อนครับ</span>';
+                }
+            } else {
+                remarkDiv.style.display = 'none';
+            }
+        };
+
+// ดึงค่า PM2.5 จาก Air4Thai
+async function fetchBackgroundPM25(lat, lon) {
+            showToast("กำลังดึงข้อมูล PM2.5 ในพื้นที่...", "info");
+            try {
+                // ใช้ Proxy ของ สคพ.11 ที่เตรียมไว้เพื่อป้องกันปัญหา CORS
+                const GAS_LIVE_PM25_PROXY = 'https://script.google.com/macros/s/AKfycby2OvLen-3AxfZH2mJ9f-63DClvUT5RuSbbNDuD1_T6SqStLKDYKVapnPOVj_ir_ogj-Q/exec';
+                
+                // ดึงข้อมูล 3 แหล่งพร้อมกัน
+                const openMeteoReq = fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm2_5`).then(r => r.json()).catch(() => null);
+                const air4ThaiReq = fetch(`${GAS_LIVE_PM25_PROXY}?action=live_pm25`).then(r => r.json()).catch(() => null);
+                const geoReq = fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`).then(r => r.json()).catch(() => null);
+
+                const [meteoData, air4ThaiData, geoRes] = await Promise.all([openMeteoReq, air4ThaiReq, geoReq]);
+
+                let pm25Value = '-';
+                let meteoText = 'ไม่พบข้อมูล Open-Meteo';
+
+                // 1. จัดการข้อมูล Open-Meteo
+                if (meteoData && meteoData.current && meteoData.current.pm2_5 !== undefined) {
+                    pm25Value = meteoData.current.pm2_5;
+                    meteoText = `ค่าฝุ่น ณ เวลาปัจจุบัน (อ้างอิงพิกัดเกิดเหตุจาก Open-Meteo) = <b>${pm25Value} μg/m³</b>`;
+                    
+                    const hazardName = "PM<sub>2.5</sub>";
+                    if (!measurementData[hazardName]) {
+                        measurementData[hazardName] = { d05: '', d10: '', d15: '', d20: '', unit: 'μg/m³' };
+                    }
+                    
+                    measurementData[hazardName].d05 = pm25Value;
+                    measurementData[hazardName].d10 = pm25Value;
+                    measurementData[hazardName].d15 = pm25Value;
+                    measurementData[hazardName].d20 = pm25Value;
+                    measurementData[hazardName].unit = 'μg/m³';
+                    
+                    updateMeasurementTable();
+                    showToast(`ดึงข้อมูล PM2.5 สำเร็จ (${pm25Value} μg/m³)`, "success");
+                }
+
+                // 2. จัดการข้อมูล Air4Thai จาก GAS Proxy
+                let air4ThaiText = 'ไม่พบข้อมูลจากสถานี Air4Thai';
+
+                if (geoRes && geoRes.province) {
+                    // เพิ่มการตัดคำว่า จ. ออกจากชื่อจังหวัด
+                    let provName = geoRes.province.replace(/^จังหวัด/g, '').trim();
+                    provName = provName.replace(/^จ\./g, '').trim();
+                    
+                    if (air4ThaiData && air4ThaiData[provName]) {
+                        if (air4ThaiData[provName] !== 'Error') {
+                            const a4tValue = air4ThaiData[provName];
+                            air4ThaiText = `ค่าเฉลี่ย 24 ชม. (สถานีตรวจวัด Air4Thai จ.${provName}) = <b>${a4tValue} μg/m³</b>`;
+                        } else {
+                            air4ThaiText = `พบสถานี Air4Thai จ.${provName} แต่เครื่องมือขัดข้องหรือเซิร์ฟเวอร์ยังไม่ส่งข้อมูล`;
+                        }
+                    } else {
+                        air4ThaiText = `พิกัดอยู่นอกพื้นที่ สคพ.11 (จ.${provName}) จึงไม่ได้อ้างอิงข้อมูลสถานี Air4Thai`;
+                    }
+                }
+
+                // นำข้อความแสดงผลในหมายเหตุใต้แผนที่
+                document.getElementById('pm25-remark-content').innerHTML = `
+                    <ul style="margin-top: 5px; padding-left: 20px; list-style-type: disc;">
+                        <li>${meteoText}</li>
+                        <li>${air4ThaiText}</li>
+                    </ul>
+                `;
+
+            } catch (e) {
+                console.error(e);
+                showToast("เครือข่ายขัดข้อง ไม่สามารถดึงข้อมูลเปรียบเทียบได้", "error");
+                document.getElementById('pm25-remark-content').innerHTML = '<span style="color: #dc2626;">เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์ข้อมูลฝุ่น</span>';
+            }
+        }
 
     </script>
 </body>
