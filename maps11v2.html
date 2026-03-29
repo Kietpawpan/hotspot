@@ -665,7 +665,10 @@ function fetchNasaData(reo11Bbox) {
             }
 
             let loadingOverlay = document.getElementById('loadingOverlay');
-            if (loadingOverlay) loadingOverlay.style.display = 'none';
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'none';
+                clearInterval(loadingInterval); // เพิ่มบรรทัดนี้เพื่อหยุดแอนิเมชัน คืน RAM ให้ iPad
+            }
 
             currentHotspotCounts = data.counts || {"นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0};
             
