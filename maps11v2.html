@@ -753,6 +753,7 @@ function applyTimeFilter() {
         allFeaturesToFilter = globalCoreFeatures.concat(globalNeighborFeatures);
     }
 
+//  ดึงย้อน 24 ชม. จาก 07.00 น. และ 17.00 น. ของวัน
     let now = new Date();
     if (allFeaturesToFilter.length > 0) {
         let maxTime = 0;
@@ -762,7 +763,6 @@ function applyTimeFilter() {
         });
         now = new Date(maxTime);
     }
-
     let cutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
 
     allFeaturesToFilter.forEach(feature => {
