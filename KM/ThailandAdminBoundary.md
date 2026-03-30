@@ -2,7 +2,7 @@
 Get Notified
 
 Thailand administrative level 0-3 boundaries (COD-AB) dataset version 01.
-https://data.humdata.org/dataset/cod-ab-tha
+[https://data.humdata.org/dataset/cod-ab-tha](https://data.humdata.org/dataset/geoboundaries-admin-boundaries-for-thailand)
 
 This dataset is structured into 3 levels:
 - Admin 1: 77 Province
