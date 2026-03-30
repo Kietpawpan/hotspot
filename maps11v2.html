@@ -334,8 +334,9 @@
                 }, 300);
             }, 3000);
         }
-                  
-const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres-Overpass1K.json';
+   const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres-Overpass24Percent.json';
+               
+// const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres-Overpass1K.json';
 // Full const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres-Overpass.geojson';
 // const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres-Overpass2.json';
 
@@ -418,6 +419,7 @@ let isNeighborProcessed = false;
 fetch(geojsonBoundariesUrl)
     .then(res => res.json())
     .then(data => {
+        // 1. กรองเอาเฉพาะ 4 จังหวัดหลักจากไฟล์ High-Res ของเรา
         boundaryGeoJSON = {
             type: "FeatureCollection",
             features: data.features.filter(f => {
@@ -425,48 +427,53 @@ fetch(geojsonBoundariesUrl)
                 return targetKeywords.some(keyword => propStr.includes(keyword));
             })
         };
-        
-        neighborGeoJSON = {
-            type: "FeatureCollection",
-            features: data.features.filter(f => {
-                const propStr = JSON.stringify(f.properties);
-                return neighborKeywords.some(keyword => propStr.includes(keyword));
-            })
-        };
 
-        const cambodiaBorder = turf.polygon([[
-            [102.5, 14.6],
-            [105.0, 14.6],
-            [105.0, 13.5],
-            [102.5, 13.5],
-            [102.5, 14.6] 
-        ]], { pro_th: "กัมพูชา (ชายแดน)" });
-        
-        neighborGeoJSON.features.push(cambodiaBorder);
+        // 2. โหลดไฟล์แผนที่ประเทศไทยทั้งประเทศแบบไฟล์เล็ก เพื่อมาทำตาข่ายดักจังหวัดข้างเคียง
+        fetch('https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json')
+        .then(resThai => resThai.json())
+        .then(thaiData => {
+            neighborGeoJSON = {
+                type: "FeatureCollection",
+                features: thaiData.features.filter(f => {
+                    const propStr = JSON.stringify(f.properties);
+                    return neighborKeywords.some(keyword => propStr.includes(keyword));
+                })
+            };
 
-        const boundaryLayer = L.geoJSON(boundaryGeoJSON, {
-            style: {
-                color: "#4a148c", 
-                weight: 5,         
-                opacity: 1,        
-                fillOpacity: 0.05,
-                dashArray: ''
+            // สร้างกล่องตาข่ายดักจับชายแดนกัมพูชา
+            const cambodiaBorder = turf.polygon([[
+                [102.5, 14.6],
+                [105.0, 14.6],
+                [105.0, 13.5],
+                [102.5, 13.5],
+                [102.5, 14.6] 
+            ]], { pro_th: "กัมพูชา (ชายแดน)" });
+            
+            neighborGeoJSON.features.push(cambodiaBorder);
+
+            // วาดเส้นขอบเขต 4 จังหวัดลงบนแผนที่
+            const boundaryLayer = L.geoJSON(boundaryGeoJSON, {
+                style: {
+                    color: "#4a148c", 
+                    weight: 5,         
+                    opacity: 1,        
+                    fillOpacity: 0.05,
+                    dashArray: ''
+                }
+            }).addTo(map);
+
+            if (boundaryGeoJSON.features.length > 0) {
+                map.fitBounds(boundaryLayer.getBounds());
             }
-        }).addTo(map);
 
-        if (boundaryGeoJSON.features.length > 0) {
-            map.fitBounds(boundaryLayer.getBounds());
-        }
+            boundaryGeoJSON.features.forEach(f => f.bbox = turf.bbox(f));
+            neighborGeoJSON.features.forEach(f => f.bbox = turf.bbox(f));
 
-
-        boundaryGeoJSON.features.forEach(f => f.bbox = turf.bbox(f));
-        neighborGeoJSON.features.forEach(f => f.bbox = turf.bbox(f));
-
-        const reo11Bbox = turf.bbox(boundaryGeoJSON);
-       // document.getElementById('loadingOverlay').style.display = 'none'; 
-       // ลบบรรทัดบน พื่อให้จอโหลดสีดำแสดงต่อไปจนกว่าจุดความร้อนหลักจะมาครบ
-
-        fetchNasaData(reo11Bbox);
+            const reo11Bbox = turf.bbox(boundaryGeoJSON);
+            
+            // เริ่มดึงข้อมูลจุดความร้อนจากฐานข้อมูล สคพ.11
+            fetchNasaData(reo11Bbox);
+        });
     })
     .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้', err));
 
@@ -2112,7 +2119,7 @@ setTimeout(() => {
 
 
 <script>
-	/*
+/*
 // ฟังก์ชันสำหรับค้นหาและลบหมุดสีฟ้าเริ่มต้น (Default Marker Pins) ออกจากแผนที่
 function removeDefaultBlueMarkers() {
     // ตรวจสอบว่าตัวแปร map ถูกสร้างขึ้นเรียบร้อยแล้วและเข้าถึงได้
