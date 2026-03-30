@@ -19,3 +19,13 @@ Contributed by OCHA Regional Office for Asia and the Pacific (ROAP).
 Quality assured, configured, and published by OCHA Field Information Services (FIS) and HDX.
 
 Part of the dataset: Global Subnational Administrative Boundaries
+
+รหัสในระบบฐานข้อมูลแผนที่สากล (เช่น HDX หรือ geoBoundaries) จะแบ่งระดับชั้นการปกครองตามตัวย่อ ADM (Administrative level) ดังนี้ครับ:
+
+ADM0: ระดับประเทศ (Country)
+
+ADM1: ระดับจังหวัด (Province)
+
+ADM2: ระดับอำเภอ (District) 
+
+ADM3: ระดับตำบล (Sub-district)
