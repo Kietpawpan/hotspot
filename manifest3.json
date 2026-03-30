@@ -8,8 +8,13 @@
   "icons": [
     {
       "src": "img/EPO11App.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "img/EPO11App.png",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/png"
     }
   ]
 }
