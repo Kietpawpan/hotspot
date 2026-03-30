@@ -335,7 +335,7 @@
             }, 3000);
         }
                   
-const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres4K.json';
+const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres-Overpass.geojson';
 const neighborKeywords = ["ขอนแก่น", "มหาสารคาม", "ร้อยเอ็ด", "ศรีสะเกษ", "สระแก้ว", "ปราจีนบุรี", "นครนายก", "สระบุรี", "ลพบุรี", "เพชรบูรณ์", "Khon Kaen", "Maha Sarakham", "Roi Et", "Si Sa Ket", "Sa Kaeo", "Prachin Buri", "Nakhon Nayok", "Saraburi", "Lop Buri", "Lopburi", "Phetchabun"];
 
 let neighborGeoJSON = null;
@@ -2105,5 +2105,29 @@ setTimeout(() => {
 }, 5000)
 
     </script>
+
+
+<script>
+// ฟังก์ชันสำหรับค้นหาและลบหมุดสีฟ้าเริ่มต้น (Default Marker Pins) ออกจากแผนที่
+function removeDefaultBlueMarkers() {
+    // ตรวจสอบว่าตัวแปร map ถูกสร้างขึ้นเรียบร้อยแล้วและเข้าถึงได้
+    if (typeof map !== 'undefined') {
+        map.eachLayer(function(layer) {
+            // หากเลเยอร์นั้นเป็นวัตถุประเภท Marker (ซึ่งก็คือพินสีฟ้า)
+            // โดยที่ไม่ใช่ CircleMarker (จุดสีส้มของเรา) หรือ Cluster Group
+            if (layer instanceof L.Marker) {
+                // สั่งให้ลบเลเยอร์นั้นออกไป
+                map.removeLayer(layer);
+            }
+        });
+    }
+}
+
+// สั่งให้ทำงานหลังจากดีเลย์สั้นๆ (1 วินาที)
+// เพื่อให้แน่ใจว่าข้อมูลจุดความร้อนของเราโหลดเสร็จหมดแล้ว
+// หมุดเริ่มต้นที่อาจจะถูกเพิ่มทีหลังจะได้ถูกลบออกไปทั้งหมด
+setTimeout(removeDefaultBlueMarkers, 1000);
+</script>
+
 </body>
 </html>
