@@ -1,7 +1,7 @@
 {
   "name": "MAPS 11 Pro",
   "short_name": "MAPS 11",
-  "start_url": "./maps11.html",
+  "start_url": "./maps11v2.html",
   "display": "standalone",
   "background_color": "#f3f4f6",
   "theme_color": "#6b21a8",
