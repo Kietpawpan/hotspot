@@ -349,7 +349,12 @@ const neighborKeywords = ["ขอนแก่น", "มหาสารคาม"
 let neighborGeoJSON = null;
 let currentNeighborTotal = 0;
 
-        const map = L.map('map').setView([15.2, 102.5], 8);
+      //  const map = L.map('map').setView([15.2, 102.5], 8);
+         const map = L.map('map', {
+    zoomSnap: 0.25,          // ทำให้การซูมมีความละเอียดขึ้น ไม่กระโดดทีละ 1 ระดับ
+    zoomDelta: 0.5,          // ลดระยะการซูมต่อการหมุนลูกกลิ้ง 1 กึ๊ก (ค่าเริ่มต้นคือ 1)
+    wheelPxPerZoomLevel: 120 // ความหนืดของเมาส์ (ค่าเริ่มต้นคือ 60) ยิ่งค่ามาก ยิ่งลดความเซนซิทีฟลง
+}).setView([15.2, 102.5], 8);
 
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
            maxZoom: 18,
@@ -361,16 +366,27 @@ let currentNeighborTotal = 0;
            attribution: '© Esri | EPO11'
         });
 
+
+        // 🟢 เพิ่มโค้ดชุดนี้สำหรับ Google Hybrid 🟢
+        const googleHybridLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '© Google Maps | MAPS 11'
+        });
+
+/*
 	const googleTrafficLayer = L.tileLayer('https://mt1.google.com/vt?lyrs=h,traffic&x={x}&y={y}&z={z}', {
 	 maxZoom: 20,
 	 attribution: '© Google Maps | MAPS 11'
 	});
+*/
 
         osmLayer.addTo(map);
 
         const baseMaps = {
             "แผนที่ถนน (OSM)": osmLayer,
-            "ภาพถ่ายดาวเทียม (Esri)": satelliteLayer
+            "ภาพถ่ายดาวเทียม (Esri)": satelliteLayer,
+	       "ภาพถ่ายดาวเทียม (Google)": googleHybridLayer // 🟢 เพิ่มบรรทัดนี้ 🟢
         };
 
 const aqmLayer = L.layerGroup();
@@ -386,6 +402,7 @@ const hotspotLayer = L.markerClusterGroup({
 const windArrowLayer = L.layerGroup();
 const sugarFactoryLayer = L.layerGroup();
 const naturalLayer = L.layerGroup();
+const waterStationLayer = L.layerGroup();
 
 const neighborHotspotLayer = L.markerClusterGroup({
     maxClusterRadius: 40,
@@ -399,9 +416,10 @@ const overlayMaps = {
     "จุดความร้อน (จังหวัดข้างเคียง)": neighborHotspotLayer,
     "สถานีตรวจวัดคุณภาพอากาศ": aqmLayer,
     "สถานที่กำจัดขยะ": landfillLayer,
-    "🚨 แจ้งเตือนไฟไหม้บ่อขยะ": riskAlertLayer, // เพิ่มเข้าเมนู Layer Control
+    "🚨 แจ้งเตือนไฟไหม้บ่อขยะ": riskAlertLayer, 
     "โรงงานน้ำตาลและไฟฟ้าชีวมวล": sugarFactoryLayer,
     "แหล่งธรรมชาติอันควรอนุรักษ์": naturalLayer,
+        "สถานีตรวจวัดคุณภาพน้ำ": waterStationLayer,
     "ทิศทางลม (รายจังหวัด)": windArrowLayer
 };
 
@@ -564,6 +582,13 @@ function updateDynamicLegend() {
         html += '<div><span class="dot" style="background:#facc15;"></span> 25.1-37.5 (ปานกลาง) 😐</div>';
         html += '<div><span class="dot" style="background:#fb923c;"></span> 37.6-75 (เริ่มมีผลกระทบ) ⚠️</div>';
         html += '<div><span class="dot" style="background:#f87171;"></span> >75 (มีผลกระทบ) 🚨</div>';
+    }
+
+
+      if (activeLayers.has("สถานีตรวจวัดคุณภาพน้ำ")) {
+        html += '<div class="legend-title">💧 สถานีตรวจวัดคุณภาพน้ำ</div>';
+        html += '<div><span style="font-size:16px; margin-right:5px;">💧</span> เปิดดำเนินการ</div>';
+        html += '<div><span style="font-size:16px; margin-right:5px;">⏳</span> อยู่ระหว่างขอใช้พื้นที่ติดตั้ง</div>';
     }
 
     if (activeLayers.has("สถานที่กำจัดขยะ")) {
@@ -831,6 +856,10 @@ document.querySelectorAll('.time-radio').forEach(radio => {
         }
     });
 });
+
+
+
+
 
 function renderMap(features, counts, total) {
     hotspotLayer.clearLayers();
@@ -1664,6 +1693,62 @@ function doSiteSearch() {
     }
 }
 
+
+function fetchWaterStationsData() {
+    const url = gasWebappUrl + '?action=water_stations';
+
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+
+            if (data.features) {
+                data.features.forEach(feature => {
+                    let props = feature.properties;
+                    let lat = feature.geometry.coordinates[1];
+                    let lon = feature.geometry.coordinates[0];
+
+                    let isOperational = props.status && props.status.includes("เปิด");
+                    let statusColor = isOperational ? "#0284c7" : "#f59e0b"; 
+                    let emoji = isOperational ? "💧" : "⏳";
+
+                    const waterSvg = `<div style="font-size: 24px; filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));">${emoji}</div>`;
+                    const waterIcon = L.divIcon({
+                        html: waterSvg,
+                        className: '',
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12],
+                        popupAnchor: [0, -12]
+                    });
+
+                    let marker = L.marker([lat, lon], { icon: waterIcon });
+                    let mapNavUrl = "https://www.google.com/maps/dir/?api=1&destination=$" + lat + "," + lon;
+
+                    let popupHTML = `<div style='font-size: 14px; min-width: 250px;'>
+                        <div style='background-color:${statusColor}; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>สถานีตรวจวัดคุณภาพน้ำ</b></div>
+                        <b>ชื่อสถานี:</b> <span style='color:${statusColor}; font-weight:bold;'>${props.name}</span><br>
+                        
+                        <b>พิกัด:</b> <span style='color:#e11d48;'>${lat.toFixed(6)}</span>  <span style='color:#e11d48;'>${lon.toFixed(6)}</span><br>
+                        
+                        <b>ลุ่มน้ำหลัก:</b> ${props.basin}<br>
+                        <b>แหล่งน้ำ:</b> ${props.source}<br>
+                        <b>จังหวัด:</b> ${props.province}<br>
+                        <b>หน่วยงาน:</b> ${props.agency}<br>
+                        <hr style='border: 0; border-top: 1px dashed #ccc; margin: 8px 0;'>
+                        <b>สถานะ:</b> <span style='color:${statusColor}; font-weight:bold;'>${props.status}</span><br>
+                        <br><a href='${mapNavUrl}' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>
+                    </div>`;
+
+                    marker.bindPopup(popupHTML);
+                    waterStationLayer.addLayer(marker);
+                });
+                updateDynamicLegend();
+            }
+        })
+        .catch(err => console.error("เกิดข้อผิดพลาดในการโหลดข้อมูลสถานีคุณภาพน้ำ", err));
+}
+
+
 function fetchRealtimeWind() {
     const provinces = [
         { name: "นครราชสีมา", lat: 14.9799, lon: 102.0978 },
@@ -2172,6 +2257,10 @@ setTimeout(() => {
 setTimeout(() => {
     fetchNaturalPlacesData()
 }, 5000)
+
+setTimeout(() => {
+    fetchWaterStationsData()
+}, 6000)
 
     </script>
 
