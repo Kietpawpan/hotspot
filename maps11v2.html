@@ -214,6 +214,25 @@
         .toast.warning { background-color: #f59e0b; color: white; }
         .toast.info { background-color: #2563eb; }
 
+/* สไตล์สำหรับป้ายชื่อลุ่มน้ำย่อย */
+        .basin-label {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            font-weight: bold;
+            color: #1e293b; /* สีตัวหนังสือ (น้ำเงินเข้ม/เทาเข้ม) */
+            font-size: 13px;
+            /* ทำขอบตัวหนังสือสีขาวให้อ่านง่ายขึ้น */
+            text-shadow: 1px 1px 3px rgba(255,255,255,0.9), 
+                         -1px -1px 3px rgba(255,255,255,0.9), 
+                         1px -1px 3px rgba(255,255,255,0.9), 
+                         -1px 1px 3px rgba(255,255,255,0.9);
+        }
+        /* ซ่อนติ่งลูกศรของ Tooltip เดิม */
+        .basin-label::before {
+            display: none !important;
+        }
+
         @keyframes slideIn {
             to { opacity: 1; transform: translateX(0); }
         }
@@ -353,6 +372,7 @@
         }
    const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres-Overpass24Percent.json';
 
+
 const neighborKeywords = ["ขอนแก่น", "มหาสารคาม", "ร้อยเอ็ด", "ศรีสะเกษ", "สระแก้ว", "ปราจีนบุรี", "นครนายก", "สระบุรี", "ลพบุรี", "เพชรบูรณ์", "Khon Kaen", "Maha Sarakham", "Roi Et", "Si Sa Ket", "Sa Kaeo", "Prachin Buri", "Nakhon Nayok", "Saraburi", "Lop Buri", "Lopburi", "Phetchabun"];
 
 let neighborGeoJSON = null;
@@ -399,7 +419,6 @@ let currentNeighborTotal = 0;
         };
 
 const aqmLayer = L.layerGroup();
-const landfillLayer = L.layerGroup();
 const riskAlertLayer = L.layerGroup().addTo(map); // เพิ่มเลเยอร์เตือนภัยบ่อขยะ
 const hotspotLayer = L.markerClusterGroup({
     maxClusterRadius: 40,
@@ -412,6 +431,10 @@ const windArrowLayer = L.layerGroup();
 const sugarFactoryLayer = L.layerGroup();
 const naturalLayer = L.layerGroup();
 const waterStationLayer = L.layerGroup();
+const landfillLayer = L.layerGroup();
+const pigFarmLayer = L.layerGroup();
+const riverLayer = L.layerGroup();
+const subBasinLayer = L.layerGroup();
 
 const neighborHotspotLayer = L.markerClusterGroup({
     maxClusterRadius: 40,
@@ -428,7 +451,10 @@ const overlayMaps = {
     "🚨 แจ้งเตือนไฟไหม้บ่อขยะ": riskAlertLayer, 
     "โรงงานน้ำตาลและไฟฟ้าชีวมวล": sugarFactoryLayer,
     "แหล่งธรรมชาติอันควรอนุรักษ์": naturalLayer,
-        "สถานีตรวจวัดคุณภาพน้ำ": waterStationLayer,
+    "สถานีตรวจวัดคุณภาพน้ำ": waterStationLayer,
+    "🐷 ฟาร์มสุกร (แหล่งกำเนิดมลพิษ)": pigFarmLayer,
+    "💧 โครงข่ายแม่น้ำสายหลัก": riverLayer,
+    "🏔️ ลุ่มน้ำย่อย (22 ลุ่มน้ำ)": subBasinLayer,
     "ทิศทางลม (รายจังหวัด)": windArrowLayer
 };
 
@@ -600,6 +626,17 @@ function updateDynamicLegend() {
         html += '<div><span style="font-size:16px; margin-right:5px;">⏳</span> อยู่ระหว่างขอใช้พื้นที่ติดตั้ง</div>';
     }
 
+	if (activeLayers.has("💧 โครงข่ายแม่น้ำสายหลัก")) {
+        html += '<div class="legend-title">💧 โครงข่ายแม่น้ำ</div>';
+        html += '<div><span style="display:inline-block; width:20px; border-top:4px solid #0284c7; margin-right:5px; vertical-align:middle;"></span> แม่น้ำสายหลัก (มูล, ชี)</div>';
+        html += '<div><span style="display:inline-block; width:20px; border-top:2px solid #38bdf8; margin-right:5px; vertical-align:middle;"></span> ลำน้ำสาขา (ลำตะคอง)</div>';
+    }
+
+	if (activeLayers.has("🏔️ ลุ่มน้ำย่อย (22 ลุ่มน้ำ)")) {
+        html += '<div class="legend-title">🏔️ ขอบเขตลุ่มน้ำย่อย</div>'
+        html += '<div><span style="display:inline-block; width:15px; height:15px; border:1px solid #475569; background:rgba(148, 163, 184, 0.2); margin-right:5px; vertical-align:middle;"></span> พื้นที่ลุ่มน้ำย่อย (22 ลุ่มน้ำ)</div>'
+    }
+
     if (activeLayers.has("สถานที่กำจัดขยะ")) {
         html += '<div class="legend-title">🗑️ สถานที่กำจัดขยะ (ขนาดพื้นที่)</div>';
         html += '<div><span class="dot" style="background:#38bdf8;"></span> ≤ 15 ไร่ (' + landfillCounts.size1 + ' แห่ง)</div>';
@@ -624,6 +661,12 @@ function updateDynamicLegend() {
     if (activeLayers.has("ทิศทางลม (รายจังหวัด)")) {
         html += '<div class="legend-title">💨 ทิศทางและความเร็วลม</div>';
         html += '<div style="font-size: 13px; color: #64748b;">แสดงทิศทางและความเร็วลมปัจจุบัน ช่วยประเมินทิศทางผลกระทบฝุ่นควันและมลพิษ</div>';
+    }
+
+
+    if (activeLayers.has("🐷 ฟาร์มสุกร (แหล่งกำเนิดมลพิษ)")) {
+        html += '<div class="legend-title">🐷 แหล่งกำเนิดมลพิษ</div>';
+        html += '<div><span style="font-size:16px; margin-right:5px;">🐷</span> ฟาร์มสุกร</div>';
     }
 
     if (activeLayers.has("จุดเกิดเหตุด่วน (🚨)") && currentIncidentData && document.getElementById('toggleRadiusBtn').checked) {
@@ -1731,7 +1774,7 @@ function fetchWaterStationsData() {
                     });
 
                     let marker = L.marker([lat, lon], { icon: waterIcon });
-                    let mapNavUrl = "https://www.google.com/maps/dir/?api=1&destination=$" + lat + "," + lon;
+                    let mapNavUrl = "https://www.google.com/maps/dir/?api=1&destination=" + lat + "," + lon;
 
                     let popupHTML = `<div style='font-size: 14px; min-width: 250px;'>
                         <div style='background-color:${statusColor}; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>สถานีตรวจวัดคุณภาพน้ำ</b></div>
@@ -2306,7 +2349,231 @@ document.getElementById('forceSyncBtn').addEventListener('click', function() {
         });
 });
 
-    </script>
+
+function loadRiverNetworks() {
+    // ข้อมูล GeoJSON เส้นแม่น้ำจำลอง (สามารถปรับพิกัดให้ตรงเป๊ะขึ้นได้ในอนาคต)
+    const riverGeoJSON = {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "properties": { "name": "แม่น้ำมูล", "type": "main" },
+          "geometry": { 
+              "type": "LineString", 
+              "coordinates": [
+                  [102.261, 15.007], [102.392, 15.209], [102.800, 15.250], 
+                  [103.148, 15.300], [103.679, 15.326], [104.000, 15.350]
+              ] 
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "แม่น้ำชี", "type": "main" },
+          "geometry": { 
+              "type": "LineString", 
+              "coordinates": [
+                  [101.800, 15.900], [102.040, 15.789], [102.072, 15.622], 
+                  [102.245, 15.752], [102.500, 16.000]
+              ] 
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "ลำตะคอง", "type": "sub" },
+          "geometry": { 
+              "type": "LineString", 
+              "coordinates": [
+                  [101.412, 14.657], [101.728, 14.886], [101.944, 14.934], 
+                  [102.084, 14.985], [102.233, 15.013], [102.261, 15.007]
+              ] 
+          }
+        }
+      ]
+    };
+
+    // ตั้งค่าสไตล์เส้นแม่น้ำ
+    const riverStyle = function(feature) {
+        let isMain = feature.properties.type === 'main';
+        return {
+            color: isMain ? "#0284c7" : "#38bdf8", // สีฟ้าน้ำทะเลเข้มสำหรับสายหลัก ฟ้าอ่อนสำหรับสายรอง
+            weight: isMain ? 4 : 2,                // ความหนาของเส้น
+            opacity: 0.8,
+            lineJoin: 'round'
+        };
+    };
+
+    // สร้าง Layer จาก GeoJSON
+    const riverLines = L.geoJSON(riverGeoJSON, {
+        style: riverStyle,
+        onEachFeature: function (feature, layer) {
+            let typeName = feature.properties.type === 'main' ? "แม่น้ำสายหลัก" : "ลำน้ำสาขา";
+            let popupContent = `
+                <div style="text-align:center; min-width:150px;">
+                    <div style="background-color:#0284c7; color:white; padding:4px; border-radius:4px; margin-bottom:5px;"><b>${feature.properties.name}</b></div>
+                    ประเภท: ${typeName}
+                </div>`;
+            
+            layer.bindPopup(popupContent);
+/*
+// 🟢 โค้ดใหม่: แสดงชื่อลุ่มน้ำค้างไว้ตรงกลางพื้นที่ 🟢
+                    layer.bindTooltip(basinName, {
+                        permanent: true,       // ให้แสดงค้างไว้ตลอดเวลา
+                        direction: "center",   // ให้อยู่กึ่งกลางลุ่มน้ำ
+                        className: "basin-label" // เรียกใช้ CSS ที่เราเพิ่งสร้าง
+                    });
+*/
+            
+            // แถมฟีเจอร์เอาเมาส์ชี้แล้วแสดงชื่อแม่น้ำ (Tooltip)
+            layer.bindTooltip("<b>" + feature.properties.name + "</b>", { 
+                permanent: false, 
+                direction: "center",
+                className: "river-tooltip" 
+            }); 
+        }
+    });
+
+    // แอดลงใน Layer Group
+    riverLayer.addLayer(riverLines);
+}
+
+// เรียกใช้งานฟังก์ชัน
+loadRiverNetworks();
+
+
+function loadSubBasinData() {
+    const url = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/SubBasin_22.json';
+    
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            L.geoJSON(data, {
+                style: function(feature) {
+                    return {
+                        color: "#475569", 
+                        weight: 1.5,      
+                        fillColor: "#94a3b8", 
+                        fillOpacity: 0.15, 
+                        dashArray: '3'
+                    };
+                },
+                onEachFeature: function(feature, layer) {
+                    // 🟢 ปรับแก้บรรทัดนี้: เพิ่มการตรวจสอบ (Safeguard) 🟢
+                    let props = feature.properties || {}; // ถ้าไม่มี properties ให้มองเป็นออบเจ็กต์ว่าง ป้องกัน Error
+                                 
+                    // 🟢 เพิ่มบรรทัดนี้เพื่อแอบดูว่าในไฟล์มีชื่อคอลัมน์อะไรบ้าง 🟢
+                    console.log("ข้อมูล Properties ของลุ่มน้ำ:", props); 
+                    
+                    let basinName = props.SUB_NAME || props.Name || props.name || props.NAMET || "ไม่ระบุชื่อ";
+                    
+                    // ... (โค้ดส่วน popup และ tooltip ด้านล่างเหมือนเดิมครับ) ...
+                    
+                    let popupContent = `
+                        <div style="text-align:center; min-width:180px;">
+                            <div style="background-color:#475569; color:white; padding:6px; border-radius:4px; margin-bottom:8px;">
+                                <b>🏔️ ลุ่มน้ำย่อย</b>
+                            </div>
+                            <b>ชื่อลุ่มน้ำ:</b> <span style="color:#0284c7; font-weight:bold;">${basinName}</span><br>
+                        </div>`;
+                    
+                    layer.bindPopup(popupContent);
+                    
+                    // แสดงชื่อลุ่มน้ำเมื่อเอาเมาส์ไปชี้ (Tooltip)
+                    layer.bindTooltip("ลุ่มน้ำ " + basinName, {
+                        sticky: true, 
+                        direction: "top"
+                    });
+
+
+		// เพิ่มเอฟเฟกต์เมื่อเอาเมาส์วาง (Highlight) โดยเน้นแค่เส้นขอบให้สว่างขึ้น
+                    layer.on('mouseover', function(e) {
+                        this.setStyle({
+                            color: '#0ea5e9', // เปลี่ยนสีเส้นขอบเป็นสีฟ้าสว่าง
+                            weight: 3,        // ทำให้เส้นขอบหนาขึ้นเห็นได้ชัดเจน
+                            fillOpacity: 0.15 // 🟢 คงความโปร่งใสของพื้นหลังไว้เท่าเดิม (แก้ปัญหาเงามืด)
+                        });
+                        
+                        // ดึงโพลิกอนที่เมาส์ชี้อยู่ขึ้นมาไว้เลเยอร์บนสุด เพื่อไม่ให้เส้นขอบโดนพื้นที่ข้างเคียงทับ
+                        if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                            layer.bringToFront();
+                        }
+                    });
+
+                    // เมื่อเอาเมาส์ออกให้กลับสู่สภาพเดิม
+                    layer.on('mouseout', function(e) {
+                        this.setStyle({
+                            color: '#475569', // สีเส้นขอบเทาเดิม
+                            weight: 1.5,      // ความหนาเส้นปกติ
+                            fillOpacity: 0.15 // พื้นหลังโปร่งใสเท่าเดิม
+                        });
+                    });
+
+                }
+            }).addTo(subBasinLayer);
+        })
+        .catch(err => console.error("ไม่สามารถโหลดไฟล์ลุ่มน้ำย่อยได้", err)); 
+}
+
+// เรียกใช้งานฟังก์ชัน
+loadSubBasinData();
+
+function fetchPigFarmsData() {
+    const url = gasWebappUrl + '?action=pig_farms';
+
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+
+            if (data.features) {
+                data.features.forEach(feature => {
+                    let props = feature.properties;
+                    let lat = feature.geometry.coordinates[1];
+                    let lon = feature.geometry.coordinates[0];
+
+                    const pigSvg = `<div style="font-size: 24px; filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));">🐷</div>`;
+                    const pigIcon = L.divIcon({
+                        html: pigSvg,
+                        className: '',
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12],
+                        popupAnchor: [0, -12]
+                    });
+
+                    let marker = L.marker([lat, lon], { icon: pigIcon });
+                    let mapNavUrl = "https://www.google.com/maps/dir/?api=1&destination=" + lat + "," + lon;
+
+
+		   // 1. นำขนาดมาจัดฟอร์แมตใส่เครื่องหมายลูกน้ำ (,)
+                    let sizeDisplay = props.size;
+                    if (!isNaN(props.size) && props.size !== '-' && props.size !== '') {
+                        sizeDisplay = Number(props.size).toLocaleString('th-TH');
+                    }
+
+                    // 2. นำตัวแปร sizeDisplay มาแสดงผลใน popupHTML
+                    let popupHTML = `<div style='font-size: 14px; min-width: 250px;'>
+                        <div style='background-color:#ec4899; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>แหล่งกำเนิดมลพิษ (ฟาร์มสุกร)</b></div>
+                        <b>ชื่อ:</b> <span style='color:#be185d; font-weight:bold;'>${props.name}</span><br>
+                        <b>พิกัด:</b> <span style='color:#e11d48;'>${lat.toFixed(6)}</span>  <span style='color:#e11d48;'>${lon.toFixed(6)}</span><br>
+                        <b>จังหวัด:</b> ${props.province}<br>
+                        <b>ขนาด:</b> ${sizeDisplay} <br> <br><a href='${mapNavUrl}' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>
+                    </div>`;
+
+
+
+                    marker.bindPopup(popupHTML);
+                    pigFarmLayer.addLayer(marker);
+                });
+                updateDynamicLegend();
+            }
+        })
+        .catch(err => console.error("เกิดข้อผิดพลาดในการโหลดข้อมูลฟาร์มสุกร", err));
+}
+
+setTimeout(() => {
+    fetchPigFarmsData()
+}, 7500)
+
+</script>
 
 </body>
 </html>
