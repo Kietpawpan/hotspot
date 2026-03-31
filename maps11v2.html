@@ -242,8 +242,17 @@
         <div class="control-panel">
 
            <div class="status-box">
-                🛰️ <b>สถานะข้อมูล:</b> <span id="lastUpdateDisplay" style="color: #b91c1c; font-weight: bold;">กำลังดาวน์โหลดและประมวลผลข้อมูล NASA...</span>
-            </div>
+
+
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 5px;">
+    <div class="status-box" style="flex: 1; margin-bottom: 0;">
+        🛰️ <b>สถานะข้อมูล:</b> <span id="lastUpdateDisplay" style="color: #b91c1c; font-weight: bold;">กำลังดาวน์โหลดและประมวลผลข้อมูล NASA...</span>
+    </div>
+    <button id="forceSyncBtn" style="padding: 10px 15px; background-color: #d97706; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: background 0.2s;">
+        🔄 อัปเดตดาวเทียมเดี๋ยวนี้
+    </button>
+</div>
+</div>
           
             <div id="timeSelectorContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
                 <label style="font-size: 16px; margin-bottom: 10px; display: block;">
@@ -2261,6 +2270,41 @@ setTimeout(() => {
 setTimeout(() => {
     fetchWaterStationsData()
 }, 6000)
+
+// ฟังก์ชันสำหรับปุ่ม Force Sync NASA
+document.getElementById('forceSyncBtn').addEventListener('click', function() {
+    const btn = this;
+    
+    // เปลี่ยนปุ่มเป็นสถานะกำลังโหลด เพื่อป้องกันการกดซ้ำ
+    btn.disabled = true;
+    btn.style.backgroundColor = '#9ca3af';
+    btn.style.cursor = 'wait';
+    btn.innerHTML = '⏳ กำลังสั่งการเซิร์ฟเวอร์...';
+    
+    showToast("กำลังสั่งการระบบหลังบ้านให้ดึงข้อมูลจาก NASA (อาจใช้เวลา 15-30 วินาที กรุณารอ)...", "info");
+
+    // ส่งคำสั่งไปที่ GAS
+    fetch(gasWebappUrl + "?action=force_sync_nasa")
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+            showToast("ดึงข้อมูลดาวเทียม NASA ล่าสุดสำเร็จ! กำลังโหลดลงแผนที่...", "success");
+            
+            // เรียกฟังก์ชันดึงข้อมูลพล็อตลงแผนที่ใหม่
+            fetchNasaData(); 
+        })
+        .catch(err => {
+            console.error(err);
+            showToast("เกิดข้อผิดพลาดในการดึงข้อมูลสด กรุณาลองใหม่อีกครั้ง", "error");
+        })
+        .finally(() => {
+            // คืนค่าปุ่มกลับสู่สภาพเดิม
+            btn.disabled = false;
+            btn.style.backgroundColor = '#d97706';
+            btn.style.cursor = 'pointer';
+            btn.innerHTML = '🔄 อัปเดตดาวเทียมเดี๋ยวนี้';
+        });
+});
 
     </script>
 
