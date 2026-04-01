@@ -1,0 +1,2672 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAPS 11 - Management of Air Pollution Sector 11</title>
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MAPS 11">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://kietpawpan.github.io/hotspot/img/EPO11App.png">
+
+    <link rel="manifest" href="manifest3.json">
+    <meta name="theme-color" content="#4a148c">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <style>
+        .leaflet-control-download {
+            background-color: white;
+            border: 2px solid rgba(0,0,0,0.2);
+            background-clip: padding-box;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 34px;
+            height: 34px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+            transition: background-color 0.2s;
+        }
+        .leaflet-control-download:hover {
+            background-color: #f4f4f4;
+        }
+        .leaflet-control-download.loading {
+            background-color: #e2e8f0;
+            cursor: wait;
+        }
+
+        body { font-family: sans-serif; background-color: #f3f4f6; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #4a148c; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 20px; }
+        .control-panel { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
+        .status-box { font-size: 15px; color: #4a148c; margin-bottom: 5px; background: #e9d5ff; padding: 10px; border-radius: 6px; border: 1px solid #d8b4fe; }
+        
+        #map-wrapper { position: relative; }
+        #loadingOverlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+            color: white;
+            transition: opacity 0.5s ease;
+        }
+        .maps-logo-text {
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            margin-bottom: 5px;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(56, 189, 248, 0.6), 0 0 30px rgba(56, 189, 248, 0.4);
+            animation: pulseText 2s infinite;
+        }
+        .maps-sub-text {
+            font-size: 16px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-bottom: 40px;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+        .cyber-spinner {
+            width: 70px;
+            height: 70px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #38bdf8;
+            border-right: 4px solid #818cf8;
+            border-bottom: 4px solid #c084fc;
+            border-radius: 50%;
+            animation: spin 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+            margin-bottom: 25px;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+        }
+        .loading-status {
+            font-size: 15px;
+            color: #38bdf8;
+            font-weight: 500;
+            letter-spacing: 1px;
+            animation: blink 1.5s infinite;
+        }
+        @keyframes pulseText {
+            0% { transform: scale(0.98); opacity: 0.8; }
+            50% { transform: scale(1.02); opacity: 1; }
+            100% { transform: scale(0.98); opacity: 0.8; }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* CSS สำหรับแจ้งเตือนภัยบ่อขยะ */
+        @keyframes blink-alert-anim {
+            0% { opacity: 0.1; transform: scale(0.95); }
+            50% { opacity: 0.6; transform: scale(1.02); }
+            100% { opacity: 0.1; transform: scale(0.95); }
+        }
+        .blink-alert {
+            animation: blink-alert-anim 1.2s infinite alternate;
+            transform-origin: center;
+        }
+
+        #map { height: 600px; width: 100%; border-radius: 8px; z-index: 10; }
+
+        .legend-wrapper {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            width: 280px;
+        }
+        .legend-header {
+            background: #4a148c;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        .legend-header:hover {
+            background: #3b0f70;
+        }
+        .legend-header.open {
+            border-radius: 8px 8px 0 0;
+        }
+        .legend-box {
+            padding: 10px 15px;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 450px;
+            overflow-y: auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        @media (max-width: 600px) {
+            .legend-wrapper {
+                width: 180px;
+            }
+            .legend-header {
+                font-size: 12px;
+                padding: 6px 10px;
+            }
+            .legend-box {
+                font-size: 12px;
+                padding: 8px 10px;
+            }
+        }
+
+        .legend-title { font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 10px; }
+        .legend-title:first-child { margin-top: 0; }
+        .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
+
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            min-width: 280px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            opacity: 0;
+            transform: translateX(100%);
+            animation: slideIn 0.3s forwards;
+        }
+        .toast.success { background-color: #16a34a; }
+        .toast.error { background-color: #dc2626; }
+        .toast.warning { background-color: #f59e0b; color: white; }
+        .toast.info { background-color: #2563eb; }
+
+/* สไตล์สำหรับป้ายชื่อลุ่มน้ำย่อย */
+        .basin-label {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            font-weight: bold;
+            color: #1e293b; /* สีตัวหนังสือ (น้ำเงินเข้ม/เทาเข้ม) */
+            font-size: 13px;
+            /* ทำขอบตัวหนังสือสีขาวให้อ่านง่ายขึ้น */
+            text-shadow: 1px 1px 3px rgba(255,255,255,0.9), 
+                         -1px -1px 3px rgba(255,255,255,0.9), 
+                         1px -1px 3px rgba(255,255,255,0.9), 
+                         -1px 1px 3px rgba(255,255,255,0.9);
+        }
+        /* ซ่อนติ่งลูกศรของ Tooltip เดิม */
+        .basin-label::before {
+            display: none !important;
+        }
+
+        @keyframes slideIn {
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateX(100%); }
+        }
+
+        @media (max-width: 600px) {
+            .legend-box {
+                width: 160px;
+                font-size: 12px;
+            }
+            #map {
+                height: 450px;
+            }
+        }
+
+/* ปรับแต่งมาตราส่วนแผนที่ (Scale Control) ให้สวยงาม */
+        .leaflet-control-scale-line {
+            border: 2px solid #4a148c !important; /* ใช้สีม่วงเข้มตามธีมหลัก */
+            border-top: none !important;
+            background: rgba(255, 255, 255, 0.85) !important;
+            color: #1e293b !important;
+            font-weight: bold !important;
+            font-size: 13px !important;
+            line-height: 1.2 !important;
+            padding: 4px 8px !important;
+            border-radius: 0 0 4px 4px !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+            backdrop-filter: blur(4px);
+        }
+/* เพิ่มสไตล์สำหรับฟังก์ชันซ่อนมาตราส่วน */
+        .leaflet-control-scale-line {
+            cursor: pointer; /* เปลี่ยนเมาส์เป็นรูปมือเพื่อให้รู้ว่ากดได้ */
+            transition: opacity 0.3s ease;
+        }
+        
+        /* คลาสสำหรับสั่งซ่อน */
+        .scale-hidden {
+            display: none !important;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+    <div class="container">
+
+<h2>MAPS 11 Pro 2.0</h2>
+        <div class="subtitle">ระบบบริหารจัดการมลพิษทางอากาศ เขตพื้นที่ 11 (นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์)</div>
+          
+        <div class="control-panel">
+
+           <div class="status-box">
+
+
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 5px;">
+    <div class="status-box" style="flex: 1; margin-bottom: 0;">
+        🛰️ <b>สถานะข้อมูล:</b> <span id="lastUpdateDisplay" style="color: #b91c1c; font-weight: bold;">กำลังดาวน์โหลดและประมวลผลข้อมูล NASA...</span>
+    </div>
+    <button id="forceSyncBtn" style="padding: 10px 15px; background-color: #d97706; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: background 0.2s;">
+        🔄 อัปเดตดาวเทียมเดี๋ยวนี้
+    </button>
+</div>
+</div>
+          
+            <div id="timeSelectorContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
+                <label style="font-size: 16px; margin-bottom: 10px; display: block;">
+                    <b>แสดงจุดความร้อนย้อนหลัง: </b>
+                    <span style="font-size: 14px; color: #64748b;">(นับจากเวลาปัจจุบัน)</span>
+                </label>
+                <div style="display: flex; gap: 15px; align-items: center; font-size: 15px; margin-top: 10px; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="radio" name="timeFilter" value="24-all" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;" checked> 24 ชม.
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="radio" name="timeFilter" value="12-morning" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 12 ชม. รอบเช้า (00:00 - 11:59 น.)
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="radio" name="timeFilter" value="12-afternoon" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 12 ชม. รอบบ่าย (12:00 - 23:59 น.)
+                    </label>
+                </div>
+            </div>
+
+<div id="searchContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+    <label style="font-size: 16px; font-weight: bold;">🔍 ค้นหาสถานที่กำจัดขยะ:</label>
+    <input type="text" id="siteSearchInput" placeholder="ระบุชื่อตำบล หรือชื่อสถานที่..." style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; flex: 1; min-width: 200px; font-size: 15px;">
+    <button id="siteSearchBtn" style="padding: 8px 16px; background-color: #4a148c; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: bold;">ค้นหา</button>
+</div>
+
+
+<div id="incidentContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background-color: #fff1f2; padding: 10px; border-radius: 8px;">
+    <label style="font-size: 16px; font-weight: bold; color: #be123c;">🚨 จุดเกิดเหตุด่วน:</label>
+    <input type="text" id="incidentName" placeholder="ชื่อเหตุการณ์" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; flex: 1; min-width: 150px;">
+    <input type="number" id="latInput" placeholder="Lat" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 90px;">
+    <input type="number" id="lonInput" placeholder="Lon" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 90px;">
+    
+    <div style="display: flex; gap: 5px; align-items: center;">
+        <button id="dropPinBtn" style="padding: 8px 12px; background-color: #e11d48; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">📍 ปักหมุด</button>
+        <button id="editPinBtn" style="padding: 8px 12px; background-color: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">✏️ Edit</button>
+        <button id="clearPinBtn" style="padding: 8px 12px; background-color: #64748b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🗑️ ล้าง</button>
+        <label style="display: flex; align-items: center; cursor: pointer; margin-left: 5px; font-size: 14px; color: #475569; font-weight: bold;">
+            <input type="checkbox" id="togglePlumeBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #64748b;"> แสดงควัน
+        </label>
+	<label style="display: flex; align-items: center; cursor: pointer; margin-left: 10px; font-size: 14px; color: #475569; font-weight: bold;">
+            <input type="checkbox" id="toggleRadiusBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #ef4444;"> แสดงรัศมี
+        </label>
+    </div>
+
+    <div style="display: flex; gap: 5px; align-items: center; border-left: 2px solid #fda4af; padding-left: 10px; margin-left: 5px;">
+        <label style="font-size: 14px; font-weight: bold; color: #be123c;">ทิศลม (องศา):</label>
+        <input type="number" id="manualWindDir" placeholder="0-360" min="0" max="360" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 80px;">
+        <button id="updateWindBtn" style="padding: 8px 12px; background-color: #0284c7; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 ปรับทิศ</button>
+    </div>
+</div>        </div>
+        
+          <div id="map-wrapper">
+
+	<div id="loadingOverlay">
+                <div class="maps-logo-text">MAPS 11</div>
+ 		<div class="maps-sub-text">Management of Air Pollution Sector 11</div>
+                <div class="cyber-spinner"></div>
+                <div class="loading-status" id="loadingStatusText">INITIATING SATELLITE CONNECTION...</div>
+            </div>
+
+
+            <div id="map"></div>
+        </div>
+
+</div> 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-velocity@1.2.3/dist/leaflet-velocity.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-velocity@1.2.3/dist/leaflet-velocity.min.js"></script>
+
+  
+    <script>
+        const gasWebappUrl = 'https://script.google.com/macros/s/AKfycbxuZ2j2Cuoy6xUEFO7N0wxV2O47ZqAV3eOOtkrRWdAk7C6Fz_mlvP6O5sAplBOH9HG4IA/exec';
+        const longdoApiKey = 'bce812933744d2530d26f0fabb0017cf';
+        
+        const addressCache = {};
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            let icon = 'ℹ️';
+            if (type === 'success') icon = '✅';
+            if (type === 'error') icon = '❌';
+            if (type === 'warning') icon = '⚠️';
+
+            toast.innerHTML = `<span style="margin-right:8px; font-size:16px;">${icon}</span> ${message}`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s forwards';
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3000);
+        }
+   const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres-Overpass24Percent.json';
+
+
+const neighborKeywords = ["ขอนแก่น", "มหาสารคาม", "ร้อยเอ็ด", "ศรีสะเกษ", "สระแก้ว", "ปราจีนบุรี", "นครนายก", "สระบุรี", "ลพบุรี", "เพชรบูรณ์", "Khon Kaen", "Maha Sarakham", "Roi Et", "Si Sa Ket", "Sa Kaeo", "Prachin Buri", "Nakhon Nayok", "Saraburi", "Lop Buri", "Lopburi", "Phetchabun"];
+
+let neighborGeoJSON = null;
+let currentNeighborTotal = 0;
+
+      //  const map = L.map('map').setView([15.2, 102.5], 8);
+         const map = L.map('map', {
+    zoomSnap: 0.25,          // ทำให้การซูมมีความละเอียดขึ้น ไม่กระโดดทีละ 1 ระดับ
+    zoomDelta: 0.5,          // ลดระยะการซูมต่อการหมุนลูกกลิ้ง 1 กึ๊ก (ค่าเริ่มต้นคือ 1)
+    wheelPxPerZoomLevel: 120 // ความหนืดของเมาส์ (ค่าเริ่มต้นคือ 60) ยิ่งค่ามาก ยิ่งลดความเซนซิทีฟลง
+}).setView([15.2, 102.5], 8);
+
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+           maxZoom: 18,
+           attribution: '© OpenStreetMap | EPO11'
+        });
+
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+           maxZoom: 18,
+           attribution: '© Esri | EPO11'
+        });
+
+
+        // 🟢 เพิ่มโค้ดชุดนี้สำหรับ Google Hybrid 🟢
+        const googleHybridLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '© Google Maps | EPO11'
+        });
+
+/*
+	const googleTrafficLayer = L.tileLayer('https://mt1.google.com/vt?lyrs=h,traffic&x={x}&y={y}&z={z}', {
+	 maxZoom: 20,
+	 attribution: '© Google Maps | MAPS 11'
+	});
+*/
+
+        osmLayer.addTo(map);
+
+        const baseMaps = {
+            "แผนที่ถนน (OSM)": osmLayer,
+            "ภาพถ่ายดาวเทียม (Esri)": satelliteLayer,
+	       "ภาพถ่ายดาวเทียม (Google)": googleHybridLayer // 🟢 เพิ่มบรรทัดนี้ 🟢
+        };
+
+const aqmLayer = L.layerGroup();
+const riskAlertLayer = L.layerGroup().addTo(map); // เพิ่มเลเยอร์เตือนภัยบ่อขยะ
+const hotspotLayer = L.markerClusterGroup({
+    maxClusterRadius: 40,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: true
+}).addTo(map);
+
+const windArrowLayer = L.layerGroup();
+const sugarFactoryLayer = L.layerGroup();
+const naturalLayer = L.layerGroup();
+const waterStationLayer = L.layerGroup();
+const landfillLayer = L.layerGroup();
+const pigFarmLayer = L.layerGroup();
+const riverLayer = L.layerGroup();
+const subBasinLayer = L.layerGroup();
+
+const neighborHotspotLayer = L.markerClusterGroup({
+    maxClusterRadius: 40,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: true
+});
+
+const overlayMaps = {
+    "จุดความร้อน (NASA)": hotspotLayer,
+    "จุดความร้อน (จังหวัดข้างเคียง)": neighborHotspotLayer,
+    "สถานีตรวจวัดคุณภาพอากาศ": aqmLayer,
+    "สถานที่กำจัดขยะ": landfillLayer,
+    "🚨 แจ้งเตือนไฟไหม้บ่อขยะ": riskAlertLayer, 
+    "โรงงานน้ำตาลและไฟฟ้าชีวมวล": sugarFactoryLayer,
+    "แหล่งธรรมชาติอันควรอนุรักษ์": naturalLayer,
+    "สถานีตรวจวัดคุณภาพน้ำ": waterStationLayer,
+    "🐷 ฟาร์มสุกร (แหล่งกำเนิดมลพิษ)": pigFarmLayer,
+    "💧 โครงข่ายแม่น้ำสายหลัก": riverLayer,
+    "🏔️ ลุ่มน้ำย่อย (22 ลุ่มน้ำ)": subBasinLayer,
+    "ทิศทางลม (รายจังหวัด)": windArrowLayer
+};
+
+const layerControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
+
+        const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
+        const targetProvincesThai = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
+        
+        let boundaryGeoJSON = null;
+        let summaryControl;
+
+let globalCoreFeatures = [];
+let rawNeighborCandidates = [];
+let globalNeighborFeatures = [];
+let currentFilteredHotspots = []; // เก็บจุดความร้อนที่ถูกกรองเวลาแล้วสำหรับส่งไปเรดาร์บ่อขยะ
+let isNeighborProcessed = false;
+
+        let currentTimeframe = 24;
+        let currentTimeOfDay = 'all';
+        const RISK_RADIUS_KM = 1; // รัศมีตรวจจับบ่อขยะ
+
+fetch(geojsonBoundariesUrl)
+    .then(res => res.json())
+    .then(data => {
+        boundaryGeoJSON = {
+            type: "FeatureCollection",
+            features: data.features.filter(f => {
+                const propStr = JSON.stringify(f.properties);
+                return targetKeywords.some(keyword => propStr.includes(keyword));
+            })
+        };
+
+        fetch('https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json')
+        .then(resThai => resThai.json())
+        .then(thaiData => {
+            neighborGeoJSON = {
+                type: "FeatureCollection",
+                features: thaiData.features.filter(f => {
+                    const propStr = JSON.stringify(f.properties);
+                    return neighborKeywords.some(keyword => propStr.includes(keyword));
+                })
+            };
+
+            const cambodiaBorder = turf.polygon([[
+                [102.5, 14.6],
+                [105.0, 14.6],
+                [105.0, 13.5],
+                [102.5, 13.5],
+                [102.5, 14.6] 
+            ]], { pro_th: "กัมพูชา (ชายแดน)" });
+            
+            neighborGeoJSON.features.push(cambodiaBorder);
+
+            const boundaryLayer = L.geoJSON(boundaryGeoJSON, {
+                style: {
+                    color: "#4a148c", 
+                    weight: 5,         
+                    opacity: 1,        
+                    fillOpacity: 0.05,
+                    dashArray: ''
+                }
+            }).addTo(map);
+
+            if (boundaryGeoJSON.features.length > 0) {
+                map.fitBounds(boundaryLayer.getBounds());
+            }
+
+            boundaryGeoJSON.features.forEach(f => f.bbox = turf.bbox(f));
+            neighborGeoJSON.features.forEach(f => f.bbox = turf.bbox(f));
+
+            const reo11Bbox = turf.bbox(boundaryGeoJSON);
+            
+            fetchNasaData(reo11Bbox);
+        });
+    })
+    .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้', err));
+
+let activeLayers = new Set(["จุดความร้อน (NASA)", "🚨 แจ้งเตือนไฟไหม้บ่อขยะ"]);
+let currentHotspotTotal = 0;
+let currentHotspotCounts = {"นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0};
+
+const dynamicLegendControl = L.control({position: 'bottomleft'});
+dynamicLegendControl.onAdd = function (map) {
+    const wrapper = L.DomUtil.create('div', 'legend-wrapper');
+    L.DomEvent.disableClickPropagation(wrapper);
+    L.DomEvent.disableScrollPropagation(wrapper);
+
+    const header = L.DomUtil.create('div', 'legend-header open', wrapper);
+    header.innerHTML = '<span>📋 คำอธิบายสัญลักษณ์</span><span id="legend-toggle-icon">▼</span>';
+    
+    const content = L.DomUtil.create('div', 'legend-box', wrapper);
+    content.id = 'dynamic-legend';
+
+    header.onclick = function() {
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            header.className = 'legend-header open';
+            document.getElementById('legend-toggle-icon').innerText = '▼';
+        } else {
+            content.style.display = 'none';
+            header.className = 'legend-header';
+            document.getElementById('legend-toggle-icon').innerText = '▲';
+        }
+    };
+
+    return wrapper;
+};
+dynamicLegendControl.addTo(map);
+
+function updateDynamicLegend() {
+    const legendDiv = document.getElementById('dynamic-legend');
+    if (!legendDiv) return;
+
+    if (activeLayers.size === 0) {
+        legendDiv.innerHTML = '<div style="color:#64748b; text-align:center;">ไม่ได้เลือกข้อมูลแสดงผล</div>';
+        return;
+    }
+
+    let html = '';
+
+    if (activeLayers.has("จุดความร้อน (NASA)")) {
+        html += '<div class="legend-title">🔥 สรุปจุดความร้อน (' + currentTimeframe + ' ชม.)</div>';
+        if (currentHotspotTotal === 0) {
+            html += '<div style="color:#d84315; font-weight:bold; margin-bottom:10px;">ไม่พบจุดความร้อนในพื้นที่</div>';
+        } else {
+            html += 'รวมพบ: <b>' + currentHotspotTotal + '</b> จุด<br>';
+            html += '<div style="margin-left: 10px; font-size: 13px;">';
+            html += 'นครราชสีมา: ' + currentHotspotCounts["นครราชสีมา"] + ' จุด<br>';
+            html += 'ชัยภูมิ: ' + currentHotspotCounts["ชัยภูมิ"] + ' จุด<br>';
+            html += 'บุรีรัมย์: ' + currentHotspotCounts["บุรีรัมย์"] + ' จุด<br>';
+            html += 'สุรินทร์: ' + currentHotspotCounts["สุรินทร์"] + ' จุด<br>';
+            html += '</div>';
+        }
+        html += '<div style="margin-top:5px;"><b>ระดับความเชื่อมั่น:</b></div>';
+        html += '<div><span class="dot" style="background:#dc3545;"></span> สูง (High)</div>';
+        html += '<div><span class="dot" style="background:#fd7e14;"></span> ปานกลาง (Nominal)</div>';
+        html += '<div><span class="dot" style="background:#ffc107;"></span> ต่ำ (Low)</div>';
+    }
+
+    if (activeLayers.has("จุดความร้อน (จังหวัดข้างเคียง)")) {
+        html += '<div class="legend-title">🔥 จุดความร้อน (จังหวัดข้างเคียง)</div>';
+        if (currentNeighborTotal === 0) {
+            html += '<div style="color:#64748b; margin-bottom:5px;">ไม่พบจุดความร้อนในพื้นที่ข้างเคียง</div>';
+        } else {
+            html += 'รวมพบ: <b>' + currentNeighborTotal + '</b> จุด<br>';
+            html += '<div style="font-size: 13px; color:#64748b;">(ขอนแก่น มหาสารคาม ร้อยเอ็ด ศรีสะเกษ สระแก้ว ปราจีนบุรี นครนายก สระบุรี ลพบุรี เพชรบูรณ์ และกัมพูชา)</div>';
+        }
+    }
+    
+    // เพิ่มคำอธิบายสำหรับเรดาร์บ่อขยะ
+    if (activeLayers.has("🚨 แจ้งเตือนไฟไหม้บ่อขยะ")) {
+        html += '<div class="legend-title" style="color:#d50000;">🚨 พื้นที่เฝ้าระวังไฟไหม้บ่อขยะ</div>';
+        html += '<div><span class="dot" style="background:#ff1744; animation: blink-alert-anim 1.2s infinite alternate;"></span> รัศมีเฝ้าระวัง ' + RISK_RADIUS_KM + ' กม.</div>';
+    }
+
+    if (activeLayers.has("สถานีตรวจวัดคุณภาพอากาศ")) {
+        html += '<div class="legend-title">💨 คุณภาพอากาศ PM2.5</div>';
+        html += '<div><span class="dot" style="background:#38bdf8;"></span> 0-15 (ดีมาก) 😊</div>';
+        html += '<div><span class="dot" style="background:#4ade80;"></span> 15.1-25 (ดี) 🙂</div>';
+        html += '<div><span class="dot" style="background:#facc15;"></span> 25.1-37.5 (ปานกลาง) 😐</div>';
+        html += '<div><span class="dot" style="background:#fb923c;"></span> 37.6-75 (เริ่มมีผลกระทบ) ⚠️</div>';
+        html += '<div><span class="dot" style="background:#f87171;"></span> >75 (มีผลกระทบ) 🚨</div>';
+    }
+
+
+      if (activeLayers.has("สถานีตรวจวัดคุณภาพน้ำ")) {
+        html += '<div class="legend-title">💧 สถานีตรวจวัดคุณภาพน้ำ</div>';
+        html += '<div><span style="font-size:16px; margin-right:5px;">💧</span> เปิดดำเนินการ</div>';
+        html += '<div><span style="font-size:16px; margin-right:5px;">⏳</span> อยู่ระหว่างขอใช้พื้นที่ติดตั้ง</div>';
+    }
+
+	if (activeLayers.has("💧 โครงข่ายแม่น้ำสายหลัก")) {
+        html += '<div class="legend-title">💧 โครงข่ายแม่น้ำ</div>';
+        html += '<div><span style="display:inline-block; width:20px; border-top:4px solid #0284c7; margin-right:5px; vertical-align:middle;"></span> แม่น้ำสายหลัก (มูล, ชี)</div>';
+        html += '<div><span style="display:inline-block; width:20px; border-top:2px solid #38bdf8; margin-right:5px; vertical-align:middle;"></span> ลำน้ำสาขา (ลำตะคอง)</div>';
+    }
+
+	if (activeLayers.has("🏔️ ลุ่มน้ำย่อย (22 ลุ่มน้ำ)")) {
+        html += '<div class="legend-title">🏔️ ขอบเขตลุ่มน้ำย่อย</div>'
+        html += '<div><span style="display:inline-block; width:15px; height:15px; border:1px solid #475569; background:rgba(148, 163, 184, 0.2); margin-right:5px; vertical-align:middle;"></span> พื้นที่ลุ่มน้ำย่อย (22 ลุ่มน้ำ)</div>'
+    }
+
+    if (activeLayers.has("สถานที่กำจัดขยะ")) {
+        html += '<div class="legend-title">🗑️ สถานที่กำจัดขยะ (ขนาดพื้นที่)</div>';
+        html += '<div><span class="dot" style="background:#38bdf8;"></span> ≤ 15 ไร่ (' + landfillCounts.size1 + ' แห่ง)</div>';
+        html += '<div><span class="dot" style="background:#4ade80;"></span> 15.1 - 25 ไร่ (' + landfillCounts.size2 + ' แห่ง)</div>';
+        html += '<div><span class="dot" style="background:#facc15;"></span> 25.1 - 37.5 ไร่ (' + landfillCounts.size3 + ' แห่ง)</div>';
+        html += '<div><span class="dot" style="background:#fb923c;"></span> 37.6 - 75 ไร่ (' + landfillCounts.size4 + ' แห่ง)</div>';
+        html += '<div><span class="dot" style="background:#f87171;"></span> > 75 ไร่ (' + landfillCounts.size5 + ' แห่ง)</div>';
+        html += '<div><span class="dot" style="background:#7f1d1d;"></span> เสี่ยงขยะล้น/พื้นที่เต็ม ⚠️ (' + landfillCounts.risk + ' แห่ง)</div>';
+        html += '<div><span class="dot" style="background:#1f2937;"></span> ปิด/ไม่ได้ดำเนินการ (' + landfillCounts.closed + ' แห่ง)</div>';
+    }
+
+    if (activeLayers.has("โรงงานน้ำตาลและไฟฟ้าชีวมวล")) {
+        html += '<div class="legend-title">🏭 โรงงานน้ำตาลและไฟฟ้าชีวมวล</div>';
+        html += '<div><span style="font-size:16px; margin-right:5px;">🏭</span> ตำแหน่งที่ตั้งโรงงาน</div>';
+    }
+
+    if (activeLayers.has("แหล่งธรรมชาติอันควรอนุรักษ์")) {
+        html += '<div class="legend-title">🌳 แหล่งธรรมชาติอันควรอนุรักษ์</div>';
+        html += '<div><span style="font-size:16px; margin-right:5px;">🏞️</span> ตำแหน่งแหล่งธรรมชาติ</div>';
+    }
+
+    if (activeLayers.has("ทิศทางลม (รายจังหวัด)")) {
+        html += '<div class="legend-title">💨 ทิศทางและความเร็วลม</div>';
+        html += '<div style="font-size: 13px; color: #64748b;">แสดงทิศทางและความเร็วลมปัจจุบัน ช่วยประเมินทิศทางผลกระทบฝุ่นควันและมลพิษ</div>';
+    }
+
+
+    if (activeLayers.has("🐷 ฟาร์มสุกร (แหล่งกำเนิดมลพิษ)")) {
+        html += '<div class="legend-title">🐷 แหล่งกำเนิดมลพิษ</div>';
+        html += '<div><span style="font-size:16px; margin-right:5px;">🐷</span> ฟาร์มสุกร</div>';
+    }
+
+    if (activeLayers.has("จุดเกิดเหตุด่วน (🚨)") && currentIncidentData && document.getElementById('toggleRadiusBtn').checked) {
+        html += '<div class="legend-title">🚨 รัศมีจุดเกิดเหตุ</div>';
+        html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #ef4444; margin-right:5px; vertical-align:middle;"></span> ระยะ 500 เมตร</div>';
+        html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #f97316; margin-right:5px; vertical-align:middle;"></span> ระยะ 1 กิโมเมตร</div>';
+        html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #eab308; margin-right:5px; vertical-align:middle;"></span> ระยะ 1.5 กิโลเมตร</div>';
+        html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #16a34a; margin-right:5px; vertical-align:middle;"></span> ระยะ 2 กิโลเมตร</div>';
+    }
+
+    legendDiv.innerHTML = html;
+}
+
+map.on('overlayadd', function(e) {
+    activeLayers.add(e.name);
+    
+    if (e.name === "จุดความร้อน (จังหวัดข้างเคียง)" && !isNeighborProcessed) {
+        processNeighborsAsync();
+    } else {
+        updateDynamicLegend();
+        applyTimeFilter();
+    }
+});
+
+map.on('overlayremove', function(e) {
+    activeLayers.delete(e.name);
+    updateDynamicLegend();
+});
+
+
+function fetchNasaData(reo11Bbox) {
+    let statusEl = document.getElementById('lastUpdateDisplay');
+    if (statusEl) statusEl.innerHTML = `<span style="color:#0284c7;">กำลังดึงข้อมูลและตรวจสอบพิกัดเชิงพื้นที่...</span>`;
+    
+    let overlayStatus = document.getElementById('loadingStatusText');
+    if (overlayStatus) overlayStatus.innerText = `FETCHING HOTSPOTS FROM MAPS11 DATABASE...`;
+
+    fetch(gasWebappUrl + "?action=hotspots")
+        .then(res => res.json())
+        .then(data => {
+            let apiError = data.error || null;
+            if (apiError) throw new Error(apiError);
+
+            globalCoreFeatures = [];
+            rawNeighborCandidates = []; 
+            
+            // 🟢 1. สร้างตัวแปรนับยอดใหม่ ไม่ใช้ data.counts จากหลังบ้านแล้ว
+            let strictCounts = {"นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0};
+            const targetProvs = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
+
+            if (data.points && Array.isArray(data.points)) {
+                data.points.forEach((pt, index) => {
+                    const lat = parseFloat(pt.lat);
+                    const lon = parseFloat(pt.lon);
+                    
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        let props = {
+                            latitude: lat,
+                            longitude: lon,
+                            acq_date: pt.date,
+                            acq_time: pt.time,
+                            confidence: pt.confidence || "n",
+                            satellite: pt.satellite || "N"
+                        };
+
+                        const dateParts = String(pt.date).split('-');
+                        if(dateParts.length === 3) {
+                            const timeStr = String(pt.time).padStart(4, '0');
+                            const hours = parseInt(timeStr.substring(0, 2), 10);
+                            const mins = parseInt(timeStr.substring(2, 4), 10);
+                            props.parsed_datetime = new Date(Date.UTC(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10), hours, mins));
+                        } else {
+                            props.parsed_datetime = new Date();
+                        }
+
+                        // 🟢 2. ตรวจสอบพิกัดด้วย Turf.js เทียบกับเส้นขอบเขตความละเอียดสูง
+                        let turfPt = turf.point([lon, lat]);
+                        let strictProvName = null;
+
+                        if (boundaryGeoJSON && boundaryGeoJSON.features) {
+                            for (let b of boundaryGeoJSON.features) {
+                                // เช็ค Bounding Box ก่อนเพื่อลดภาระการประมวลผล
+                                if (lon >= b.bbox[0] && lat >= b.bbox[1] && lon <= b.bbox[2] && lat <= b.bbox[3]) {
+                                    // ถ้าอยู่ในกล่อง ค่อยเช็คความแม่นยำระดับ Polygon
+                                    if (turf.booleanPointInPolygon(turfPt, b)) {
+                                        let propStr = JSON.stringify(b.properties);
+                                        // เทียบหาชื่อจังหวัด
+                                        for (let target of targetProvs) {
+                                            if (propStr.includes(target)) {
+                                                strictProvName = target;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                if (strictProvName) break;
+                            }
+                        }
+
+                        // 🟢 3. แยกกลุ่มข้อมูลตามผลการตรวจสอบพื้นที่จริง
+                        if (strictProvName) {
+                            // กรณีอยู่ในพื้นที่ 4 จังหวัดจริงๆ
+                            props.prov_name = strictProvName;
+                            props.is_neighbor = false;
+                            strictCounts[strictProvName]++;
+                            
+                            globalCoreFeatures.push({
+                                type: "Feature",
+                                geometry: turfPt.geometry,
+                                properties: props
+                            });
+                        } else {
+                            // กรณีอยู่นอกเขตขอบเขต (แม้หลังบ้านจะบอกว่าอยู่ข้างในก็ตาม)
+                            // จับโยนไปเป็น Candidate ของจุดข้างเคียงแทน
+                            props.prov_name = pt.prov || ""; 
+                            rawNeighborCandidates.push({ props: props, lon: lon, lat: lat });
+                        }
+                    }
+                    
+                    if (index % 10 === 0 && overlayStatus) {
+                        let percent = Math.round((index / data.points.length) * 100);
+                        overlayStatus.innerText = `PROCESSING COORDINATES... ${percent}%`;
+                    }
+                });
+            }
+
+            let loadingOverlay = document.getElementById('loadingOverlay');
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'none';
+                clearInterval(loadingInterval); 
+            }
+
+            // 🟢 4. อัปเดตยอดรวมเริ่มต้นให้แม่นยำ
+            currentHotspotCounts = strictCounts;
+            
+            if (activeLayers.has("จุดความร้อน (จังหวัดข้างเคียง)")) { 
+                isNeighborProcessed = false; 
+                processNeighborsAsync();
+            } else {
+                applyTimeFilter();
+            }
+            
+            showToast("ประมวลผลและคัดกรองจุดความร้อนสำเร็จ", "success");
+        })
+        .catch(error => {
+            console.error('เกิดข้อผิดพลาดในการดึงข้อมูลจาก GAS', error);
+            document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูลส่วนกลาง";
+            let loadingOverlay = document.getElementById('loadingOverlay');
+            if (loadingOverlay) loadingOverlay.style.display = 'none';
+        });
+}
+
+function processNeighborsAsync() {
+    showToast("กำลังคำนวณจุดความร้อนพื้นที่ข้างเคียง...", "info");
+    let i = 0;
+    const chunkSize = 150;
+
+    function processChunk() {
+        let end = Math.min(i + chunkSize, rawNeighborCandidates.length);
+        for (; i < end; i++) {
+            let item = rawNeighborCandidates[i];
+            let pt = turf.point([item.lon, item.lat]);
+            let provName = null;
+            
+            for(let f of neighborGeoJSON.features) {
+                if (item.lon >= f.bbox[0] && item.lat >= f.bbox[1] && item.lon <= f.bbox[2] && item.lat <= f.bbox[3]) {
+                    if(turf.booleanPointInPolygon(pt, f)) {
+                        provName = f.properties.pro_th || f.properties.NAME_1 || "จังหวัดข้างเคียง";
+                        break;
+                    }
+                }
+            }
+            
+            if (provName) {
+                const dateParts = item.props.acq_date.split('-');
+                const timeStr = String(item.props.acq_time).padStart(4, '0');
+                const hours = parseInt(timeStr.substring(0, 2), 10);
+                const mins = parseInt(timeStr.substring(2, 4), 10);
+                item.props.parsed_datetime = new Date(Date.UTC(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10), hours, mins));
+
+                item.props.prov_name = provName;
+                item.props.is_neighbor = true;
+                globalNeighborFeatures.push({
+                    type: "Feature",
+                    geometry: pt.geometry,
+                    properties: item.props
+                });
+            }
+        }
+
+        if (i < rawNeighborCandidates.length) {
+            let percent = Math.round((i / rawNeighborCandidates.length) * 100);
+            let statusEl = document.getElementById('lastUpdateDisplay');
+            if (statusEl) statusEl.innerHTML = `<span style="color:#d97706;">วิเคราะห์พื้นที่ข้างเคียง... ${percent}%</span>`;
+            setTimeout(processChunk, 15);
+        } else {
+            isNeighborProcessed = true;
+            applyTimeFilter();
+            showToast("อัปเดตจุดความร้อนพื้นที่ข้างเคียงเรียบร้อยแล้ว", "success");
+        }
+    }
+    processChunk();
+}
+
+function applyTimeFilter() {
+    let filteredFeatures = [];
+    let hotspotCounts = {"นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0};
+    let totalSpots = 0;
+    let neighborTotal = 0; 
+
+    let allFeaturesToFilter = globalCoreFeatures;
+    if (activeLayers.has("จุดความร้อน (จังหวัดข้างเคียง)") && isNeighborProcessed) {
+        allFeaturesToFilter = globalCoreFeatures.concat(globalNeighborFeatures);
+    }
+
+    let now = new Date();
+    if (allFeaturesToFilter.length > 0) {
+        let maxTime = 0;
+        allFeaturesToFilter.forEach(f => {
+            let t = f.properties.parsed_datetime.getTime();
+            if (t > maxTime) maxTime = t;
+        });
+        now = new Date(maxTime);
+    }
+    let cutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
+
+    allFeaturesToFilter.forEach(feature => {
+        if (feature.properties.parsed_datetime >= cutoffTime) {
+            let dt = feature.properties.parsed_datetime;
+            
+            let localHour = (dt.getUTCHours() + 7) % 24;
+            let isMorning = localHour >= 0 && localHour < 12;
+            let isAfternoon = localHour >= 12 && localHour < 24;
+
+            let matchTimeOfDay = true;
+            if (currentTimeOfDay === 'morning' && !isMorning) matchTimeOfDay = false;
+            if (currentTimeOfDay === 'afternoon' && !isAfternoon) matchTimeOfDay = false;
+
+            if (matchTimeOfDay) {
+                filteredFeatures.push(feature);
+                if (feature.properties.is_neighbor) {
+                    neighborTotal++;
+                } else {
+                    hotspotCounts[feature.properties.prov_name]++;
+                    totalSpots++;
+                }
+            }
+        }
+    });
+
+    if (totalSpots === 0 && allFeaturesToFilter.length === 0) {
+        document.getElementById('lastUpdateDisplay').innerText = "ไม่พบจุดความร้อนในรอบ " + currentTimeframe + " ชม. ล่าสุด";
+    } else {
+        let displayTxt = "แสดงจุดความร้อนรอบ " + currentTimeframe + " ชม. ล่าสุด";
+        if (currentTimeframe === 12) {
+            if (currentTimeOfDay === 'morning') displayTxt += " (เฉพาะรอบเช้า)";
+            else if (currentTimeOfDay === 'afternoon') displayTxt += " (เฉพาะรอบบ่าย)";
+        }
+        document.getElementById('lastUpdateDisplay').innerText = displayTxt + " สำเร็จ (เฉพาะ Suomi-NPP)";
+    }
+
+    currentNeighborTotal = neighborTotal;
+    currentFilteredHotspots = filteredFeatures; // บันทึกข้อมูลที่ถูกกรองเพื่อนำไปคำนวณระยะห่างบ่อขยะ
+    renderMap(filteredFeatures, hotspotCounts, totalSpots);
+    calculateWasteFireRisk(); // เริ่มทำงานเรดาร์คำนวณระยะห่าง
+}
+
+document.querySelectorAll('.time-radio').forEach(radio => {
+    radio.addEventListener('change', function() {
+        if(this.checked) {
+            const parts = this.value.split('-');
+            currentTimeframe = parseInt(parts[0]);
+            currentTimeOfDay = parts[1];
+            applyTimeFilter();
+        }
+    });
+});
+
+
+
+
+
+function renderMap(features, counts, total) {
+    hotspotLayer.clearLayers();
+    neighborHotspotLayer.clearLayers(); 
+
+    const coreFeatures = features.filter(f => !f.properties.is_neighbor);
+    const neighborFeatures = features.filter(f => f.properties.is_neighbor);
+
+    const geoJsonOptions = {
+        pointToLayer: function (feature, latlng) {
+            let props = feature.properties || {};
+            let conf = props.confidence || "";
+            let confStr = String(conf).trim().toLowerCase();
+            let markerColor = "#ffc107"; 
+            
+            if (confStr === 'h' || confStr === 'high') {
+                markerColor = "#dc3545"; 
+            } else if (confStr === 'n' || confStr === 'nominal') {
+                markerColor = "#fd7e14"; 
+            }
+
+            let opacityVal = props.is_neighbor ? 0.6 : 0.9;
+            let weightVal = props.is_neighbor ? 2 : 1;
+            let outlineColor = props.is_neighbor ? "#000" : "#fff";
+
+            return L.circleMarker(latlng, {
+                radius: 6,
+                fillColor: markerColor,
+                color: outlineColor,
+                weight: weightVal,
+                opacity: 1,
+                fillOpacity: opacityVal
+            });
+        },
+
+        onEachFeature: function (feature, layer) {
+            let props = feature.properties || {};
+            let dt = props.parsed_datetime;
+            let dateDisplay = "-";
+            let timeDisplay = "-";
+            
+            const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+            
+            if (dt) {
+                let thDate = new Date(dt.getTime() + (7 * 60 * 60 * 1000));
+                
+                let thDay = thDate.getUTCDate();
+                let thMonthName = thaiMonths[thDate.getUTCMonth()];
+                let thYear = thDate.getUTCFullYear() + 543;
+                dateDisplay = thDay + " " + thMonthName + " " + thYear;
+                
+                let thHours = String(thDate.getUTCHours()).padStart(2, '0');
+                let thMins = String(thDate.getUTCMinutes()).padStart(2, '0');
+                timeDisplay = thHours + ":" + thMins + " น.";
+            }
+            
+            let lat = props.latitude || "-";
+            let lon = props.longitude || "-";
+            let prov = props.prov_name || "-";
+            
+            let conf = props.confidence || "-";
+            let confStr = String(conf).trim().toLowerCase();
+            let confDisplay = conf;
+            if (confStr === 'h' || confStr === 'high') confDisplay = "สูง (High)";
+            else if (confStr === 'n' || confStr === 'nominal') confDisplay = "ปานกลาง (Nominal)";
+            else if (confStr === 'l' || confStr === 'low') confDisplay = "ต่ำ (Low)";
+            
+            let satellite = props.satellite || "-";
+            let satDisplay = satellite;
+            if (satellite === 'N') satDisplay = "Suomi-NPP";
+            else if (satellite === '1') satDisplay = "NOAA-20";
+
+            let googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+
+            let popupContent = "<div style='font-size: 14px;'>";
+            popupContent += "<div style='background-color:#4a148c; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>รายละเอียดจุดความร้อน (NASA VIIRS)</b></div>";
+            popupContent += "<b>พิกัด:</b> " + lat + "  " + lon + "<br>";
+            popupContent += "<b>ตำบล:</b> <span class='tb-name' style='color:#0284c7; font-weight:bold;'>กำลังค้นหา...</span><br>";
+            popupContent += "<b>อำเภอ:</b> <span class='ap-name' style='color:#0284c7; font-weight:bold;'>กำลังค้นหา...</span><br>";
+            popupContent += "<b>จังหวัด:</b> <span class='pv-name' style='color:#0284c7; font-weight:bold;'>" + prov + "</span><br>";
+            popupContent += "<b>วันที่:</b> " + dateDisplay + "<br>";
+            popupContent += "<b>เวลา:</b> " + timeDisplay + " (เวลาประเทศไทย)<br>";
+            popupContent += "<b>ดาวเทียม:</b> " + satDisplay + "<br>";
+            popupContent += "<b>ความเชื่อมั่น:</b> " + confDisplay + "<br>";
+            
+            popupContent += "<div style='background-color:#f8fafc; padding:8px; border:1px solid #e2e8f0; border-radius:6px; margin-top:8px; margin-bottom:8px;'>";
+            popupContent += "<div style='color:#475569; font-weight:bold; margin-bottom:4px; font-size:13px;'>💨 สภาพลม ณ จุดความร้อน</div>";
+            popupContent += "<b>ทิศทางลม:</b> <span class='wind-dir' style='color:#0284c7;'>กำลังโหลด...</span><br>";
+            popupContent += "<b>ความเร็ว:</b> <span class='wind-speed' style='color:#dc2626;'>กำลังโหลด...</span>";
+            
+            popupContent += "<div style='background-color:#fef2f2; padding:6px; border:1px solid #fca5a5; border-radius:4px; margin-top:6px;'>";
+            popupContent += "<div style='color:#b91c1c; font-weight:bold; font-size:12px; margin-bottom:2px;'>⚠️ คาดการณ์ตำบลท้ายลม (ระยะ 2-5 กม.)</div>";
+            popupContent += "<span class='downwind-risk' style='color:#7f1d1d; font-size:13px; font-weight:bold;'>กำลังวิเคราะห์เส้นทางควัน...</span>";
+            popupContent += "</div>";
+
+            popupContent += "</div>";
+        
+            popupContent += "<a href='" + googleMapsUrl + "' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>";
+            popupContent += "</div>";
+
+            layer.bindPopup(popupContent);
+
+            layer.on('popupopen', function(e) {
+                let popupNode = e.popup._contentNode;
+                if (!popupNode) return;
+                
+                let tambonEl = popupNode.querySelector('.tb-name');
+                let amphoeEl = popupNode.querySelector('.ap-name');
+                let provinceEl = popupNode.querySelector('.pv-name'); 
+                
+                let windDirEl = popupNode.querySelector('.wind-dir');
+                let windSpeedEl = popupNode.querySelector('.wind-speed');
+
+                let cacheKey = lat + "_" + lon;
+                
+                if (tambonEl && tambonEl.innerText === 'กำลังค้นหา...') {
+                    if (addressCache[cacheKey]) {
+                        tambonEl.innerText = addressCache[cacheKey].tambon;
+                        amphoeEl.innerText = addressCache[cacheKey].amphoe;
+                        provinceEl.innerText = addressCache[cacheKey].province; 
+                    } else {
+                        fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if(data) {
+                                let t = data.subdistrict || "-";
+                                let a = data.district || "-";
+                                let p = data.province || "-"; 
+                                
+                                t = t.replace(/^ตำบล/g, '').replace(/^แขวง/g, '').trim();
+                                a = a.replace(/^อำเภอ/g, '').replace(/^เขต/g, '').trim();
+                                p = p.replace(/^จังหวัด/g, '').trim(); 
+                                
+                                let finalTambon = t !== "-" ? t : "ไม่ระบุ";
+                                let finalAmphoe = a !== "-" ? a : "ไม่ระบุ";
+                                let finalProvince = p !== "-" ? p : prov; 
+                                
+                                tambonEl.innerText = finalTambon;
+                                amphoeEl.innerText = finalAmphoe;
+                                provinceEl.innerText = finalProvince;
+                                
+                                addressCache[cacheKey] = { tambon: finalTambon, amphoe: finalAmphoe, province: finalProvince };
+                            } else {
+                                tambonEl.innerText = "ไม่พบข้อมูล";
+                                amphoeEl.innerText = "ไม่พบข้อมูล";
+                                provinceEl.innerText = prov;
+                            }
+                        }).catch(() => {
+                            tambonEl.innerText = "ข้อผิดพลาด";
+                            amphoeEl.innerText = "ข้อผิดพลาด";
+                            provinceEl.innerText = prov;
+                        });
+                    }
+                }
+
+                if (windDirEl && windDirEl.innerText === 'กำลังโหลด...') {
+                    let downwindEl = popupNode.querySelector('.downwind-risk');
+                    
+                    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if(data && data.current) {
+                            let speed = data.current.wind_speed_10m;
+                            let dir = data.current.wind_direction_10m;
+                            
+                            let arrow = `<span style="display:inline-block; transform: rotate(${dir + 180}deg);">⬆️</span>`;
+                            windDirEl.innerHTML = `${arrow} ${dir}°`;
+                            windSpeedEl.innerText = `${speed} กม./ชม.`;
+
+                            if (speed > 1) { 
+                                let smokeAngle = (dir + 180) % 360;
+                                let bearing = smokeAngle > 180 ? smokeAngle - 360 : smokeAngle; 
+                                
+                                let pt1 = turf.destination([lon, lat], 2.5, bearing, {units: 'kilometers'}).geometry.coordinates;
+                                let pt2 = turf.destination([lon, lat], 5, bearing, {units: 'kilometers'}).geometry.coordinates;
+
+                                Promise.all([
+                                    fetch(`https://api.longdo.com/map/services/address?lon=${pt1[0]}&lat=${pt1[1]}&key=${longdoApiKey}`).then(r => r.json()),
+                                    fetch(`https://api.longdo.com/map/services/address?lon=${pt2[0]}&lat=${pt2[1]}&key=${longdoApiKey}`).then(r => r.json())
+                                ]).then(results => {
+                                    let riskAreas = [];
+                                    
+                                    results.forEach(res => {
+                                        if (res && res.subdistrict) {
+                                            let t = res.subdistrict.replace(/^ตำบล/g, '').replace(/^แขวง/g, '').trim();
+                                            let a = res.district ? res.district.replace(/^อำเภอ/g, '').replace(/^เขต/g, '').trim() : '';
+                                            let areaName = `${t} ${a}`;
+                                            
+                                            if (!riskAreas.includes(areaName) && t !== "-") {
+                                                riskAreas.push(areaName);
+                                            }
+                                        }
+                                    });
+
+                                    if (riskAreas.length > 0) {
+                                        downwindEl.innerHTML = riskAreas.join(' และ ');
+                                    } else {
+                                        downwindEl.innerHTML = "ไม่พบข้อมูลชุมชนที่ชัดเจน";
+                                    }
+                                }).catch(() => {
+                                    downwindEl.innerHTML = "ระบบวิเคราะห์ที่อยู่ขัดข้อง";
+                                });
+                                
+                            } else {
+                                downwindEl.innerHTML = "ลมสงบ ควันอาจสะสมปกคลุมจุดเกิดเหตุ";
+                            }
+                            
+                        } else {
+                            windDirEl.innerText = "ไม่พบข้อมูล";
+                            windSpeedEl.innerText = "ไม่พบข้อมูล";
+                            if (downwindEl) downwindEl.innerHTML = "ไม่สามารถวิเคราะห์ได้";
+                        }
+                    }).catch(() => {
+                        windDirEl.innerText = "ข้อผิดพลาด";
+                        windSpeedEl.innerText = "ข้อผิดพลาด";
+                        if (downwindEl) downwindEl.innerHTML = "เครือข่ายขัดข้อง";
+                    });
+                }
+            });
+        }
+    }; 
+
+    const coreGeoJsonLayer = L.geoJSON({ type: "FeatureCollection", features: coreFeatures }, geoJsonOptions);
+    hotspotLayer.addLayer(coreGeoJsonLayer);
+
+    const neighborGeoJsonLayer = L.geoJSON({ type: "FeatureCollection", features: neighborFeatures }, geoJsonOptions);
+    neighborHotspotLayer.addLayer(neighborGeoJsonLayer);
+
+    currentHotspotTotal = total;
+    currentHotspotCounts = counts;
+    updateDynamicLegend();
+}
+
+/** * ระบบเรดาร์คำนวณและแจ้งเตือนภัยไฟไหม้บ่อขยะอัตโนมัติ 
+ */
+function calculateWasteFireRisk() {
+    if (!landfillMarkers || landfillMarkers.length === 0) return;
+    if (!currentFilteredHotspots || currentFilteredHotspots.length === 0) {
+        riskAlertLayer.clearLayers();
+        return;
+    }
+
+    let risksFound = [];
+    riskAlertLayer.clearLayers();
+
+    landfillMarkers.forEach(site => {
+        let sitePt = turf.point([site.marker.getLatLng().lng, site.marker.getLatLng().lat]);
+        let nearHotspots = 0;
+
+        currentFilteredHotspots.forEach(f => {
+            let hotPt = turf.point([f.geometry.coordinates[0], f.geometry.coordinates[1]]);
+            let distance = turf.distance(sitePt, hotPt, {units: 'kilometers'});
+            if (distance <= RISK_RADIUS_KM) {
+                nearHotspots++;
+            }
+        });
+
+        if (nearHotspots > 0) {
+            risksFound.push({
+                siteName: site.name,
+                latlng: site.marker.getLatLng(),
+                count: nearHotspots
+            });
+        }
+    });
+
+    displayFireRiskAlerts(risksFound);
+}
+
+function displayFireRiskAlerts(risks) {
+    if (risks.length > 0) {
+        risks.forEach(risk => {
+            L.circle(risk.latlng, {
+                radius: RISK_RADIUS_KM * 1000, 
+                color: '#d50000', 
+                fillColor: '#ff1744', 
+                fillOpacity: 0.3, 
+                weight: 3,
+                className: 'blink-alert' 
+            }).addTo(riskAlertLayer)
+              .bindPopup(`<div style="text-align:center;"><b>🚨 พื้นที่เสี่ยงสูง!</b><br>บ่อขยะ: <span style="color:#b91c1c; font-weight:bold;">${risk.siteName}</span><br>พบจุดความร้อน ${risk.count} จุด ในรัศมี ${RISK_RADIUS_KM} กม.</div>`);
+        });
+        
+        showToast(`⚠️ เฝ้าระวังฉุกเฉิน พบจุดความร้อนใกล้บ่อขยะ ${risks.length} แห่ง`, "error");
+    }
+}
+
+const downloadControl = L.control({position: 'topright'});
+downloadControl.onAdd = function (map) {
+    const btn = L.DomUtil.create('div', 'leaflet-control-download');
+    btn.innerHTML = '📥';
+    btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
+    
+    L.DomEvent.disableClickPropagation(btn);
+
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+btn.onclick = async function() {
+    const TARGET_HASH = "0658cf8aaf361f9050518bc816537e82679cec3ada479aa345c0a7ab38e93f00894bf3efefa73426eea2aeb816d94e5b9dc28f7493ddd79b5fa868c204cb975b";
+
+    const userPassword = prompt("กรุณากรอกรหัสผ่านเพื่อดาวน์โหลดไฟล์ Excel สคพ.11");
+
+    if (userPassword === null) {
+        return; 
+    }
+
+    const cleanPassword = userPassword.trim();
+    const userHash = CryptoJS.SHA3(cleanPassword, { outputLength: 512 }).toString();
+
+    if (userHash !== TARGET_HASH) {
+        showToast("รหัสผ่านไม่ถูกต้อง ไม่สามารถดาวน์โหลดข้อมูลได้", "error");
+        return;
+    }
+    
+    if (!globalCoreFeatures || globalCoreFeatures.length === 0) {
+        showToast("ไม่พบข้อมูลจุดความร้อนในระบบ", "warning");
+        return;
+    }
+        btn.classList.add('loading');
+        btn.style.width = '55px'; 
+        btn.style.fontSize = '14px'; 
+        btn.style.fontWeight = 'bold';
+        btn.innerHTML = '0%'; 
+        
+    try {
+            let now = new Date();
+            if (globalCoreFeatures.length > 0) {
+                let maxTime = 0;
+                globalCoreFeatures.forEach(f => {
+                    let t = f.properties.parsed_datetime.getTime();
+                    if (t > maxTime) maxTime = t;
+                });
+                now = new Date(maxTime);
+            }
+            
+            let exportCutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
+            const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+
+let targetFeatures = globalCoreFeatures.filter(feature => {
+    let dt = feature.properties.parsed_datetime;
+    let localHour = (dt.getUTCHours() + 7) % 24;
+    let isMorning = localHour >= 0 && localHour < 12;
+    let isAfternoon = localHour >= 12 && localHour < 24;
+    
+    let matchTimeOfDay = true;
+    if (currentTimeOfDay === 'morning' && !isMorning) matchTimeOfDay = false;
+    if (currentTimeOfDay === 'afternoon' && !isAfternoon) matchTimeOfDay = false;
+
+    return dt >= exportCutoffTime && matchTimeOfDay && !feature.properties.is_neighbor;
+});
+
+            if (targetFeatures.length === 0) {
+                showToast("ไม่มีข้อมูลจุดความร้อนในช่วงเวลาที่เลือก", "warning");
+                return; 
+            }
+
+            showToast(`กำลังเตรียมข้อมูล ${targetFeatures.length} จุด กรุณารอสักครู่...`, "info");
+            
+            let exportData = [];
+
+            for (let i = 0; i < targetFeatures.length; i++) {
+                let feature = targetFeatures[i];
+                let props = feature.properties;
+                let dt = props.parsed_datetime;
+                let thDate = new Date(dt.getTime() + (7 * 60 * 60 * 1000));
+                
+                let dateStr = thDate.getUTCDate() + " " + thaiMonths[thDate.getUTCMonth()] + " " + (thDate.getUTCFullYear() + 543);
+                let timeStr = String(thDate.getUTCHours()).padStart(2, '0') + ":" + String(thDate.getUTCMinutes()).padStart(2, '0') + " น.";
+
+                let confStr = String(props.confidence).trim().toLowerCase();
+                let confDisplay = props.confidence;
+                if (confStr === 'h' || confStr === 'high') confDisplay = "สูง";
+                else if (confStr === 'n' || confStr === 'nominal') confDisplay = "ปานกลาง";
+                else if (confStr === 'l' || confStr === 'low') confDisplay = "ต่ำ";
+
+                let satDisplay = props.satellite === 'N' ? "Suomi-NPP" : (props.satellite === '1' ? "NOAA-20" : props.satellite);
+                let lat = props.latitude;
+                let lon = props.longitude;
+         	    let googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+                let cacheKey = lat + "_" + lon;
+                
+                let buildRowData = (tambon, amphoe, province) => ({
+                    "จังหวัด": province, 
+                    "อำเภอ": amphoe,
+                    "ตำบล": tambon,
+                    "ละติจูด": lat,
+                    "ลองจิจูด": lon,
+                    "วันที่": dateStr,
+                    "เวลา": timeStr,
+                    "ดาวเทียม": satDisplay,
+                    "ความเชื่อมั่น": confDisplay,
+                    "ลิงก์แผนที่": googleMapsUrl
+                });
+
+                if (addressCache[cacheKey]) {
+                    exportData.push(buildRowData(addressCache[cacheKey].tambon, addressCache[cacheKey].amphoe, addressCache[cacheKey].province));
+                } else {
+                    try {
+                        let res = await fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`);
+                        if (!res.ok) throw new Error("API Error");
+                        let data = await res.json();
+                        
+                        let tambon = "ไม่พบข้อมูล";
+                        let amphoe = "ไม่พบข้อมูล";
+                        let province = props.prov_name; 
+                        if(data) {
+                            tambon = (data.subdistrict || "ไม่พบข้อมูล").replace(/^(ตำบล|ต\.|แขวง)/g, '').trim();
+                            amphoe = (data.district || "ไม่พบข้อมูล").replace(/^(อำเภอ|อ\.|เขต)/g, '').trim();
+                            if (data.province) {
+                                province = data.province.replace(/^จังหวัด/g, '').trim();
+                            }
+                        }
+                        addressCache[cacheKey] = { tambon, amphoe, province };
+                        exportData.push(buildRowData(tambon, amphoe, province));
+                        
+                        await delay(1100); 
+
+                    } catch (err) {
+                        exportData.push(buildRowData("ไม่พบข้อมูล", "ไม่พบข้อมูล", props.prov_name));
+                    }
+                }
+
+                let percent = Math.round(((i + 1) / targetFeatures.length) * 100);
+                btn.innerHTML = `${percent}%`;
+            }
+
+            let timeSuffix = "_ย้อนหลัง_24_ชม";
+            let reportTitleTime = "ย้อนหลัง 24 ชม.";
+            if (currentTimeframe === 12) {
+                if (currentTimeOfDay === 'morning') {
+                    timeSuffix = "_รอบเช้า";
+                    reportTitleTime = "รอบเช้า (00:00 - 11:59 น.)";
+                } else if (currentTimeOfDay === 'afternoon') {
+                    timeSuffix = "_รอบบ่าย";
+                    reportTitleTime = "รอบบ่าย (12:00 - 23:59 น.)";
+                }
+            }
+
+            let reportTitle = `รายงานจุดความร้อน VIIRS (Suomi-NPP) พื้นที่ สคพ.11 ข้อมูล${reportTitleTime}`;
+            let worksheet = XLSX.utils.aoa_to_sheet([
+                [reportTitle], 
+                []             
+            ]);
+
+            XLSX.utils.sheet_add_json(worksheet, exportData, { origin: "A3" });
+
+            worksheet['!cols'] = [
+                { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, 
+                { wch: 18 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 60 } 
+            ];
+
+            let workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Hotspots");
+            
+            let fileThaiDate = "";
+            const fullThaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
+	     if (globalCoreFeatures.length > 0) {
+                let latestTime = 0;
+                globalCoreFeatures.forEach(f => {
+                    let t = f.properties.parsed_datetime.getTime();
+                    if (t > latestTime) latestTime = t;
+                });
+                let localDt = new Date(latestTime + (7 * 60 * 60 * 1000));
+
+                let d = localDt.getUTCDate();
+                let m = fullThaiMonths[localDt.getUTCMonth()];
+                let y = localDt.getUTCFullYear() + 543;
+                fileThaiDate = `${d}${m}${y}_`; 
+            }
+
+            let fileName = "จุดความร้อน_สคพ11_" + fileThaiDate + timeSuffix + ".xlsx";
+            XLSX.writeFile(workbook, fileName);
+            showToast("ดาวน์โหลดไฟล์ Excel สำเร็จ", "success");
+
+        } catch (error) {
+            console.error(error);
+            showToast("เกิดข้อผิดพลาดในการสร้างไฟล์", "error");
+        } finally {
+            btn.innerHTML = '📥';
+            btn.classList.remove('loading');
+            btn.style.width = '34px';
+            btn.style.fontSize = '18px';
+            btn.style.fontWeight = 'normal';
+            btn.title = 'ดาวน์โหลดข้อมูลจุดความร้อน (Excel)';
+        }
+    };
+    return btn;
+};
+        downloadControl.addTo(map);
+
+function fetchAQMData() {
+    const url = 'https://script.google.com/macros/s/AKfycby-YFuRlXJlQSfqMafbUuhjHaPiRYKM1bN0v7Bz0al3rHu5i4biaqaxhM9j71aa1Jtv/exec';
+    
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+
+            data.forEach(station => {
+                const lat = parseFloat(station.lat);
+                const lon = parseFloat(station.lon);
+                const pm25Value = station.pm25;
+                
+                let pmNum = parseFloat(pm25Value);
+                let textColor = "#94a3b8"; 
+                let emoji = "❓";
+
+                if (!isNaN(pmNum)) {
+                    if (pmNum <= 15.0) {
+                        textColor = "#38bdf8"; 
+                        emoji = "😊" + " ดีมาก";
+                    } else if (pmNum <= 25.0) {
+                        textColor = "#4ade80"; 
+                        emoji = "🙂" + " ดี";
+                    } else if (pmNum <= 37.5) {
+                        textColor = "#facc15"; 
+                        emoji = "😐" + " ปานกลาง";
+                    } else if (pmNum <= 75.0) {
+                        textColor = "#fb923c"; 
+                        emoji = "⚠️" + " เริ่มมีผลกระทบต่อสุขภาพ";
+                    } else {
+                        textColor = "#f87171"; 
+                        emoji = "🚨"+ " มีผลกระทบต่อสุขภาพ";
+                    }
+                }
+
+                let thaiDateTimeDisplay = station.date + " " + station.time;
+                try {
+                    let dateParts = station.date.split('-');
+                    if (dateParts.length === 3) {
+                        let d = parseInt(dateParts[2], 10);
+                        let mIndex = parseInt(dateParts[1], 10) - 1;
+                        let y = parseInt(dateParts[0], 10);
+
+                        if (y < 2500) y += 543; 
+
+                        const fullThaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+                        
+                        if (mIndex >= 0 && mIndex <= 11) {
+                            let timeParts = station.time.split(':');
+                            let timeFormatted = station.time;
+                            if (timeParts.length >= 2) {
+                                timeFormatted = timeParts[0] + ":" + timeParts[1];
+                            }
+                            thaiDateTimeDisplay = `${d} ${fullThaiMonths[mIndex]} ${y} ${timeFormatted} น.`;
+                        }
+                    }
+                } catch(e) {
+                    console.error("เกิดข้อผิดพลาดในการแปลงวันที่", e);
+                }
+
+                const triangleSvg = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="12,2 22,20 2,20" fill="#9333ea" stroke="#ffffff" stroke-width="2"/>
+                </svg>`;
+
+                const customIcon = L.divIcon({
+                    html: triangleSvg,
+                    className: '', 
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12], 
+                    popupAnchor: [0, -12] 
+                });
+
+                const marker = L.marker([lat, lon], { icon: customIcon });
+
+                let popupHTML = "<div style='font-size: 14px;'>";
+
+                popupHTML += "<div style='background-color:#9333ea; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>สถานีวัดคุณภาพอากาศ (Air4Thai)</b></div>";
+                popupHTML += "<b>พิกัด:</b> " + lat.toFixed(5) + "  " + lon.toFixed(5) + "<br>";
+                popupHTML += "<b>ตำบล:</b> <span class='aqm-tb-name' style='color:#0284c7; font-weight:bold;'>กำลังค้นหา...</span><br>";
+                popupHTML += "<b>อำเภอ:</b> <span class='aqm-ap-name' style='color:#0284c7; font-weight:bold;'>กำลังค้นหา...</span><br>";
+                popupHTML += "<b>จังหวัด:</b> " + station.prov_name + "<br>";
+                popupHTML += "<b>สถานี:</b> " + station.nameTH + "<br>";
+                popupHTML += "<b>เวลา:</b> " + thaiDateTimeDisplay + "<br>";
+                popupHTML += "<b>ค่า PM2.5:</b> <span style='font-weight:bold; font-size: 16px; color:" + textColor + "; text-shadow: 0px 0px 1px rgba(0,0,0,0.2);'>" + pm25Value + " µg/m³ " + emoji + "</span><br>";
+                
+		let googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+
+                popupHTML += "<br><a href='" + googleMapsUrl + "' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>";
+                
+                popupHTML += "</div>";
+
+marker.bindPopup(popupHTML);
+
+                marker.on('popupopen', function(e) {
+                    let popupNode = e.popup._contentNode;
+                    if (!popupNode) return;
+                    
+                    let tambonEl = popupNode.querySelector('.aqm-tb-name');
+                    let amphoeEl = popupNode.querySelector('.aqm-ap-name');
+                    let cacheKey = lat + "_" + lon;
+                    
+                    if (tambonEl && tambonEl.innerText === 'กำลังค้นหา...') {
+                        if (addressCache[cacheKey]) {
+                            tambonEl.innerText = addressCache[cacheKey].tambon;
+                            amphoeEl.innerText = addressCache[cacheKey].amphoe;
+                        } else {
+                            fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
+                            .then(res => res.json())
+                            .then(data => {
+                                if(data) {
+                                    let t = data.subdistrict || "-";
+                                    let a = data.district || "-";
+                                    
+                                    t = t.replace(/^ตำบล/g, '').replace(/^แขวง/g, '').trim();
+                                    a = a.replace(/^อำเภอ/g, '').replace(/^เขต/g, '').trim();
+                                    
+                                    let finalTambon = t !== "-" ? t : "ไม่ระบุ";
+                                    let finalAmphoe = a !== "-" ? a : "ไม่ระบุ";
+                                    
+                                    tambonEl.innerText = finalTambon;
+                                    amphoeEl.innerText = finalAmphoe;
+                                    
+                                    addressCache[cacheKey] = { 
+                                        tambon: finalTambon, 
+                                        amphoe: finalAmphoe, 
+                                        province: station.prov_name 
+                                    };
+                                } else {
+                                    tambonEl.innerText = "ไม่พบข้อมูล";
+                                    amphoeEl.innerText = "ไม่พบข้อมูล";
+                                }
+                            }).catch(() => {
+                                tambonEl.innerText = "ข้อผิดพลาด";
+                                amphoeEl.innerText = "ข้อผิดพลาด";
+                            });
+                        }
+                    }
+                });
+
+                aqmLayer.addLayer(marker);
+            });
+        })
+        .catch(err => {
+            console.error("ข้อผิดพลาดในการดึงข้อมูล Air4Thai ผ่าน GAS", err);
+            showToast("ไม่สามารถเชื่อมต่อข้อมูลสถานีคุณภาพอากาศได้", "error");
+        });
+}
+
+function getLandfillColor(area, status) {
+    if (status && status.trim() !== "เปิดดำเนินงาน") {
+        return "#1f2937"; 
+    }
+
+    let areaNum = parseFloat(area);
+    if (isNaN(areaNum)) return "#a1a1aa"; 
+    if (areaNum <= 15) {
+        return "#38bdf8"; 
+    } else if (areaNum <= 25.0) {
+        return "#4ade80"; 
+    } else if (areaNum <= 37.5) {
+        return "#facc15"; 
+    } else if (areaNum <= 75.0) {
+        return "#fb923c"; 
+    } else {
+        return "#f87171"; 
+    }
+}
+
+let landfillMarkers = [];
+let landfillCounts = {
+    size1: 0, 
+    size2: 0, 
+    size3: 0, 
+    size4: 0, 
+    size5: 0, 
+    risk: 0,  
+    closed: 0 
+};
+
+function fetchLandfillData() {
+    const gasUrl = 'https://script.google.com/macros/s/AKfycbwWI0NvtyToeNBq5Y0Yu6VCKiJh27JDSDBZTJ0IbQ1mGsErkJfFdzYdkiVAw72GGWKZ/exec'
+
+    fetch(gasUrl)
+        .then(res => res.json())
+        .then(data => {
+            const targetProvinces = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"]
+
+            data.forEach(row => {
+                let prov = row["จังหวัด"] || ""
+                let isTarget = targetProvinces.some(p => prov.includes(p))
+
+                if (isTarget) {
+                    let lat = parseFloat(row["ละติจูด"])
+                    let lon = parseFloat(row["ลองจิจูด"])
+                    
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        let siteName = row["ชื่อสถานที่"] || "ไม่ระบุชื่อ"
+                        let agency = row["ชื่อผู้ดำเนินการ"] || "-"
+                        let address = row["ที่ตั้ง"] || "-"
+                        let type = row["รูปแบบการกำจัด"] || "-"
+                        let area = row["เนื้อที่ (ไร่)"] || "-"
+                        let wasteAmount = row["ปริมาณขยะ (ตัน/วัน)"] || "-"
+                        let siteStatus = row["สถานะการดำเนินงานในปัจจุบัน"] || "-"
+                        let yearStart = row["ปีที่เปิดดำเนินงาน"] || "-"
+
+                        let trashColor = getLandfillColor(area, siteStatus)
+
+                        let wasteNum = parseFloat(wasteAmount)
+                        let areaNum = parseFloat(area)
+                        let isAtRisk = false
+                        let riskReason = ""
+
+                        if (siteStatus.includes("เต็ม") || siteStatus.includes("วิกฤต")) {
+                            isAtRisk = true
+                            riskReason = "สถานะแจ้งว่าพื้นที่เต็ม"
+                        } else if (!isNaN(wasteNum) && !isNaN(areaNum) && areaNum > 0) {
+                            let density = wasteNum / areaNum
+                            if (density > 1) { 
+                                isAtRisk = true
+                                riskReason = `ปริมาณขยะมาก (${density.toFixed(2)} ตัน/ไร่/วัน)`
+                            }
+                        }
+
+                        let bufferWeight = 1.5
+                        if (isAtRisk) {
+                            trashColor = "#7f1d1d" 
+                            bufferWeight = 3
+                        }
+
+                        const trashSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 6V20C5 21.1046 5.89543 22 7 22H17C18.1046 22 19 21.1046 19 20V6H5Z" fill="${trashColor}"/>
+                            <path d="M9 4V2H15V4H20V6H4V4H9Z" fill="#5D4037"/>
+                        </svg>`
+
+                        const trashIcon = L.divIcon({
+                            html: trashSvg,
+                            className: '',
+                            iconSize: [24, 24],
+                            iconAnchor: [12, 12],
+                            popupAnchor: [0, -12]
+                        })
+
+                        let marker = L.marker([lat, lon], { icon: trashIcon })
+
+                        let bufferCircle = L.circle([lat, lon], {
+                            color: trashColor,
+                            fillColor: trashColor,
+                            fillOpacity: 0.1,
+                            weight: bufferWeight,
+                            dashArray: '5, 5'
+                        })
+                        bufferCircle.addTo(landfillLayer)
+
+                        let mapNavUrl = `https://www.google.com/maps?q=${lat},${lon}`
+                        
+                        let popupHTML = `<div style='font-size: 14px;'>
+                            <div style='background-color:#5D4037; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>สถานที่กำจัดขยะมูลฝอย (ปี 2568)</b></div>`
+                        
+                        if (isAtRisk) {
+                            popupHTML += `<div style='background-color:#fef2f2; color:#b91c1c; padding:8px; border-left:4px solid #b91c1c; margin-bottom:10px; font-weight:bold;'>⚠️ เฝ้าระวัง: ${riskReason}</div>`
+                        }
+
+                        popupHTML += `<b>สถานที่:</b> ${siteName}<br>
+                            <b>หน่วยงานดูแล:</b> ${agency}<br>
+                            <b>ที่ตั้ง:</b> ${address}<br>
+                            <b>รูปแบบการกำจัด:</b> ${type}<br>
+                            <b>เนื้อที่:</b> <span style='font-weight:bold; color:${trashColor};'>${area}</span> ไร่<br>
+                            <b>ปีเปิด:</b> ${yearStart}<br>
+                            <b>สถานะ:</b> ${siteStatus}<br>
+                            <b>ปริมาณขยะ:</b> ${wasteAmount} ตัน/วัน<br>
+                            <br><a href='${mapNavUrl}' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>
+                        </div>`
+
+                        marker.bindPopup(popupHTML)
+                        landfillLayer.addLayer(marker)
+
+                        landfillMarkers.push({
+                            marker: marker,
+                            address: address,
+                            name: siteName
+                        })
+
+                        if (siteStatus && siteStatus.trim() !== "เปิดดำเนินงาน") {
+                            landfillCounts.closed++
+                        } else if (isAtRisk) {
+                            landfillCounts.risk++
+                        } else {
+                            if (!isNaN(areaNum)) {
+                                if (areaNum <= 15) landfillCounts.size1++
+                                else if (areaNum <= 25.0) landfillCounts.size2++
+                                else if (areaNum <= 37.5) landfillCounts.size3++
+                                else if (areaNum <= 75.0) landfillCounts.size4++
+                                else landfillCounts.size5++
+                            }
+                        }
+                    } 
+                } 
+            }) 
+
+            updateDynamicLegend()
+            calculateWasteFireRisk() // คำนวณความเสี่ยงทันทีที่โหลดข้อมูลเสร็จ
+        })
+        .catch(err => {
+            console.error("เกิดข้อผิดพลาดในการโหลดข้อมูลสถานที่กำจัดขยะ", err)
+        })
+}
+
+document.getElementById('siteSearchBtn').addEventListener('click', doSiteSearch);
+document.getElementById('siteSearchInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') doSiteSearch();
+});
+
+function doSiteSearch() {
+    const keyword = document.getElementById('siteSearchInput').value.trim().toLowerCase();
+    if (!keyword) {
+        showToast("กรุณาระบุชื่อตำบลหรือคำค้นหา", "warning");
+        return;
+    }
+
+    let found = false;
+    for (let item of landfillMarkers) {
+        if (item.address.toLowerCase().includes(keyword) || item.name.toLowerCase().includes(keyword)) {
+            
+            if (!map.hasLayer(landfillLayer)) {
+                map.addLayer(landfillLayer);
+            }
+
+            map.setView(item.marker.getLatLng(), 14);
+            item.marker.openPopup();
+            
+            showToast("พบสถานที่กำจัดขยะ: " + item.name, "success");
+            found = true;
+            break; 
+        }
+    }
+
+    if (!found) {
+        showToast("ไม่พบสถานที่กำจัดขยะที่ตรงกับคำค้นหา", "error");
+    }
+}
+
+
+function fetchWaterStationsData() {
+    const url = gasWebappUrl + '?action=water_stations';
+
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+
+            if (data.features) {
+                data.features.forEach(feature => {
+                    let props = feature.properties;
+                    let lat = feature.geometry.coordinates[1];
+                    let lon = feature.geometry.coordinates[0];
+
+                    let isOperational = props.status && props.status.includes("เปิด");
+                    let statusColor = isOperational ? "#0284c7" : "#f59e0b"; 
+                    let emoji = isOperational ? "💧" : "⏳";
+
+                    const waterSvg = `<div style="font-size: 24px; filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));">${emoji}</div>`;
+                    const waterIcon = L.divIcon({
+                        html: waterSvg,
+                        className: '',
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12],
+                        popupAnchor: [0, -12]
+                    });
+
+                    let marker = L.marker([lat, lon], { icon: waterIcon });
+                    let mapNavUrl = "https://www.google.com/maps/dir/?api=1&destination=" + lat + "," + lon;
+
+                    let popupHTML = `<div style='font-size: 14px; min-width: 250px;'>
+                        <div style='background-color:${statusColor}; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>สถานีตรวจวัดคุณภาพน้ำ</b></div>
+                        <b>ชื่อสถานี:</b> <span style='color:${statusColor}; font-weight:bold;'>${props.name}</span><br>
+                        
+                        <b>พิกัด:</b> <span style='color:#e11d48;'>${lat.toFixed(6)}</span>  <span style='color:#e11d48;'>${lon.toFixed(6)}</span><br>
+                        
+                        <b>ลุ่มน้ำหลัก:</b> ${props.basin}<br>
+                        <b>แหล่งน้ำ:</b> ${props.source}<br>
+                        <b>จังหวัด:</b> ${props.province}<br>
+                        <b>หน่วยงาน:</b> ${props.agency}<br>
+                        <hr style='border: 0; border-top: 1px dashed #ccc; margin: 8px 0;'>
+                        <b>สถานะ:</b> <span style='color:${statusColor}; font-weight:bold;'>${props.status}</span><br>
+                        <br><a href='${mapNavUrl}' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>
+                    </div>`;
+
+                    marker.bindPopup(popupHTML);
+                    waterStationLayer.addLayer(marker);
+                });
+                updateDynamicLegend();
+            }
+        })
+        .catch(err => console.error("เกิดข้อผิดพลาดในการโหลดข้อมูลสถานีคุณภาพน้ำ", err));
+}
+
+
+function fetchRealtimeWind() {
+    const provinces = [
+        { name: "นครราชสีมา", lat: 14.9799, lon: 102.0978 },
+        { name: "ชัยภูมิ", lat: 15.8063, lon: 102.0288 },
+        { name: "บุรีรัมย์", lat: 14.9930, lon: 103.1029 },
+        { name: "สุรินทร์", lat: 14.8818, lon: 103.4936 }
+    ];
+
+    let lats = provinces.map(p => p.lat).join(',');
+    let lons = provinces.map(p => p.lon).join(',');
+    
+    let url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&current=wind_speed_10m,wind_direction_10m`;
+
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            let results = Array.isArray(data) ? data : [data];
+
+            results.forEach((res, index) => {
+                let prov = provinces[index];
+                let windSpeed = res.current.wind_speed_10m; 
+                let windDir = res.current.wind_direction_10m; 
+
+                let pointerRotation = windDir + 180;
+
+                let arrowSvg = `<div style="transform: rotate(${pointerRotation}deg); display: flex; justify-content: center; align-items: center; width: 30px; height: 30px; background-color: rgba(255,255,255,0.8); border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.3); border: 2px solid #9333ea;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#9333ea" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L12 22M12 2L5 9M12 2L19 9" stroke="#9333ea" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>`;
+
+                let windIcon = L.divIcon({
+                    html: arrowSvg,
+                    className: '',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+
+                let marker = L.marker([prov.lat, prov.lon], { icon: windIcon });
+                
+                let popupHtml = `<div style="text-align: center;">`;
+                popupHtml += `<div style="background-color:#9333ea; color:white; padding:4px; border-radius:4px; margin-bottom:5px;"><b>สภาพลมปัจจุบัน</b></div>`;
+                popupHtml += `<b>จังหวัด:</b> ${prov.name}<br>`;
+                popupHtml += `<b>ทิศทาง:</b> ${windDir}°<br>`;
+                popupHtml += `<b>ความเร็ว:</b> <span style="color:#dc2626; font-weight:bold;">${windSpeed}</span> กม./ชม.</div>`;
+                
+                marker.bindPopup(popupHtml);
+                windArrowLayer.addLayer(marker);
+            });
+        })
+        .catch(err => console.error("โหลดข้อมูลลมไม่สำเร็จ", err));
+}
+
+const incidentLayer = L.layerGroup().addTo(map);
+layerControl.addOverlay(incidentLayer, "จุดเกิดเหตุด่วน (🚨)");
+activeLayers.add("จุดเกิดเหตุด่วน (🚨)"); 
+
+document.getElementById('dropPinBtn').addEventListener('click', createIncidentMarker);
+
+[document.getElementById('latInput'), document.getElementById('lonInput')].forEach(input => {
+    input.addEventListener('keypress', (e) => { if (e.key === 'Enter') createIncidentMarker(); });
+});
+
+let currentIncidentData = null;
+let currentPlumeLayer = null;
+let currentRadiiLayer = null; 
+let currentWindSpeed = 0; 
+
+document.getElementById('toggleRadiusBtn').addEventListener('change', function() {
+    if (currentRadiiLayer) {
+        if (this.checked) {
+            currentRadiiLayer.addTo(incidentLayer);
+        } else {
+            incidentLayer.removeLayer(currentRadiiLayer);
+        }
+        updateDynamicLegend(); 
+    }
+});
+
+document.getElementById('clearPinBtn').addEventListener('click', function() {
+    incidentLayer.clearLayers();
+    currentIncidentData = null;
+    currentPlumeLayer = null;
+    currentRadiiLayer = null; 
+    document.getElementById('incidentName').value = "";
+    document.getElementById('latInput').value = "";
+    document.getElementById('lonInput').value = "";
+    document.getElementById('manualWindDir').value = "";
+    showToast("ล้างจุดปักหมุดเรียบร้อยแล้ว", "info");
+    
+    updateDynamicLegend();
+});
+
+document.getElementById('togglePlumeBtn').addEventListener('change', function() {
+    if (currentPlumeLayer) {
+        if (this.checked) {
+            currentPlumeLayer.addTo(incidentLayer);
+        } else {
+            incidentLayer.removeLayer(currentPlumeLayer);
+        }
+    }
+});
+
+document.getElementById('clearPinBtn').addEventListener('click', function() {
+    incidentLayer.clearLayers();
+    currentIncidentData = null;
+    currentPlumeLayer = null;
+    currentWindSpeed = 0;
+    document.getElementById('incidentName').value = "";
+    document.getElementById('latInput').value = "";
+    document.getElementById('lonInput').value = "";
+    document.getElementById('manualWindDir').value = "";
+    showToast("ล้างจุดปักหมุดเรียบร้อยแล้ว", "info");
+    
+    updateDynamicLegend(); 
+});
+
+document.getElementById('editPinBtn').addEventListener('click', function() {
+    if (!currentIncidentData) {
+        showToast("ไม่พบจุดที่ปักไว้ให้แก้ไข", "warning");
+        return;
+    }
+    document.getElementById('incidentName').value = currentIncidentData.name;
+    document.getElementById('latInput').value = currentIncidentData.lat;
+    document.getElementById('lonInput').value = currentIncidentData.lon;
+    if (currentIncidentData.windDir !== undefined) {
+        document.getElementById('manualWindDir').value = currentIncidentData.windDir;
+    }
+    showToast("ดึงข้อมูลมาที่ช่องแก้ไขแล้ว", "success");
+});
+
+document.getElementById('updateWindBtn').addEventListener('click', function() {
+    if (!currentIncidentData) {
+        showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
+        return;
+    }
+    
+    const manualDir = parseFloat(document.getElementById('manualWindDir').value);
+    if (isNaN(manualDir) || manualDir < 0 || manualDir > 360) {
+        showToast("กรุณาระบุองศาลมระหว่าง 0-360", "warning");
+        return;
+    }
+
+    currentIncidentData.windDir = manualDir;
+    
+    const dirEl = document.getElementById('inc-wind-dir');
+    if (dirEl) {
+        dirEl.innerHTML = `<span style="display:inline-block; transform: rotate(${manualDir + 180}deg); color:#0284c7;">⬆️</span> <span style="color:#0284c7; font-weight:bold;">${manualDir}° (ปรับแก้เอง)</span>`;
+    }
+    
+    drawPlumeAndCalculateRisk(currentIncidentData.lat, currentIncidentData.lon, manualDir, currentWindSpeed);
+    showToast("อัปเดตทิศทางควันเรียบร้อยแล้ว", "success");
+});
+
+async function createIncidentMarker() {
+    const name = document.getElementById('incidentName').value.trim() || "ไม่ได้ระบุชื่อเหตุการณ์";
+    const lat = parseFloat(document.getElementById('latInput').value);
+    const lon = parseFloat(document.getElementById('lonInput').value);
+
+    if (isNaN(lat) || isNaN(lon)) {
+        showToast("กรุณากรอกพิกัดให้ครบถ้วน", "warning");
+        return;
+    }
+
+    currentIncidentData = { name, lat, lon };
+
+    updateDynamicLegend(); 
+
+    incidentLayer.clearLayers();
+    currentPlumeLayer = null;
+
+    currentRadiiLayer = L.layerGroup(); 
+
+    const radii = [
+        { r: 2000, color: '#16a34a' },
+        { r: 1500, color: '#eab308' },
+        { r: 1000, color: '#f97316' },
+        { r: 500, color: '#ef4444' }
+    ];
+
+    radii.forEach(item => {
+        L.circle([lat, lon], {
+            radius: item.r,
+            color: item.color,
+            fillColor: item.color,
+            fillOpacity: 0.15,
+            weight: 2,
+            dashArray: '5 5'
+        }).addTo(currentRadiiLayer); 
+    });
+
+    if (document.getElementById('toggleRadiusBtn').checked) {
+        currentRadiiLayer.addTo(incidentLayer);
+    }
+
+    const fireIcon = L.divIcon({
+        html: `<div style="font-size: 30px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); cursor: pointer;">🔥</div>`,
+        className: '',
+        iconSize: [30, 30],
+        iconAnchor: [15, 30],
+        popupAnchor: [0, -30]
+    });
+
+    const marker = L.marker([lat, lon], { icon: fireIcon }).addTo(incidentLayer);
+    
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('th-TH');
+    const dateStr = now.toLocaleDateString('th-TH');
+
+    let popupContent = `
+        <div style='font-size: 14px; min-width: 220px;'>
+            <div style='background-color:#e11d48; color:white; padding:6px; border-radius:4px; margin-bottom:8px; text-align:center; line-height:1.4;'>
+                <b>🚨 รายงานจุดเกิดเหตุ<br>(${name})</b>
+            </div>
+            <b>จังหวัด:</b> <span id="inc-province" style="color:#0284c7; font-weight:bold;">กำลังค้นหา...</span><br>
+            <b>พิกัด:</b> ${lat.toFixed(5)}  ${lon.toFixed(5)}<br>
+            <b>เวลาที่รายงาน:</b> ${dateStr} ${timeStr}<br>
+            
+            <div style='background-color:#f8fafc; padding:8px; border:1px solid #e2e8f0; border-radius:6px; margin-top:8px;'>
+                <div style='color:#475569; font-weight:bold; margin-bottom:4px; font-size:13px;'>💨 สภาพลม ณ จุดเกิดเหตุ</div>
+                <b>ทิศทางลม:</b> <span id="inc-wind-dir">กำลังโหลด...</span><br>
+                <b>ความเร็ว:</b> <span id="inc-wind-speed">กำลังโหลด...</span>
+                <div style='background-color:#fef2f2; padding:6px; border:1px solid #fca5a5; border-radius:4px; margin-top:6px;'>
+                    <div style='color:#b91c1c; font-weight:bold; font-size:12px; margin-bottom:2px;'>⚠️ คาดการณ์ตำบลท้ายลม (2-5 กม.)</div>
+                    <span id="inc-downwind" style='color:#7f1d1d; font-size:13px; font-weight:bold;'>กำลังวิเคราะห์...</span>
+                </div>
+            </div>
+            <br>
+            <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิด Google Maps</a>
+        </div>
+    `;
+
+    marker.bindPopup(popupContent).openPopup();
+    map.setView([lat, lon], 13);
+
+    fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
+    .then(res => res.json())
+    .then(data => {
+        const provEl = document.getElementById('inc-province');
+        if (provEl && data && data.province) {
+            provEl.innerText = data.province.replace(/^จังหวัด/g, '').trim();
+        } else if (provEl) {
+            provEl.innerText = "ไม่พบข้อมูลจังหวัด";
+        }
+    }).catch(() => {
+        if (document.getElementById('inc-province')) document.getElementById('inc-province').innerText = "ข้อผิดพลาดเครือข่าย";
+    });
+
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m`)
+    .then(res => res.json())
+    .then(data => {
+        if(data && data.current) {
+            currentWindSpeed = data.current.wind_speed_10m;
+            currentIncidentData.windDir = data.current.wind_direction_10m;
+            
+            document.getElementById('manualWindDir').value = currentIncidentData.windDir;
+
+            const dirEl = document.getElementById('inc-wind-dir');
+            const speedEl = document.getElementById('inc-wind-speed');
+
+            if(dirEl) dirEl.innerHTML = `<span style="display:inline-block; transform: rotate(${currentIncidentData.windDir + 180}deg);">⬆️</span> ${currentIncidentData.windDir}°`;
+            if(speedEl) speedEl.innerText = `${currentWindSpeed} กม./ชม.`;
+
+            drawPlumeAndCalculateRisk(lat, lon, currentIncidentData.windDir, currentWindSpeed);
+        }
+    });
+}
+
+async function drawPlumeAndCalculateRisk(lat, lon, dir, speed) {
+    if (currentPlumeLayer) {
+        incidentLayer.removeLayer(currentPlumeLayer);
+        currentPlumeLayer = null;
+    }
+
+    const downwindEl = document.getElementById('inc-downwind');
+
+    if (speed > 1) {
+        const smokeAngle = (dir + 180) % 360;
+        const bearing = smokeAngle > 180 ? smokeAngle - 360 : smokeAngle;
+        
+        const distance = 5; 
+        const spread = 40; 
+        
+        const leftBearing = bearing - (spread / 2);
+        const rightBearing = bearing + (spread / 2);
+        
+        const leftPt = turf.destination([lon, lat], distance, leftBearing, {units: 'kilometers'}).geometry.coordinates;
+        const rightPt = turf.destination([lon, lat], distance, rightBearing, {units: 'kilometers'}).geometry.coordinates;
+        
+        const coneCoords = [
+            [lat, lon],
+            [leftPt[1], leftPt[0]],
+            [rightPt[1], rightPt[0]]
+        ];
+        
+        currentPlumeLayer = L.polygon(coneCoords, {
+            color: '#64748b',
+            fillColor: '#94a3b8',
+            fillOpacity: 0.4,
+            weight: 1,
+            dashArray: '4, 4'
+        });
+        
+        if (document.getElementById('togglePlumeBtn').checked) {
+            currentPlumeLayer.addTo(incidentLayer);
+        }
+
+        const pt1 = turf.destination([lon, lat], 2.5, bearing, {units: 'kilometers'}).geometry.coordinates;
+        const pt2 = turf.destination([lon, lat], 5, bearing, {units: 'kilometers'}).geometry.coordinates;
+
+        if (downwindEl) downwindEl.innerHTML = "<span style='color:#64748b;'>กำลังคำนวณพื้นที่ใหม่...</span>";
+
+        try {
+            const results = await Promise.all([
+                fetch(`https://api.longdo.com/map/services/address?lon=${pt1[0]}&lat=${pt1[1]}&key=${longdoApiKey}`).then(r => r.json()),
+                fetch(`https://api.longdo.com/map/services/address?lon=${pt2[0]}&lat=${pt2[1]}&key=${longdoApiKey}`).then(r => r.json())
+            ]);
+
+            let riskAreas = [];
+            results.forEach(res => {
+                if (res && res.subdistrict) {
+                    const t = res.subdistrict.replace(/^ตำบล|แขวง/g, '').trim();
+                    const a = res.district ? res.district.replace(/^อำเภอ|เขต/g, '').trim() : '';
+                    if (!riskAreas.includes(`${t} ${a}`)) riskAreas.push(`${t} ${a}`);
+                }
+            });
+            if(downwindEl) downwindEl.innerHTML = riskAreas.length > 0 ? riskAreas.join(' และ ') : "ไม่พบข้อมูลชุมชน";
+        } catch(e) {
+            if(downwindEl) downwindEl.innerHTML = "การวิเคราะห์พิกัดขัดข้อง";
+        }
+    } else {
+        if(downwindEl) downwindEl.innerHTML = "ลมสงบ ควันอาจสะสมในพื้นที่เกิดเหตุ";
+    }
+}
+
+function fetchSugarData() {
+    const gasUrl = 'https://script.google.com/macros/s/AKfycbwWI0NvtyToeNBq5Y0Yu6VCKiJh27JDSDBZTJ0IbQ1mGsErkJfFdzYdkiVAw72GGWKZ/exec?sheet=Sugar';
+
+    fetch(gasUrl)
+        .then(res => res.json())
+        .then(data => {
+            const targetProvinces = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
+
+            data.forEach(row => {
+                let prov = row["จังหวัด"] || "";
+                let isTarget = targetProvinces.some(p => prov.includes(p));
+
+                if (isTarget) {
+                    let lat = parseFloat(row["ละติจูด"]);
+                    let lon = parseFloat(row["ลองจิจูด"]);
+                    
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        let fName = row["ชื่อโรงงานน้ำตาล"] || "-";
+                        let pName = row["ชื่อโรงไฟฟ้า"] || "-";
+                        let capSugar = row["กำลังการผลิตน้ำตาล (ตันอ้อย/วัน)"] || "-";
+                        let wasteSys = row["ระบบบำบัดน้ำเสีย"] || "-";
+                        let wasteCap = row["ความจุระบบน้ำเสีย (ลูกบาศก์เมตร/วัน)"] || "-";
+                        let capPower = row["กำลังการผลิตไฟฟ้า (เมกะวัตต์)"] || "-";
+                        let airSys = row["ระบบบำบัดอากาศ"] || "-";
+                        let dustMeasure = row["มาตรการจัดการฝุ่น"] || "-";
+
+                        const factorySvg = `<div style="font-size: 24px; filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));">🏭</div>`;
+                        const factoryIcon = L.divIcon({
+                            html: factorySvg,
+                            className: '',
+                            iconSize: [24, 24],
+                            iconAnchor: [12, 12],
+                            popupAnchor: [0, -12]
+                        });
+
+                        let marker = L.marker([lat, lon], { icon: factoryIcon });
+                        
+                        let mapNavUrl = "https://www.google.com/maps/dir/?api=1&destination=$" + lat + "," + lon;
+                        
+                        let popupHTML = `<div style='font-size: 14px; min-width: 250px;'>
+                            <div style='background-color:#d97706; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>โรงงานน้ำตาลและไฟฟ้าชีวมวล</b></div>
+                            <b>ชื่อโรงงาน:</b> ${fName}<br>
+                            <b>ชื่อโรงไฟฟ้า:</b> ${pName}<br>
+                            <b>จังหวัด:</b> <span style='color:#0284c7; font-weight:bold;'>${prov}</span><br>
+                            <b>กำลังผลิตน้ำตาล:</b> ${capSugar} ตัน/วัน<br>
+                            <b>กำลังผลิตไฟฟ้า:</b> ${capPower} เมกะวัตต์<br>
+                            <hr style='border: 0; border-top: 1px dashed #ccc; margin: 8px 0;'>
+                            <b>ระบบบำบัดน้ำเสีย:</b> ${wasteSys}<br>
+                            <b>ความจุระบบน้ำเสีย:</b> ${wasteCap} ลบ.ม./วัน<br>
+                            <b>ระบบบำบัดอากาศ:</b> ${airSys}<br>
+                            <b>มาตรการจัดการฝุ่น:</b> ${dustMeasure}<br>
+                            <br><a href='${mapNavUrl}' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>
+                        </div>`;
+
+                        marker.bindPopup(popupHTML);
+                        sugarFactoryLayer.addLayer(marker);
+                    }
+                }
+            });
+            updateDynamicLegend();
+        })
+        .catch(err => console.error("เกิดข้อผิดพลาดในการโหลดข้อมูลโรงงานน้ำตาล", err));
+}
+
+function fetchNaturalPlacesData() {
+    const gasUrl = 'https://script.google.com/macros/s/AKfycbwWI0NvtyToeNBq5Y0Yu6VCKiJh27JDSDBZTJ0IbQ1mGsErkJfFdzYdkiVAw72GGWKZ/exec?sheet=NaturalPlaces';
+
+    fetch(gasUrl)
+        .then(res => res.json())
+        .then(data => {
+            data.forEach(row => {
+                let prov = row["จังหวัด"] || "";
+                let lat = parseFloat(row["ละติจูด"]);
+                let lon = parseFloat(row["ลองจิจูด"]);
+                
+                if (!isNaN(lat) && !isNaN(lon)) {
+                    let name = row["ชื่อแหล่งธรรมชาติ"] || "-";
+                    let type = row["ประเภทแหล่ง"] || "-";
+                    let tambon = row["ตำบล"] || "-";
+                    let amphoe = row["อำเภอ"] || "-";
+                    let importance = row["ความสำคัญ"] || "-";
+                    let char = row["ลักษณะของพื้นที่"] || "-";
+
+                    const natureSvg = `<div style="font-size: 24px; filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));">🏞️</div>`;
+                    const natureIcon = L.divIcon({
+                        html: natureSvg,
+                        className: '',
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12],
+                        popupAnchor: [0, -12]
+                    });
+
+                    let marker = L.marker([lat, lon], { icon: natureIcon });
+                    
+                    let mapNavUrl = "https://www.google.com/maps?q=$" + lat + "," + lon;
+                    
+                    let popupHTML = `<div style='font-size: 14px; min-width: 250px;'>
+                        <div style='background-color:#16a34a; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>แหล่งธรรมชาติอันควรอนุรักษ์</b></div>
+                        <b>ชื่อสถานที่:</b> <span style='color:#0284c7; font-weight:bold;'>${name}</span><br>
+                        <b>ประเภท:</b> ${type}<br>
+                        <b>จังหวัด:</b> ${prov}<br>
+                        <b>อำเภอ:</b> ${amphoe}<br>
+                        <b>ตำบล:</b> ${tambon}<br>
+                        <hr style='border: 0; border-top: 1px dashed #ccc; margin: 8px 0;'>
+                        <b>ความสำคัญ:</b> ${importance}<br>
+                        <b>ลักษณะพื้นที่:</b> ${char}<br>
+                        <br><a href='${mapNavUrl}' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>
+                    </div>`;
+
+                    marker.bindPopup(popupHTML);
+                    naturalLayer.addLayer(marker);
+                }
+            });
+            updateDynamicLegend();
+        })
+        .catch(err => console.error("เกิดข้อผิดพลาดในการโหลดข้อมูลแหล่งธรรมชาติ", err));
+}
+
+map.on('click', function(e) {
+    let clickLat = e.latlng.lat.toFixed(5);
+    let clickLon = e.latlng.lng.toFixed(5);
+    let popupContent = `<div style='text-align:center; font-size:14px;'>
+    <b>📍 พิกัดที่เลือก</b><br>
+    Lat: <span style='color:#e11d48; font-weight:bold;'>${clickLat}</span><br>
+    Lon: <span style='color:#e11d48; font-weight:bold;'>${clickLon}</span><br>
+    <a href="https://www.google.com/maps/search/?api=1&query=${clickLat},${clickLon}" target="_blank" style="display:block; text-align:center; background-color:#3b82f6; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold; margin-top:10px;">🔍 เปิดดูพื้นที่บน Google Maps</a>
+</div>`;
+
+    L.popup()
+        .setLatLng(e.latlng)
+        .setContent(popupContent)
+        .openOn(map);
+
+    let latInputEl = document.getElementById('latInput');
+    let lonInputEl = document.getElementById('lonInput');
+
+    if (latInputEl && lonInputEl) {
+        latInputEl.value = clickLat;
+        lonInputEl.value = clickLon;
+        showToast("ดึงพิกัดลงช่องเกิดเหตุด่วนเรียบร้อยแล้ว", "success");
+    }
+});
+
+        const statusTexts = [
+            "INITIATING SATELLITE CONNECTION...",
+            "ANALYZING NASA FIRMS DATA...",
+            "RETRIEVING AIR4THAI AQI METRICS...",
+            "CALCULATING WIND VECTORS...",
+            "MAPPING POLLUTION HOTSPOTS...",
+            "LOADING DATA FROM GOOGLE SHEET..."
+
+        ];
+        let statusIndex = 0;
+        const loadingInterval = setInterval(() => {
+            const statusEl = document.getElementById('loadingStatusText');
+            if(statusEl) {
+                statusIndex = (statusIndex + 1) % statusTexts.length;
+                statusEl.innerText = statusTexts[statusIndex];
+            }
+        }, 1200);
+
+fetchAQMData()
+fetchRealtimeWind()
+
+setTimeout(() => {
+    fetchLandfillData()
+}, 2000)
+
+setTimeout(() => {
+    fetchSugarData()
+}, 3500)
+
+setTimeout(() => {
+    fetchNaturalPlacesData()
+}, 5000)
+
+setTimeout(() => {
+    fetchWaterStationsData()
+}, 6000)
+
+// ฟังก์ชันสำหรับปุ่ม Force Sync NASA
+document.getElementById('forceSyncBtn').addEventListener('click', function() {
+    const btn = this;
+    
+    // เปลี่ยนปุ่มเป็นสถานะกำลังโหลด เพื่อป้องกันการกดซ้ำ
+    btn.disabled = true;
+    btn.style.backgroundColor = '#9ca3af';
+    btn.style.cursor = 'wait';
+    btn.innerHTML = '⏳ กำลังสั่งการเซิร์ฟเวอร์...';
+    
+    showToast("กำลังสั่งการระบบหลังบ้านให้ดึงข้อมูลจาก NASA (อาจใช้เวลา 15-30 วินาที กรุณารอ)...", "info");
+
+    // ส่งคำสั่งไปที่ GAS
+    fetch(gasWebappUrl + "?action=force_sync_nasa")
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+            showToast("ดึงข้อมูลดาวเทียม NASA ล่าสุดสำเร็จ! กำลังโหลดลงแผนที่...", "success");
+            
+            // เรียกฟังก์ชันดึงข้อมูลพล็อตลงแผนที่ใหม่
+            fetchNasaData(); 
+        })
+        .catch(err => {
+            console.error(err);
+            showToast("เกิดข้อผิดพลาดในการดึงข้อมูลสด กรุณาลองใหม่อีกครั้ง", "error");
+        })
+        .finally(() => {
+            // คืนค่าปุ่มกลับสู่สภาพเดิม
+            btn.disabled = false;
+            btn.style.backgroundColor = '#d97706';
+            btn.style.cursor = 'pointer';
+            btn.innerHTML = '🔄 อัปเดตดาวเทียมเดี๋ยวนี้';
+        });
+});
+
+
+function loadRiverNetworks() {
+    // ข้อมูล GeoJSON เส้นแม่น้ำจำลอง (สามารถปรับพิกัดให้ตรงเป๊ะขึ้นได้ในอนาคต)
+    const riverGeoJSON = {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "properties": { "name": "แม่น้ำมูล", "type": "main" },
+          "geometry": { 
+              "type": "LineString", 
+              "coordinates": [
+                  [102.261, 15.007], [102.392, 15.209], [102.800, 15.250], 
+                  [103.148, 15.300], [103.679, 15.326], [104.000, 15.350]
+              ] 
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "แม่น้ำชี", "type": "main" },
+          "geometry": { 
+              "type": "LineString", 
+              "coordinates": [
+                  [101.800, 15.900], [102.040, 15.789], [102.072, 15.622], 
+                  [102.245, 15.752], [102.500, 16.000]
+              ] 
+          }
+        },
+        {
+          "type": "Feature",
+          "properties": { "name": "ลำตะคอง", "type": "sub" },
+          "geometry": { 
+              "type": "LineString", 
+              "coordinates": [
+                  [101.412, 14.657], [101.728, 14.886], [101.944, 14.934], 
+                  [102.084, 14.985], [102.233, 15.013], [102.261, 15.007]
+              ] 
+          }
+        }
+      ]
+    };
+
+    // ตั้งค่าสไตล์เส้นแม่น้ำ
+    const riverStyle = function(feature) {
+        let isMain = feature.properties.type === 'main';
+        return {
+            color: isMain ? "#0284c7" : "#38bdf8", // สีฟ้าน้ำทะเลเข้มสำหรับสายหลัก ฟ้าอ่อนสำหรับสายรอง
+            weight: isMain ? 4 : 2,                // ความหนาของเส้น
+            opacity: 0.8,
+            lineJoin: 'round'
+        };
+    };
+
+    // สร้าง Layer จาก GeoJSON
+    const riverLines = L.geoJSON(riverGeoJSON, {
+        style: riverStyle,
+        onEachFeature: function (feature, layer) {
+            let typeName = feature.properties.type === 'main' ? "แม่น้ำสายหลัก" : "ลำน้ำสาขา";
+            let popupContent = `
+                <div style="text-align:center; min-width:150px;">
+                    <div style="background-color:#0284c7; color:white; padding:4px; border-radius:4px; margin-bottom:5px;"><b>${feature.properties.name}</b></div>
+                    ประเภท: ${typeName}
+                </div>`;
+            
+            layer.bindPopup(popupContent);
+/*
+// 🟢 โค้ดใหม่: แสดงชื่อลุ่มน้ำค้างไว้ตรงกลางพื้นที่ 🟢
+                    layer.bindTooltip(basinName, {
+                        permanent: true,       // ให้แสดงค้างไว้ตลอดเวลา
+                        direction: "center",   // ให้อยู่กึ่งกลางลุ่มน้ำ
+                        className: "basin-label" // เรียกใช้ CSS ที่เราเพิ่งสร้าง
+                    });
+*/
+            
+            // แถมฟีเจอร์เอาเมาส์ชี้แล้วแสดงชื่อแม่น้ำ (Tooltip)
+            layer.bindTooltip("<b>" + feature.properties.name + "</b>", { 
+                permanent: false, 
+                direction: "center",
+                className: "river-tooltip" 
+            }); 
+        }
+    });
+
+    // แอดลงใน Layer Group
+    riverLayer.addLayer(riverLines);
+}
+
+// เรียกใช้งานฟังก์ชัน
+loadRiverNetworks();
+
+
+function loadSubBasinData() {
+    const url = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/SubBasin_22.json';
+    
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            L.geoJSON(data, {
+                style: function(feature) {
+                    return {
+                        color: "#475569", 
+                        weight: 1.5,      
+                        fillColor: "#94a3b8", 
+                        fillOpacity: 0.15, 
+                        dashArray: '3'
+                    };
+                },
+                onEachFeature: function(feature, layer) {
+                    // 🟢 ปรับแก้บรรทัดนี้: เพิ่มการตรวจสอบ (Safeguard) 🟢
+                    let props = feature.properties || {}; // ถ้าไม่มี properties ให้มองเป็นออบเจ็กต์ว่าง ป้องกัน Error
+                                 
+                    // 🟢 เพิ่มบรรทัดนี้เพื่อแอบดูว่าในไฟล์มีชื่อคอลัมน์อะไรบ้าง 🟢
+                    console.log("ข้อมูล Properties ของลุ่มน้ำ:", props); 
+                    
+                    let basinName = props.SUB_NAME || props.Name || props.name || props.NAMET || "ไม่ระบุชื่อ";
+                    
+                    // ... (โค้ดส่วน popup และ tooltip ด้านล่างเหมือนเดิมครับ) ...
+                    
+                    let popupContent = `
+                        <div style="text-align:center; min-width:180px;">
+                            <div style="background-color:#475569; color:white; padding:6px; border-radius:4px; margin-bottom:8px;">
+                                <b>🏔️ ลุ่มน้ำย่อย</b>
+                            </div>
+                            <b>ชื่อลุ่มน้ำ:</b> <span style="color:#0284c7; font-weight:bold;">${basinName}</span><br>
+                        </div>`;
+                    
+                    layer.bindPopup(popupContent);
+                    
+                    // แสดงชื่อลุ่มน้ำเมื่อเอาเมาส์ไปชี้ (Tooltip)
+                    layer.bindTooltip("ลุ่มน้ำ " + basinName, {
+                        sticky: true, 
+                        direction: "top"
+                    });
+
+
+		// เพิ่มเอฟเฟกต์เมื่อเอาเมาส์วาง (Highlight) โดยเน้นแค่เส้นขอบให้สว่างขึ้น
+                    layer.on('mouseover', function(e) {
+                        this.setStyle({
+                            color: '#0ea5e9', // เปลี่ยนสีเส้นขอบเป็นสีฟ้าสว่าง
+                            weight: 3,        // ทำให้เส้นขอบหนาขึ้นเห็นได้ชัดเจน
+                            fillOpacity: 0.15 // 🟢 คงความโปร่งใสของพื้นหลังไว้เท่าเดิม (แก้ปัญหาเงามืด)
+                        });
+                        
+                        // ดึงโพลิกอนที่เมาส์ชี้อยู่ขึ้นมาไว้เลเยอร์บนสุด เพื่อไม่ให้เส้นขอบโดนพื้นที่ข้างเคียงทับ
+                        if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                            layer.bringToFront();
+                        }
+                    });
+
+                    // เมื่อเอาเมาส์ออกให้กลับสู่สภาพเดิม
+                    layer.on('mouseout', function(e) {
+                        this.setStyle({
+                            color: '#475569', // สีเส้นขอบเทาเดิม
+                            weight: 1.5,      // ความหนาเส้นปกติ
+                            fillOpacity: 0.15 // พื้นหลังโปร่งใสเท่าเดิม
+                        });
+                    });
+
+                }
+            }).addTo(subBasinLayer);
+        })
+        .catch(err => console.error("ไม่สามารถโหลดไฟล์ลุ่มน้ำย่อยได้", err)); 
+}
+
+// เรียกใช้งานฟังก์ชัน
+loadSubBasinData();
+
+function fetchPigFarmsData() {
+    const url = gasWebappUrl + '?action=pig_farms';
+
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+
+            if (data.features) {
+                data.features.forEach(feature => {
+                    let props = feature.properties;
+                    let lat = feature.geometry.coordinates[1];
+                    let lon = feature.geometry.coordinates[0];
+
+                    const pigSvg = `<div style="font-size: 24px; filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));">🐷</div>`;
+                    const pigIcon = L.divIcon({
+                        html: pigSvg,
+                        className: '',
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12],
+                        popupAnchor: [0, -12]
+                    });
+
+                    let marker = L.marker([lat, lon], { icon: pigIcon });
+                    let mapNavUrl = "https://www.google.com/maps/dir/?api=1&destination=" + lat + "," + lon;
+
+
+		   // 1. นำขนาดมาจัดฟอร์แมตใส่เครื่องหมายลูกน้ำ (,)
+                    let sizeDisplay = props.size;
+                    if (!isNaN(props.size) && props.size !== '-' && props.size !== '') {
+                        sizeDisplay = Number(props.size).toLocaleString('th-TH');
+                    }
+
+                    // 2. นำตัวแปร sizeDisplay มาแสดงผลใน popupHTML
+                    let popupHTML = `<div style='font-size: 14px; min-width: 250px;'>
+                        <div style='background-color:#ec4899; color:white; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center;'><b>แหล่งกำเนิดมลพิษ (ฟาร์มสุกร)</b></div>
+                        <b>ชื่อ:</b> <span style='color:#be185d; font-weight:bold;'>${props.name}</span><br>
+                        <b>พิกัด:</b> <span style='color:#e11d48;'>${lat.toFixed(6)}</span>  <span style='color:#e11d48;'>${lon.toFixed(6)}</span><br>
+                        <b>จังหวัด:</b> ${props.province}<br>
+                        <b>ขนาด:</b> ${sizeDisplay} <br> <br><a href='${mapNavUrl}' target='_blank' style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิดนำทางด้วย Google Maps</a>
+                    </div>`;
+
+
+
+                    marker.bindPopup(popupHTML);
+                    pigFarmLayer.addLayer(marker);
+                });
+                updateDynamicLegend();
+            }
+        })
+        .catch(err => console.error("เกิดข้อผิดพลาดในการโหลดข้อมูลฟาร์มสุกร", err));
+}
+
+setTimeout(() => {
+    fetchPigFarmsData()
+}, 7500)
+
+// สร้างมาตราส่วนแผนที่ (Scale Control) และเก็บค่าไว้ในตัวแปร
+const scaleControl = L.control.scale({
+    position: 'bottomright',
+    metric: true,
+    imperial: false,
+    maxWidth: 200
+}).addTo(map);
+
+// ดึง Container ของมาตราส่วนออกมาเพื่อจัดการ Event
+const scaleContainer = scaleControl.getContainer();
+
+// 🟢 1. สั่ง Leaflet ป้องกันไม่ให้การคลิกหรือเลื่อนเมาส์ทะลุลงไปโดนแผนที่
+L.DomEvent.disableClickPropagation(scaleContainer);
+
+// 2. ฟังก์ชันลับ: คลิกที่ตัวมาตราส่วนเพื่อซ่อน
+scaleContainer.addEventListener('click', function(e) {
+    e.stopPropagation(); // 🟢 2. ย้ำอีกชั้นเพื่อความชัวร์ว่าคำสั่งคลิกจะหยุดแค่นี้
+    this.classList.add('scale-hidden');
+    showToast("ซ่อนมาตราส่วนแล้ว (ซูมแผนที่เพื่อแสดงอีกครั้ง)", "info");
+});
+
+// 3. ฟังก์ชันแสดงใหม่: เมื่อมีการซูมแผนที่ (Zoom) ให้มาตราส่วนกลับมาแสดงผล
+map.on('zoomend', function() {
+    if (scaleContainer.classList.contains('scale-hidden')) {
+        scaleContainer.classList.remove('scale-hidden');
+    }
+});
+</script>
+
+</body>
+</html>
