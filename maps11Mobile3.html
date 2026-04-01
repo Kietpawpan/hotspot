@@ -745,9 +745,9 @@ function fetchNasaData(reo11Bbox) {
 
             if (data.points && Array.isArray(data.points) && data.points.length > 0) {
                 
-                // 🟢 เทคนิค Chunking: ทยอยประมวลผลทีละ 40 จุด ป้องกัน iPad ค้าง
+                // 🟢 เทคนิค Chunking: ทยอยประมวลผลทีละ 10 จุด ป้องกัน iPad ค้าง
                 let i = 0;
-                let chunkSize = 40; 
+                let chunkSize = 10; 
 
                 function processHotspotChunk() {
                     let end = Math.min(i + chunkSize, data.points.length);
@@ -821,7 +821,7 @@ function fetchNasaData(reo11Bbox) {
                             let percent = Math.round((i / data.points.length) * 100);
                             overlayStatus.innerText = `ANALYZING SPATIAL DATA... ${percent}%`;
                         }
-                        setTimeout(processHotspotChunk, 20); 
+                        setTimeout(processHotspotChunk, 50); 
                     } else {
                         // 🟢 ประมวลผลเสร็จสิ้น ปิดม่านและไปทำงานขั้นต่อไป
                         let loadingOverlay = document.getElementById('loadingOverlay');
@@ -867,7 +867,7 @@ function fetchNasaData(reo11Bbox) {
 function processNeighborsAsync() {
     showToast("กำลังคำนวณจุดความร้อนพื้นที่ข้างเคียง...", "info");
     let i = 0;
-    const chunkSize = 30;
+    const chunkSize = 10;
 
     function processChunk() {
         let end = Math.min(i + chunkSize, rawNeighborCandidates.length);
@@ -906,7 +906,7 @@ function processNeighborsAsync() {
             let percent = Math.round((i / rawNeighborCandidates.length) * 100);
             let statusEl = document.getElementById('lastUpdateDisplay');
             if (statusEl) statusEl.innerHTML = `<span style="color:#d97706;">วิเคราะห์พื้นที่ข้างเคียง... ${percent}%</span>`;
-            setTimeout(processChunk, 15);
+            setTimeout(processChunk, 50);
         } else {
             isNeighborProcessed = true;
             applyTimeFilter();
