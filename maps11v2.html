@@ -324,12 +324,14 @@
 </div>        </div>
         
           <div id="map-wrapper">
+
 	<div id="loadingOverlay">
                 <div class="maps-logo-text">MAPS 11</div>
  		<div class="maps-sub-text">Management of Air Pollution Sector 11</div>
                 <div class="cyber-spinner"></div>
                 <div class="loading-status" id="loadingStatusText">INITIATING SATELLITE CONNECTION...</div>
             </div>
+
 
             <div id="map"></div>
         </div>
@@ -765,8 +767,7 @@ function fetchNasaData(reo11Bbox) {
             }
 
             currentHotspotCounts = data.counts || {"นครราชสีมา": 0, "ชัยภูมิ": 0, "บุรีรัมย์": 0, "สุรินทร์": 0};
-            
-            if (activeLayers.has("จุดความร้อน (จังหวัดข้างเคียง)")) {
+            if (activeLayers.has("จุดความร้อน (จังหวัดข้างเคียง)")) { 
                 isNeighborProcessed = false; 
                 processNeighborsAsync();
             } else {
@@ -2284,7 +2285,9 @@ map.on('click', function(e) {
             "ANALYZING NASA FIRMS DATA...",
             "RETRIEVING AIR4THAI AQI METRICS...",
             "CALCULATING WIND VECTORS...",
-            "MAPPING POLLUTION HOTSPOTS..."
+            "MAPPING POLLUTION HOTSPOTS...",
+            "LOADING DATA FROM GOOGLE SHEET..."
+
         ];
         let statusIndex = 0;
         const loadingInterval = setInterval(() => {
