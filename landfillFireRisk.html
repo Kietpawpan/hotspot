@@ -285,7 +285,7 @@
         
         let currentTimeframe = 24;
         let currentTimeOfDay = 'all';
-        const RISK_RADIUS_KM = 1;
+        const RISK_RADIUS_KM = 0.5; // ตรวจจับจุดความร้อนในระยะ 500 เมตร จากสถานที่กำจัดขยะมูลฝอย
 
         fetch(geojsonBoundariesUrl)
             .then(res => res.json())
