@@ -2,6 +2,17 @@
 ออกแบบมาเพื่อบริหารจัดการมลพิษทางอากาศและเฝ้าระวังไฟไหม้บ่อขยะในพื้นที่ความรับผิดชอบ 4 จังหวัดอย่างครบถ้วนและล้ำสมัย โดยมีองค์ประกอบหลักแต่ละส่วนดังนี้
 ## 1. ส่วนการนำเข้าเครื่องมือและตั้งค่าหน้าเว็บ (Head & Libraries)
 - __เมตาแท็ก (Meta Tags):__ ตั้งค่าให้รองรับการแสดงผลบนหน้าจอมือถือและรองรับการนำไปทำเป็น Web App (PWA) เพื่อให้เจ้าหน้าที่ใช้งานผ่านสมาร์ตโฟนได้สะดวก
+  ```
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MAPS 11">
+<link rel="apple-touch-icon" sizes="180x180" href="https://kietpawpan.github.io/hotspot/img/EPO11App.png">
+
+<link rel="manifest" href="manifest3.json">
+<meta name="theme-color" content="#4a148c">
+  ```
 - __CSS Styles:__ จัดรูปแบบหน้าตาของระบบให้สวยงาม ใช้งานง่าย รวมถึงสร้างแอนิเมชันตอนโหลดข้อมูลหน้าแนวไซเบอร์ (Pulse Text และ Cyber Spinner) และตกแต่งแผงป้ายคำอธิบายแผนที่
 - __ชุดคำสั่งภายนอก (Libraries):__ นำเข้าเครื่องมือสำคัญระดับโลก ได้แก่ Leaflet สำหรับแสดงแผนที่ MarkerCluster สำหรับจัดกลุ่มพิกัดที่หนาแน่น Turf สำหรับวิเคราะห์ข้อมูลเชิงพื้นที่แบบเรียลไทม์ XLSX สำหรับส่งออกไฟล์ Excel และ CryptoJS สำหรับระบบเข้ารหัสผ่านเพื่อรักษาความปลอดภัยของข้อมูล
 ## 2. ส่วนหน้าจอผู้ใช้งาน (Body & UI)
