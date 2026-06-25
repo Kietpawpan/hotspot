@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>โปรแกรมคำนวณค่าฝุ่นเป้าหมายรายวัน</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'ChulaCharasNew', 'Sarabun', system-ui, -apple-system, sans-serif;
+        }
+        body {
+            background-color: #f4f7f6;
+            color: #2b2d42;
+            margin: 0;
+            padding: 20px;
+            display: block;
+        }
+        .container {
+            max-width: 650px;
+            margin: 20px auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eef2f1;
+            padding-bottom: 15px;
+        }
+        .header h1 {
+            color: #1b4332;
+            font-size: 24px;
+            margin: 0 0 10px 0;
+        }
+        .header p {
+            color: #6b705c;
+            margin: 0;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2d6a4f;
+        }
+        input[type="number"], input[type="date"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 16px;
+            background-color: #ffa4a400;
+            transition: border-color 0.2s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #52b788;
+            background-color: #fff;
+        }
+        .result-box {
+            background-color: #e8f5e9;
+            border-left: 5px solid #2d6a4f;
+            padding: 20px;
+            border-radius: 6px;
+            margin-top: 25px;
+            display: none;
+        }
+        .result-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #1b4332;
+            margin-bottom: 10px;
+        }
+        .result-value {
+            font-size: 32px;
+            font-weight: 800;
+            color: #2d6a4f;
+            margin-bottom: 15px;
+        }
+        .steps-box {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 15px;
+            border-radius: 6px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .steps-title {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 8px;
+            border-bottom: 1px dashed #dee2e6;
+            padding-bottom: 5px;
+        }
+        .math-text {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+            font-weight: bold;
+            color: #1b4332;
+        }
+        .info-text {
+            font-size: 13px;
+            color: #6c757d;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>ระบบคำนวณค่าฝุ่นเป้าหมายช่วงเวลาที่เหลือ</h1>
+        <p>เครื่องมือวางแผนบริหารจัดการคุณภาพอากาศรายปีเพื่อควบคุมค่าเฉลี่ยตามเป้าหมาย</p>
+    </div>
+
+    <div class="form-group">
+        <label for="target">1. ค่าฝุ่นเฉลี่ยเป้าหมายตลอดทั้งปีที่ต้องการควบคุม (ไมโครกรัมต่อลูกบาศก์เมตร)</label>
+        <input type="number" id="target" value="15" min="1" step="0.1" oninput="calculateTarget()">
+    </div>
+
+    <div class="form-group">
+        <label for="currentDate">2. เลือกวันที่ปัจจุบัน</label>
+        <input type="date" id="currentDate" onchange="calculateTarget()">
+        <div class="info-text">ระบบจะคำนวณจำนวนวันที่ผ่านมาและวันทีเหลือให้โดยอัตโนมัติ</div>
+    </div>
+
+    <div class="form-group">
+        <label for="currentAvg">3. ค่าฝุ่นเฉลี่ยสะสมตั้งแต่ต้นปีจนถึงปัจจุบัน (a)</label>
+        <input type="number" id="currentAvg" placeholder="ตัวอย่างเช่น 20" min="0" step="0.01" oninput="calculateTarget()">
+    </div>
+
+    <div id="resultBox" class="result-box">
+        <div class="result-title">ค่าฝุ่นเฉลี่ยเป้าหมายในช่วงเวลาที่เหลือของปี (x) ต้องไม่เกิน</div>
+        <div id="targetValue" class="result-value">-</div>
+        
+        <div class="steps-box">
+            <div class="steps-title">วิธีคำนวณทีละขั้นตอน</div>
+            <div id="stepDetails"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ตั้งค่าวันที่ปัจจุบันเป็นวันเริ่มต้นตอนโหลดหน้าเว็บ
+    window.onload = function() {
+        const today = new Date();
+        // ปรับแก้ให้แสดงผลตามปีปัจจุบันในระบบ
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        document.getElementById('currentDate').value = `${year}-${month}-${day}`;
+        calculateTarget();
+    }
+
+    function getDayOfYear(date) {
+        const start = new Date(date.getFullYear(), 0, 0);
+        const diff = date - start;
+        const oneDay = 1000 * 60 * 60 * 24;
+        return Math.floor(diff / oneDay);
+    }
+
+    function calculateTarget() {
+        const target = parseFloat(document.getElementById('target').value);
+        const dateInput = document.getElementById('currentDate').value;
+        const currentAvg = parseFloat(document.getElementById('currentAvg').value);
+        const resultBox = document.getElementById('resultBox');
+
+        if (!target || !dateInput || isNaN(currentAvg)) {
+            resultBox.style.display = 'none';
+            return;
+        }
+
+        const currentDate = new Date(dateInput);
+        const year = currentDate.getFullYear();
+        
+        // ตรวจสอบปีอธิกสุรทิน (Leap Year)
+        const N = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
+        const n = getDayOfYear(currentDate);
+        const remainingDays = N - n;
+
+        if (remainingDays <= 0) {
+            document.getElementById('targetValue').innerText = "สิ้นสุดรอบปีแล้ว";
+            document.getElementById('stepDetails').innerHTML = "จำนวนวันที่เหลือในรอบปีเท่ากับ 0 ไม่สามารถคำนวณเป้าหมายสำหรับวันถัดไปได้";
+            resultBox.style.display = 'block';
+            return;
+        }
+
+        // คำนวณตามสูตร x = ((target * N) - (currentAvg * n)) / remainingDays
+        const totalTargetPoints = target * N;
+        const currentAccumulatedPoints = currentAvg * n;
+        const remainingPointsNeeded = totalTargetPoints - currentAccumulatedPoints;
+        const x = remainingPointsNeeded / remainingDays;
+
+        // แสดงผลลัพธ์
+        if (x < 0) {
+            document.getElementById('targetValue').innerText = "0.00 ไมโครกรัมต่อลูกบาศก์เมตร";
+        } else {
+            document.getElementById('targetValue').innerText = x.toFixed(2) + " ไมโครกรัมต่อลูกบาศก์เมตร";
+        }
+
+        // สร้างข้อความแสดงวิธีทำโดยไม่ใช้เครื่องหมายจุลภาคในข้อความภาษาไทยตามเกณฑ์
+        let stepHtml = "";
+        stepHtml += "1. ข้อมูลพื้นฐานจากระบบ<br>";
+        stepHtml += `• จำนวนวันทั้งหมดในปีนี้ (N) = ${N} วัน<br>`;
+        stepHtml += `• จำนวนวันที่ผ่านมาแล้ว (n) = ${n} วัน<br>`;
+        stepHtml += `• จำนวนวันที่เหลือในรอบปี (N - n) = ${remainingDays} วัน<br><br>`;
+        
+        stepHtml += "2. สูตรความสัมพันธ์<br>";
+        stepHtml += "x ≤ [ (ค่าเป้าหมายทั้งปี × N) - (ค่าฝุ่นสะสมปัจจุบัน × n) ] ÷ (N - n)<br><br>";
+        
+        stepHtml += "3. แทนค่าตัวเลขลงในสูตร<br>";
+        stepHtml += `x ≤ [ (${target} × ${N}) - (${currentAvg} × ${n}) ] ÷ ${remainingDays}<br>`;
+        stepHtml += `x ≤ [ ${totalTargetPoints.toFixed(1)} - ${currentAccumulatedPoints.toFixed(1)} ] ÷ ${remainingDays}<br>`;
+        stepHtml += `x ≤ ${remainingPointsNeeded.toFixed(1)} ÷ ${remainingDays}<br>`;
+        
+        if (x < 0) {
+            stepHtml += `x ≤ ${x.toFixed(2)}<br><br>`;
+            stepHtml += "<strong>ข้อแนะนำทางสถิติ:</strong> เนื่องจากผลรวมค่าฝุ่นสะสมในปัจจุบันสูงเกินกว่าโควตาทั้งปีที่กำหนดไว้แล้ว ผลคำนวณจึงติดลบ หมายความว่าต่อให้ช่วงเวลาที่เหลือไม่มีฝุ่นเลย (ค่าเป็น 0) ค่าเฉลี่ยทั้งปีก็ยังคงเกินเป้าหมายที่ตั้งไว้ จำเป็นต้องปรับมาตรการเชิงรุกอย่างเข้มงวดที่สุด";
+        } else {
+            stepHtml += `x ≤ ${x.toFixed(2)}`;
+        }
+
+        document.getElementById('stepDetails').innerHTML = stepHtml;
+        resultBox.style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
