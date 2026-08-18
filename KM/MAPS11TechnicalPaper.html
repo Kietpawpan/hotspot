@@ -59,6 +59,23 @@
             margin-bottom: 20px;
             font-size: 16px;
         }
+        ul.custom-list {
+            list-style-type: none;
+            padding-left: 0;
+            margin-bottom: 20px;
+        }
+        ul.custom-list li {
+            margin-bottom: 12px;
+            padding-left: 25px;
+            position: relative;
+        }
+        ul.custom-list li::before {
+            content: "🔹";
+            position: absolute;
+            left: 0;
+            top: 2px;
+            font-size: 14px;
+        }
         pre {
             background: var(--code-bg);
             color: var(--code-text);
@@ -115,7 +132,7 @@
         });
 }</code></pre>
 
-        <h2><span class="step-badge">2</span>วิเคราะห์เชิงพื้นที่ (Spatial Analysis & Filtering)</h2>
+        <h2><span class="step-badge">2</span>วิเคราะห์เชิงพื้นที่ (Spatial Analysis &amp; Filtering)</h2>
         <p>เมื่อได้ข้อมูลจุดความร้อนระบบจะใช้ Turf.js สร้างพิกัดและตรวจสอบเชิงเรขาคณิตว่าจุดนั้นตกลงในรูปหลายเหลี่ยม (Polygon) ซึ่งเป็นขอบเขต 4 จังหวัด (นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์) หรือไม่</p>
         <pre><code><span class="keyword">let</span> turfPt = turf.<span class="function">point</span>([lon, lat]); <span class="comment">// แปลงพิกัดเป็น Turf Point</span>
 <span class="keyword">let</span> strictProvName = <span class="keyword">null</span>;
@@ -174,7 +191,7 @@
     <span class="function">displayFireRiskAlerts</span>(risksFound);
 }</code></pre>
 
-        <h2><span class="step-badge">4</span>วิเคราะห์การแพร่กระจาย (Plume Dispersion & Downwind Impact)</h2>
+        <h2><span class="step-badge">4</span>วิเคราะห์การแพร่กระจาย (Plume Dispersion &amp; Downwind Impact)</h2>
         <p>ดึงข้อมูลพารามิเตอร์ด้านลมจาก Open-Meteo API มาสร้างรูปร่างควันไฟ (Plume) ไปยังพื้นที่ท้ายลมและแปลงพิกัดกลับเป็นที่อยู่โดยใช้ Longdo Map API เพื่อระบุชุมชนที่ได้รับผลกระทบ</p>
         <pre><code><span class="comment">// 1. ดึงข้อมูลสภาพอากาศและลม ณ พิกัดเกิดเหตุ</span>
 <span class="function">fetch</span>(<span class="string">`https://api.open-meteo.com/v1/forecast?latitude=${lat}&amp;longitude=${lon}&amp;current=wind_speed_10m,wind_direction_10m`</span>)
@@ -221,6 +238,63 @@
         <span class="function">showToast</span>(<span class="string">`⚠️ เฝ้าระวังฉุกเฉิน พบจุดความร้อนใกล้บ่อขยะ ${risks.length} แห่ง`</span>, <span class="string">"error"</span>);
     }
 }</code></pre>
+
+        <h2><span class="step-badge">6</span>การแสดงผลแผนที่และการโต้ตอบ (Map Rendering &amp; Interactivity)</h2>
+        <p>ฟังก์ชันกราฟิกต่างๆ ของโปรแกรมถูกสร้างขึ้นบนโครงสร้างของไลบรารี Leaflet.js ทั้งสิ้นโดยมีรายละเอียดการประยุกต์ใช้งานดังนี้</p>
+        
+        <ul class="custom-list">
+            <li><strong>การจัดผังและซ้อนทับเลเยอร์:</strong> โค้ดมีการเรียกใช้คำสั่งควบคุมเลเยอร์เพื่อสร้างเมนูที่มุมขวาบนช่วยให้เจ้าหน้าที่สลับดูแผนที่ฐานแบบต่างๆ ได้อย่างอิสระทั้งแผนที่ถนน OpenStreetMap ภาพถ่ายดาวเทียม Esri และ Google Maps แบบไฮบริดรวมถึงสามารถเลือกเปิดปิดชั้นข้อมูลซ้อนทับต่างๆ เช่น จุดความร้อน NASA สถานที่กำจัดขยะ พื้นที่แจ้งเตือน และจุดเกิดเหตุด่วนได้ตามความต้องการใช้งานเฉพาะหน้า</li>
+            <li><strong>การจัดการจุดความร้อนจำนวนมาก:</strong> ระบบมีการเรียกใช้ปลั๊กอิน Leaflet.markercluster เพื่อรวบกลุ่มหมุดจุดความร้อนจากดาวเทียม NASA (Suomi-NPP และ NOAA-20) เข้าด้วยกันแบบอัตโนมัติเมื่อซูมแผนที่ออกและจะกระจายตัวออกเป็นรูปแบบใยแมงมุม (Spiderfy) เมื่อซูมเข้าใกล้พื้นที่เป้าหมายเทคนิคนี้ช่วยลดภาระการประมวลผลทำให้หน้าเว็บเบราว์เซอร์ไม่หน่วงและหน้าจอไม่รกตาเมื่อมีจุดความร้อนปรากฏขึ้นจำนวนมาก</li>
+            <li><strong>การวาดรัศมีและพื้นที่แจ้งเตือนภัย:</strong> โค้ดใช้คำสั่งวาดรูปทรงเรขาคณิตซ้อนทับลงบนแผนที่โดยตรงเช่นการใช้พิกัดจุดศูนย์กลางวาดวงกลมสีแดงแบบกระพริบ (Blinking Alert) ในรัศมี 500 เมตรรอบสถานที่กำจัดขยะมูลฝอยที่มีความเสี่ยงสูงรวมถึงการวาดรูปทรงหลายเหลี่ยมแบบโปร่งแสง (Polygon) คล้ายรูปทรงกรวยเพื่อจำลองพื้นที่รัศมี 5 กิโลเมตรที่ควันไฟอาจแพร่กระจายไปถึงโดยอิงตามพารามิเตอร์ทิศทางลมแบบเรียลไทม์</li>
+            <li><strong>การโต้ตอบผ่านหน้าต่างข้อมูล:</strong> เมื่อมีการคลิกที่หมุดจุดความร้อนหรือบ่อขยะระบบจะสั่งการให้ป๊อปอัป (Popup) แบบอินเทอร์แอกทีฟเด้งขึ้นมาแสดงผลลัพธ์จากการคำนวณเบื้องหลังทันทีซึ่งครอบคลุมทั้งข้อมูลพิกัดละติจูดลองจิจูดข้อมูลพิกัดที่อยู่ระดับตำบลความเร็วลมทิศทางลมไปจนถึงข้อความแจ้งเตือนชุมชนท้ายลมที่เสี่ยงได้รับผลกระทบพร้อมทั้งแทรกปุ่มคำสั่งสำหรับเปิดระบบนำทางไปยังจุดเกิดเหตุผ่าน Google Maps ไว้ในตัวป๊อปอัปด้วย</li>
+        </ul>
+
+        <pre><code><span class="comment">// กำหนดจุดศูนย์กลางแผนที่และระดับการซูม</span>
+<span class="keyword">const</span> map = L.<span class="function">map</span>(<span class="string">'map'</span>, {
+    zoomSnap: <span class="variable">0.25</span>,
+    zoomDelta: <span class="variable">0.5</span>,
+    wheelPxPerZoomLevel: <span class="variable">120</span>
+}).<span class="function">setView</span>([<span class="variable">15.2</span>, <span class="variable">102.5</span>], <span class="variable">8</span>);
+
+<span class="comment">// สร้างกลุ่มเลเยอร์สำหรับจัดการหมุดจุดความร้อนด้วย MarkerCluster</span>
+<span class="keyword">const</span> hotspotLayer = L.<span class="function">markerClusterGroup</span>({
+    maxClusterRadius: <span class="variable">40</span>,
+    spiderfyOnMaxZoom: <span class="keyword">true</span>,
+    showCoverageOnHover: <span class="keyword">false</span>,
+    zoomToBoundsOnClick: <span class="keyword">true</span>
+}).<span class="function">addTo</span>(map);
+
+<span class="comment">// ตัวอย่างการรวมชั้นข้อมูลและการสร้างระบบควบคุมเลเยอร์</span>
+<span class="keyword">const</span> overlayMaps = {
+    <span class="string">"จุดความร้อน (NASA)"</span>: hotspotLayer,
+    <span class="string">"สถานที่กำจัดขยะ"</span>: landfillLayer,
+    <span class="string">"🚨 แจ้งเตือนไฟไหม้บ่อขยะ"</span>: riskAlertLayer
+};
+<span class="keyword">const</span> layerControl = L.control.<span class="function">layers</span>(baseMaps, overlayMaps).<span class="function">addTo</span>(map);</code></pre>
+
+        <h2><span class="step-badge">7</span>การวิเคราะห์ข้อมูลเชิงพื้นที่ (Spatial Analysis) ด้วย Turf.js</h2>
+        <p>ระบบเรียกใช้ไลบรารี Turf.js เป็นเครื่องมือหลักในการวิเคราะห์และคำนวณข้อมูลเชิงพื้นที่ทางภูมิศาสตร์โดยมีขอบเขตการทำงานดังนี้</p>
+        
+        <ul class="custom-list">
+            <li><strong>การสร้างพิกัดและกล่องขอบเขต (Point &amp; Bounding Box):</strong> ใช้ <code>turf.point</code> ในการแปลงข้อมูลพิกัดละติจูดและลองจิจูดให้เป็นจุดอ้างอิงเชิงพื้นที่และใช้ <code>turf.bbox</code> สร้างกล่องกรอบสี่เหลี่ยมคลุมพื้นที่ขอบเขตจังหวัดเป้าหมายเพื่อนำไปใช้เป็นตัวคัดกรองข้อมูลจุดความร้อนในชุดแรก</li>
+            <li><strong>การตรวจสอบจุดตกกระทบในพื้นที่ (Point in Polygon):</strong> ใช้คำสั่ง <code>turf.booleanPointInPolygon</code> เพื่อตรวจสอบอย่างละเอียดว่าจุดความร้อนแต่ละจุดที่ได้จากดาวเทียมตกอยู่ภายในพื้นที่รูปหลายเหลี่ยม (Polygon) ของพื้นที่ความรับผิดชอบทั้ง 4 จังหวัดหรือไม่</li>
+            <li><strong>การคำนวณระยะทางเพื่อหาระยะอันตราย (Distance Calculation):</strong> ใช้คำสั่ง <code>turf.distance</code> วัดระยะห่างระหว่างจุดพิกัดสถานที่กำจัดขยะมูลฝอยแต่ละแห่งกับจุดความร้อนหากพบว่ามีจุดความร้อนเกิดขึ้นในระยะไม่เกิน 0.5 กิโลเมตรจากบ่อขยะระบบจะทริกเกอร์การแจ้งเตือนพื้นที่เสี่ยงภัยฉุกเฉินบนหน้าจอทันที</li>
+            <li><strong>การคำนวณพิกัดท้ายลมเพื่อวาดแนวควันไฟ (Destination &amp; Plume Generation):</strong> ใช้คำสั่ง <code>turf.destination</code> ยิงพิกัดจำลองออกไปจากจุดเกิดเหตุตามองศาของทิศทางลมเพื่อหาพิกัดปลายทางที่ระยะ 2.5 กิโลเมตรและ 5 กิโลเมตรจากนั้นนำพิกัดที่ได้ไปค้นหาชื่อชุมชนท้ายลมนอกจากนี้ยังใช้คำสั่งเดียวกันนี้สร้างจุดขอบซ้ายและขวาเพื่อประกอบร่างเป็นรูปทรงกรวยจำลองทิศทางการแพร่กระจายของควันไฟบนแผนที่</li>
+        </ul>
+
+        <pre><code><span class="comment">// 1. การสร้างจุดและ Bounding Box</span>
+<span class="keyword">let</span> turfPt = turf.<span class="function">point</span>([lon, lat]);
+boundaryGeoJSON.features.<span class="function">forEach</span>(f =&gt; f.bbox = turf.<span class="function">bbox</span>(f));
+
+<span class="comment">// 2. การตรวจสอบจุดตกกระทบในพื้นที่ Polygon</span>
+<span class="keyword">let</span> isInside = turf.<span class="function">booleanPointInPolygon</span>(turfPt, b);
+
+<span class="comment">// 3. การคำนวณระยะทางระหว่างจุด (หาพิกัดใกล้เคียงบ่อขยะ)</span>
+<span class="keyword">let</span> distance = turf.<span class="function">distance</span>(sitePt, hotPt, {units: <span class="string">'kilometers'</span>});
+
+<span class="comment">// 4. การหาพิกัดปลายทางจากทิศทางลมและระยะทางเพื่อสร้างแนวควันไฟ</span>
+<span class="keyword">const</span> leftPt = turf.<span class="function">destination</span>([lon, lat], distance, leftBearing, {units: <span class="string">'kilometers'</span>}).geometry.coordinates;
+<span class="keyword">const</span> rightPt = turf.<span class="function">destination</span>([lon, lat], distance, rightBearing, {units: <span class="string">'kilometers'</span>}).geometry.coordinates;</code></pre>
 
     </div>
 </body>
