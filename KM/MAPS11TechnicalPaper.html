@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technical Documentation: MAPS11 System Architecture</title>
+    <style>
+        :root {
+            --primary-color: #4a148c;
+            --secondary-color: #0284c7;
+            --text-color: #334155;
+            --bg-color: #f8fafc;
+            --code-bg: #1e293b;
+            --code-text: #f8fafc;
+            --border-color: #e2e8f0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        h1 {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            font-size: 28px;
+        }
+        h2 {
+            color: var(--secondary-color);
+            margin-top: 40px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .step-badge {
+            background-color: var(--secondary-color);
+            color: white;
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+            margin-right: 15px;
+            font-size: 16px;
+        }
+        p {
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+        pre {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: "Fira Code", "Consolas", monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+        code {
+            font-family: inherit;
+        }
+        .comment {
+            color: #64748b;
+            font-style: italic;
+        }
+        .keyword {
+            color: #c678dd;
+        }
+        .string {
+            color: #98c379;
+        }
+        .function {
+            color: #61afef;
+        }
+        .variable {
+            color: #e5c07b;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>เอกสารเชิงเทคนิค: อัลกอริทึมการทำงานของระบบ MAPS11</h1>
+        <p>เอกสารฉบับนี้อธิบายชุดคำสั่งทางโปรแกรมมิ่งที่เป็นหัวใจสำคัญในการขับเคลื่อนระบบภูมิสารสนเทศเพื่อการเฝ้าระวังจุดความร้อนบริเวณสถานที่กำจัดขยะมูลฝอย</p>
+
+        <h2><span class="step-badge">1</span>รวบรวมข้อมูล (Data Ingestion)</h2>
+        <p>ขั้นตอนนี้คือการดึงข้อมูลจุดความร้อนจากดาวเทียม Suomi NPP และ NOAA-20 ผ่านระบบ Middleware ที่ทำงานอยู่บน Google Apps Script (GAS)</p>
+        <pre><code><span class="comment">// ฟังก์ชันหลักที่ใช้ดึงข้อมูลจากระบบหลังบ้าน (GAS)</span>
+<span class="keyword">function</span> <span class="function">fetchNasaData</span>(reo11Bbox) {
+    <span class="comment">// แจ้งสถานะกำลังโหลด</span>
+    document.<span class="function">getElementById</span>(<span class="string">'loadingStatusText'</span>).innerText = <span class="string">`FETCHING HOTSPOTS FROM MAPS11 DATABASE...`</span>;
+
+    <span class="comment">// ยิง Request ไปยัง GAS Web App เพื่อดึงข้อมูลจุดความร้อน</span>
+    <span class="function">fetch</span>(gasWebappUrl + <span class="string">"?action=hotspots"</span>)
+        .<span class="function">then</span>(res =&gt; res.<span class="function">json</span>())
+        .<span class="function">then</span>(data =&gt; {
+            <span class="comment">// ได้ข้อมูล data.points มาประมวลผลต่อ</span>
+        })
+        .<span class="function">catch</span>(error =&gt; {
+            console.<span class="function">error</span>(<span class="string">'เกิดข้อผิดพลาดในการดึงข้อมูลจาก GAS'</span>, error);
+        });
+}</code></pre>
+
+        <h2><span class="step-badge">2</span>วิเคราะห์เชิงพื้นที่ (Spatial Analysis & Filtering)</h2>
+        <p>เมื่อได้ข้อมูลจุดความร้อนระบบจะใช้ Turf.js สร้างพิกัดและตรวจสอบเชิงเรขาคณิตว่าจุดนั้นตกลงในรูปหลายเหลี่ยม (Polygon) ซึ่งเป็นขอบเขต 4 จังหวัด (นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์) หรือไม่</p>
+        <pre><code><span class="keyword">let</span> turfPt = turf.<span class="function">point</span>([lon, lat]); <span class="comment">// แปลงพิกัดเป็น Turf Point</span>
+<span class="keyword">let</span> strictProvName = <span class="keyword">null</span>;
+
+<span class="keyword">if</span> (boundaryGeoJSON &amp;&amp; boundaryGeoJSON.features) {
+    <span class="keyword">for</span> (<span class="keyword">let</span> b <span class="keyword">of</span> boundaryGeoJSON.features) {
+        <span class="comment">// เช็คก่อนว่าพิกัดอยู่ในกรอบสี่เหลี่ยม (BBox) ของจังหวัดนั้นไหม เพื่อลดภาระการประมวลผล</span>
+        <span class="keyword">if</span> (lon &gt;= b.bbox[0] &amp;&amp; lat &gt;= b.bbox[1] &amp;&amp; lon &lt;= b.bbox[2] &amp;&amp; lat &lt;= b.bbox[3]) {
+            <span class="comment">// เช็คความแม่นยำระดับเส้นขอบเขตจังหวัดว่าพิกัดตกอยู่ข้างในจริงๆ หรือไม่</span>
+            <span class="keyword">if</span> (turf.<span class="function">booleanPointInPolygon</span>(turfPt, b)) {
+                <span class="keyword">let</span> propStr = JSON.<span class="function">stringify</span>(b.properties);
+                <span class="keyword">for</span> (<span class="keyword">let</span> target <span class="keyword">of</span> targetProvs) {
+                    <span class="keyword">if</span> (propStr.<span class="function">includes</span>(target)) {
+                        strictProvName = target; <span class="comment">// พบว่าอยู่ใน 4 จังหวัดเป้าหมาย</span>
+                        <span class="keyword">break</span>;
+                    }
+                }
+            }
+        }
+        <span class="keyword">if</span> (strictProvName) <span class="keyword">break</span>;
+    }
+}</code></pre>
+
+        <h2><span class="step-badge">3</span>ประเมินระดับความเสี่ยง (Risk Assessment)</h2>
+        <p>นำพิกัดสถานที่กำจัดขยะมูลฝอยมาคำนวณระยะทางเทียบกับจุดความร้อนโดยใช้โมดูล distance ของ Turf.js หากพบว่าอยู่ห่างกันไม่เกิน 0.5 กิโลเมตรจะถือเป็นพื้นที่เสี่ยงไฟไหม้บ่อขยะ</p>
+        <pre><code><span class="keyword">const</span> RISK_RADIUS_KM = <span class="variable">0.5</span>; <span class="comment">// รัศมี 500 เมตร</span>
+
+<span class="keyword">function</span> <span class="function">calculateWasteFireRisk</span>() {
+    <span class="keyword">let</span> risksFound = [];
+    
+    <span class="comment">// วนลูปบ่อขยะทุกแห่ง</span>
+    landfillMarkers.<span class="function">forEach</span>(site =&gt; {
+        <span class="keyword">let</span> sitePt = turf.<span class="function">point</span>([site.marker.<span class="function">getLatLng</span>().lng, site.marker.<span class="function">getLatLng</span>().lat]);
+        <span class="keyword">let</span> nearHotspots = <span class="variable">0</span>;
+
+        <span class="comment">// วนลูปจุดความร้อนที่ผ่านการกรองแล้ว</span>
+        currentFilteredHotspots.<span class="function">forEach</span>(f =&gt; {
+            <span class="keyword">let</span> hotPt = turf.<span class="function">point</span>([f.geometry.coordinates[0], f.geometry.coordinates[1]]);
+            <span class="comment">// คำนวณระยะห่างระหว่างบ่อขยะกับจุดความร้อนเป็นกิโลเมตร</span>
+            <span class="keyword">let</span> distance = turf.<span class="function">distance</span>(sitePt, hotPt, {units: <span class="string">'kilometers'</span>});
+            
+            <span class="comment">// ถ้าระยะห่างอยู่ในเกณฑ์ความเสี่ยงให้นับเพิ่ม</span>
+            <span class="keyword">if</span> (distance &lt;= RISK_RADIUS_KM) {
+                nearHotspots++;
+            }
+        });
+
+        <span class="keyword">if</span> (nearHotspots &gt; <span class="variable">0</span>) {
+            risksFound.<span class="function">push</span>({
+                siteName: site.name,
+                latlng: site.marker.<span class="function">getLatLng</span>(),
+                count: nearHotspots
+            });
+        }
+    });
+    <span class="function">displayFireRiskAlerts</span>(risksFound);
+}</code></pre>
+
+        <h2><span class="step-badge">4</span>วิเคราะห์การแพร่กระจาย (Plume Dispersion & Downwind Impact)</h2>
+        <p>ดึงข้อมูลพารามิเตอร์ด้านลมจาก Open-Meteo API มาสร้างรูปร่างควันไฟ (Plume) ไปยังพื้นที่ท้ายลมและแปลงพิกัดกลับเป็นที่อยู่โดยใช้ Longdo Map API เพื่อระบุชุมชนที่ได้รับผลกระทบ</p>
+        <pre><code><span class="comment">// 1. ดึงข้อมูลสภาพอากาศและลม ณ พิกัดเกิดเหตุ</span>
+<span class="function">fetch</span>(<span class="string">`https://api.open-meteo.com/v1/forecast?latitude=${lat}&amp;longitude=${lon}&amp;current=wind_speed_10m,wind_direction_10m`</span>)
+    .<span class="function">then</span>(res =&gt; res.<span class="function">json</span>())
+    .<span class="function">then</span>(data =&gt; {
+        <span class="keyword">let</span> speed = data.current.wind_speed_10m;
+        <span class="keyword">let</span> dir = data.current.wind_direction_10m;
+        
+        <span class="comment">// กลับทิศทางลมเพื่อหาทิศที่ควันจะลอยไป (พื้นที่ท้ายลม)</span>
+        <span class="keyword">const</span> smokeAngle = (dir + <span class="variable">180</span>) % <span class="variable">360</span>;
+        <span class="keyword">const</span> bearing = smokeAngle &gt; <span class="variable">180</span> ? smokeAngle - <span class="variable">360</span> : smokeAngle; 
+
+        <span class="comment">// 2. ใช้ Turf.js สร้างพิกัดเป้าหมายระยะ 2.5 กม และ 5 กม ตามทิศทางลม</span>
+        <span class="keyword">const</span> pt1 = turf.<span class="function">destination</span>([lon, lat], <span class="variable">2.5</span>, bearing, {units: <span class="string">'kilometers'</span>}).geometry.coordinates;
+        <span class="keyword">const</span> pt2 = turf.<span class="function">destination</span>([lon, lat], <span class="variable">5</span>, bearing, {units: <span class="string">'kilometers'</span>}).geometry.coordinates;
+
+        <span class="comment">// 3. นำพิกัดปลายทางไปแปลงเป็นที่อยู่ด้วย Longdo API (Reverse Geocoding)</span>
+        Promise.<span class="function">all</span>([
+            <span class="function">fetch</span>(<span class="string">`https://api.longdo.com/map/services/address?lon=${pt1[0]}&amp;lat=${pt1[1]}&amp;key=${longdoApiKey}`</span>).<span class="function">then</span>(r =&gt; r.<span class="function">json</span>()),
+            <span class="function">fetch</span>(<span class="string">`https://api.longdo.com/map/services/address?lon=${pt2[0]}&amp;lat=${pt2[1]}&amp;key=${longdoApiKey}`</span>).<span class="function">then</span>(r =&gt; r.<span class="function">json</span>())
+        ]).<span class="function">then</span>(results =&gt; {
+            <span class="comment">// ประมวลผลชื่อตำบล อำเภอ เพื่อแสดงผลและแจ้งเตือน</span>
+        });
+    });</code></pre>
+
+        <h2><span class="step-badge">5</span>แจ้งเตือนและตอบสนอง (Alerting System)</h2>
+        <p>สร้างองค์ประกอบส่วนต่อประสานกราฟิกเพื่อเร่งรัดกระบวนการตอบสนองซึ่งรวมถึงการวาดวงกลมแจ้งเตือนความเสี่ยงบนแผนที่และระบบ Toast Notification</p>
+        <pre><code><span class="keyword">function</span> <span class="function">displayFireRiskAlerts</span>(risks) {
+    <span class="keyword">if</span> (risks.length &gt; <span class="variable">0</span>) {
+        risks.<span class="function">forEach</span>(risk =&gt; {
+            <span class="comment">// วาดวงกลมสีแดงกระพริบทับพิกัดบ่อขยะเพื่อเน้นย้ำความสำคัญ</span>
+            L.<span class="function">circle</span>(risk.latlng, {
+                radius: RISK_RADIUS_KM * <span class="variable">1000</span>, <span class="comment">// แปลงรัศมีเป็นหน่วยเมตร</span>
+                color: <span class="string">'#d50000'</span>, 
+                fillColor: <span class="string">'#ff1744'</span>, 
+                fillOpacity: <span class="variable">0.3</span>, 
+                weight: <span class="variable">3</span>,
+                className: <span class="string">'blink-alert'</span> <span class="comment">// เรียกใช้คลาส CSS ที่มีแอนิเมชันกระพริบ</span>
+            }).<span class="function">addTo</span>(riskAlertLayer)
+              .<span class="function">bindPopup</span>(<span class="string">`&lt;div style="text-align:center;"&gt;&lt;b&gt;🚨 พื้นที่เสี่ยงสูง!&lt;/b&gt;&lt;br&gt;บ่อขยะ: &lt;span style="color:#b91c1c; font-weight:bold;"&gt;${risk.siteName}&lt;/span&gt;&lt;br&gt;พบจุดความร้อน ${risk.count} จุด ในรัศมี ${RISK_RADIUS_KM} กม.&lt;/div&gt;`</span>);
+        });
+        
+        <span class="comment">// แจ้งเตือนมุมขวาบนหน้าจอเพื่อให้เจ้าหน้าที่สังเกตเห็นทันที</span>
+        <span class="function">showToast</span>(<span class="string">`⚠️ เฝ้าระวังฉุกเฉิน พบจุดความร้อนใกล้บ่อขยะ ${risks.length} แห่ง`</span>, <span class="string">"error"</span>);
+    }
+}</code></pre>
+
+    </div>
+</body>
+</html>
