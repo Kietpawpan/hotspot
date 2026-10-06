@@ -232,21 +232,21 @@ async function fetchAiWithBackoff(url, options = {}, maxRetries = 4) {
                 if (remainingDays > 0) {
                     quotaHtml = `
                         <div class="mt-2 text-xs p-2 bg-blue-100 text-blue-900 rounded-lg w-full text-left border border-blue-300">
-                            📉 <span class="font-bold">เป้าหมายลดฝุ่น 5% จากปี 68:</span> ต้องไม่เกิน ${target69} วัน<br>
+                            📉 <span class="font-bold">เป้าหมายลดฝุ่น 5% จากปี 69:</span> ต้องไม่เกิน ${target69} วัน<br>
                             ⏳ <span class="font-bold text-green-700">เหลือโควต้าอีก: ${remainingDays} วัน</span>
                         </div>
                     `;
                 } else if (remainingDays === 0) {
                     quotaHtml = `
                         <div class="mt-2 text-xs p-2 bg-orange-100 text-orange-900 rounded-lg w-full text-left border border-orange-400">
-                            ⚠️ <span class="font-bold">เป้าหมายลดฝุ่น 5% จากปี 68:</span> ต้องไม่เกิน ${target69} วัน<br>
+                            ⚠️ <span class="font-bold">เป้าหมายลดฝุ่น 5% จากปี 69:</span> ต้องไม่เกิน ${target69} วัน<br>
                             🚨 <span class="font-bold text-orange-700">คำเตือน: วันนี้ฝุ่นเกินมาตรฐานชนเพดานเป้าหมายแล้ว!</span>
                         </div>
                     `;
                 } else {
                     quotaHtml = `
                         <div class="mt-2 text-xs p-2 bg-red-200 text-red-900 rounded-lg w-full text-left border border-red-500 font-bold">
-                            ❌ เป้าหมายลดฝุ่น 5% จากปี 68: ต้องไม่เกิน ${target69} วัน<br>
+                            ❌ เป้าหมายลดฝุ่น 5% จากปี 69: ต้องไม่เกิน ${target69} วัน<br>
                             ทะลุเป้าหมายแล้ว (เกินมา ${Math.abs(remainingDays)} วัน)
                         </div>
                     `;
