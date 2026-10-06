@@ -468,8 +468,8 @@ async function fetchAiWithBackoff(url, options = {}, maxRetries = 4) {
                 data: {
                     labels: chartLabels,
                     datasets: [
-                        { label: 'ปี 2568', data: hotspot68Data, backgroundColor: '#9CA3AF' },
-                        { label: 'ปี 2569', data: hotspot69Data, backgroundColor: '#F97316' }
+                        { label: 'ปี 2569', data: hotspot68Data, backgroundColor: '#9CA3AF' },
+                        { label: 'ปี 2570', data: hotspot69Data, backgroundColor: '#F97316' }
                     ]
                 },
                 options: { 
@@ -975,7 +975,7 @@ async function fetchNasaHotspots() {
                         contextData += `  - ${livePMText}\n`;
                         contextData += `  - PM₂.₅ รอบ 07.00 น. เช้านี้: ${pmToday} มคก./ลบ.ม.\n`;
                         contextData += `  - PM₂.₅ ย้อนหลัง 4 วัน: (เมื่อวาน: ${dayMinus1Num} | 2 วันก่อน: ${dayMinus2Num} | 3 วันก่อน: ${dayMinus3Num} | 4 วันก่อน: ${dayMinus4Num})\n`;
-                        contextData += `  - สถานะเป้าหมายปี 2569: ${quotaText} | พบจุดความร้อน ${hotspot} จุด\n`;
+                        contextData += `  - สถานะเป้าหมายปี 2570: ${quotaText} | พบจุดความร้อน ${hotspot} จุด\n`;
                         contextData += `  - ${weatherText}\n`;
                         contextData += `  - คำแนะนำสุขภาพ: ${healthAdv}\n`;
                         contextData += `  - แนวทาง/มาตรการ: ${policyAdv}\n`;
