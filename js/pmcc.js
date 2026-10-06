@@ -144,7 +144,7 @@ async function fetchAiWithBackoff(url, options = {}, maxRetries = 4) {
         function startLoadingData() {
             updateDateText();
             
-            const apiUrl = 'https://script.google.com/macros/s/AKfycby2OvLen-3AxfZH2mJ9f-63DClvUT5RuSbbNDuD1_T6SqStLKDYKVapnPOVj_ir_ogj-Q/exec';
+            const apiUrl = 'https://script.google.com/macros/s/AKfycbxuZ2j2Cuoy6xUEFO7N0wxV2O47ZqAV3eOOtkrRWdAk7C6Fz_mlvP6O5sAplBOH9HG4IA/exec';
 
             fetch(apiUrl)
                 .then(response => {
@@ -617,7 +617,7 @@ const GAS_WEATHER_PROXY = 'https://script.google.com/macros/s/AKfycbxwoNT9sKWRIz
 // ==========================================
 // ส่วนใหม่: กำหนด URL Proxy สำหรับดึง live PM₂.₅ (ผอ. นำ URL ที่ได้จาก GAS มาใส่ตรงนี้)
 // ==========================================
-const GAS_LIVE_PM25_PROXY = 'https://script.google.com/macros/s/AKfycby2OvLen-3AxfZH2mJ9f-63DClvUT5RuSbbNDuD1_T6SqStLKDYKVapnPOVj_ir_ogj-Q/exec';
+const GAS_LIVE_PM25_PROXY = 'https://script.google.com/macros/s/AKfycbxuZ2j2Cuoy6xUEFO7N0wxV2O47ZqAV3eOOtkrRWdAk7C6Fz_mlvP6O5sAplBOH9HG4IA/exec';
 
 // URL Proxy ของ ผอ.
 // const GAS_WEATHER_PROXY = '...';
@@ -824,7 +824,7 @@ async function fetchWeatherData() {
 // ดึงข้อมูล NASA ผ่าน Google Apps Script Proxy
 async function fetchNasaHotspots() {
     // เรียกใช้ GAS Proxy ที่ทำหน้าที่ประมวลผลแล้วส่งกลับมาแค่ตัวเลข
-    const GAS_HOTSPOT_PROXY = 'https://script.google.com/macros/s/AKfycby2OvLen-3AxfZH2mJ9f-63DClvUT5RuSbbNDuD1_T6SqStLKDYKVapnPOVj_ir_ogj-Q/exec?action=hotspots';
+    const GAS_HOTSPOT_PROXY = 'https://script.google.com/macros/s/AKfycbxuZ2j2Cuoy6xUEFO7N0wxV2O47ZqAV3eOOtkrRWdAk7C6Fz_mlvP6O5sAplBOH9HG4IA/exec/exec?action=hotspots';
     
     try {
         const response = await fetch(GAS_HOTSPOT_PROXY);
@@ -898,7 +898,7 @@ async function fetchNasaHotspots() {
             btn.disabled = true;
             btn.classList.add('opacity-50', 'cursor-not-allowed');
 
-            const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycby2OvLen-3AxfZH2mJ9f-63DClvUT5RuSbbNDuD1_T6SqStLKDYKVapnPOVj_ir_ogj-Q/exec';
+            const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbxuZ2j2Cuoy6xUEFO7N0wxV2O47ZqAV3eOOtkrRWdAk7C6Fz_mlvP6O5sAplBOH9HG4IA/exec';
 
             let contextData = "ข้อมูลสถานการณ์รายจังหวัด:\n";
             let totalHotspots = 0;
