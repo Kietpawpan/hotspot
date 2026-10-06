@@ -436,8 +436,8 @@ function renderDashboard(data) {
         data: {
             labels: chartLabels,
             datasets: [
-                { label: 'ปี 2568', data: daysOver68Data, backgroundColor: '#9CA3AF' },
-                { label: 'ปี 2569', data: daysOver69Data, backgroundColor: '#EF4444' }
+                { label: 'ปี 2569', data: daysOver68Data, backgroundColor: '#9CA3AF' },
+                { label: 'ปี 2570', data: daysOver69Data, backgroundColor: '#EF4444' }
             ]
         },
         options: { 
