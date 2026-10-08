@@ -2663,13 +2663,20 @@ setTimeout(() => {
     fetchPigFarmsData()
 }, 7500)
 
+
 // ฟังก์ชันโหลดข้อมูลรอยไหม้ซ้ำซากแบบไดนามิก
 function loadBurnScarData(monthId) {
     // ล้างข้อมูลเลเยอร์เดิมออกก่อน
     burnScarLayer.clearLayers();
     
-    // สร้าง URL ตามรหัสเดือนที่เลือก
-    const url = `https://raw.githubusercontent.com/Kietpawpan/hotspot/main/burn_scar_reo11_small${monthId}.geojson`;
+    // ลิงก์เริ่มต้นสำหรับดึงจาก GitHub
+    let url = `https://raw.githubusercontent.com/Kietpawpan/hotspot/main/burn_scar_reo11_small${monthId}.geojson`;
+    
+    // ถ้าผู้ใช้เลือกเดือนเมษายน 2569 (รหัส 6904) ให้สลับไปดึงจาก Google Drive แทน
+    if (monthId === "6904") {
+        // นำ Web App URL ที่คัดลอกมาจากขั้นตอนที่ 2 มาใส่แทนข้อความด้านล่างนี้
+        url = "https://script.google.com/macros/s/AKfycby1hsb1LDqlHBz0qa0EHp2ld9c9AHtyU2p83prNI3DS_IeEgPE9m2mG8EESWpNYOvjI/exec";
+    }
     
     // ดึงชื่อเดือนมาแสดงใน Popup
     const selectEl = document.getElementById('burnScarMonthSelect');
@@ -2682,7 +2689,9 @@ function loadBurnScarData(monthId) {
         })
         .then(data => {
             L.geoJSON(data, {
-                style: function(feature) {
+                // ... โค้ดส่วนจัดการสไตล์และ Popup ด้านล่างนี้คงไว้เหมือนเดิมทั้งหมด ...
+
+				                style: function(feature) {
                     return {
                         color: "#dc2626",
                         weight: 1.5,
