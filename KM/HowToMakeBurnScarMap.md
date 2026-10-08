@@ -7,14 +7,15 @@
 7. Download the shapefile.
 8. Unzip to get: .shp .dbf .shx และ .prj
 9. Go to https://mapshaper.org
-10. Select the four files: .shp .dbf .shx, and .prj
-11. Click Console
-12. Cut the provincial data by typing and Enter:
+10. Option: encoding=windows-874
+11. Select the four files: .shp .dbf .shx, and .prj
+12. Click Console
+13. Cut the provincial data by typing and Enter:
    
     ```
     -filter "/Nakhon Ratchasima|Chaiyaphum|Buri Ram|Buriram|Surin/i.test(PV_EN)"
     ```
-13. Make it smaller in size:
+14. Make it smaller in size:
     ```
     -simplify dp 20%
     ```
