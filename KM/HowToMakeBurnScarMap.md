@@ -14,3 +14,16 @@
     ```
     -filter "/Nakhon Ratchasima|Chaiyaphum|Buri Ram|Buriram|Surin/i.test(PV_EN)"
     ```
+13. Make it smaller in size:
+    ```
+    -simplify dp 20%
+    ```
+15. You can reduce more:
+```
+-simplify dp 10%
+```
+16. Save as geojson
+```
+-o burn_scar_reo11_small.geojson
+```
+17. Upload to Github
