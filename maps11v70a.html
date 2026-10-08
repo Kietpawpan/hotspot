@@ -2648,8 +2648,9 @@ setTimeout(() => {
 }, 7500)
 
 // 🟢 ฟังก์ชันโหลดข้อมูลรอยไหม้ซ้ำซาก 🟢
+// 🟢 ฟังก์ชันโหลดข้อมูลรอยไหม้ซ้ำซาก 🟢
 function loadBurnScarData() {
-    const url = 'https://github.com/Kietpawpan/hotspot/blob/ad6cae747f6232acafe82d272d02fbe394669db8/burn_scar_reo11_small6811.geojson';
+    const url = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/ad6cae747f6232acafe82d272d02fbe394669db8/burn_scar_reo11_small6811.geojson';
     
     fetch(url)
         .then(res => res.json())
@@ -2679,7 +2680,7 @@ function loadBurnScarData() {
                     let popupContent = `
                         <div style="text-align:center; min-width:180px;">
                             <div style="background-color:#dc2626; color:white; padding:6px; border-radius:4px; margin-bottom:8px;">
-                                <b>🔥 พื้นที่เผาไหม้ซ้ำซาก (ม.ค. 69)</b>
+                                <b>🔥 พื้นที่เผาไหม้ซ้ำซาก (พ.ย. 68)</b>
                             </div>
                             <b>จังหวัด:</b> <span style="color:#b91c1c; font-weight:bold;">${pvName}</span><br>
                             <b>อำเภอ:</b> ${apName}<br>
@@ -2696,6 +2697,11 @@ function loadBurnScarData() {
         })
         .catch(err => console.error("ไม่สามารถโหลดไฟล์ Burn Scar ได้", err)); 
 }
+
+
+
+		
+
 
 // โหลดข้อมูลรอยไหม้ต่อจากข้อมูลอื่น
 setTimeout(() => {
