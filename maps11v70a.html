@@ -2648,11 +2648,19 @@ setTimeout(() => {
     fetchPigFarmsData()
 }, 7500)
 
-// 🟢 ฟังก์ชันโหลดข้อมูลรอยไหม้ซ้ำซาก 🟢
+// 🟢 ฟังก์ชันโหลดข้อมูลรอยไหม้ซ้ำซาก (แก้ไขแล้ว) 🟢
 function loadBurnScarData() {
-    const url = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/f2b83894be4075383706e61184d06431b8a2f716/burn_scar_reo11_small6811.geojson';
+    // เปลี่ยน URL ให้ดึงข้อมูลล่าสุดจาก branch 'main' เสมอ
+    const url = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/main/burn_scar_reo11_small6811.geojson';
+    
+    // แจ้งเตือนผู้ใช้ว่ากำลังโหลด
+    // showToast("กำลังดึงข้อมูลพื้นที่เผาไหม้ซ้ำซาก...", "info");
+
     fetch(url)
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) throw new Error("HTTP Status " + res.status);
+            return res.json();
+        })
         .then(data => {
             L.geoJSON(data, {
                 style: function(feature) {
@@ -2693,19 +2701,22 @@ function loadBurnScarData() {
                     layer.bindTooltip("พื้นที่เผาไหม้: " + tbName + " (" + areaSize + " ไร่)", { sticky: true });
                 }
             }).addTo(burnScarLayer);
+            
+            // showToast("โหลดข้อมูลรอยไหม้ซ้ำซากพร้อมใช้งาน", "success");
         })
-        .catch(err => console.error("ไม่สามารถโหลดไฟล์ Burn Scar ได้", err)); 
+        .catch(err => {
+            console.error("ไม่สามารถโหลดไฟล์ Burn Scar ได้", err);
+            // แจ้งเตือนหากไฟล์สูญหาย
+            showToast("ขัดข้อง: โหลดข้อมูลพื้นที่เผาไหม้ไม่ได้", "error");
+        }); 
 }
-
-
-
 		
 
 
 // โหลดข้อมูลรอยไหม้ต่อจากข้อมูลอื่น
 setTimeout(() => {
     loadBurnScarData();
-}, 8500);
+}, 1000);
 
 // สร้างมาตราส่วนแผนที่ (Scale Control) และเก็บค่าไว้ในตัวแปร
 const scaleControl = L.control.scale({
