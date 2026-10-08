@@ -11,5 +11,6 @@
 11. Click Console
 12. Cut the provincial data by typing and Enter:
    
-    ``` -filter "/Nakhon Ratchasima|Chaiyaphum|Buri Ram|Buriram|Surin/i.test(PV_EN)"
+    ```
+    -filter "/Nakhon Ratchasima|Chaiyaphum|Buri Ram|Buriram|Surin/i.test(PV_EN)"
     ```
