@@ -23,7 +23,11 @@
 ```
 -simplify dp 10%
 ```
-16. Save as geojson
+16. Ensure lat long
+    ```
+    -proj wgs84
+    ```
+18. Save as geojson
 ```
 -o burn_scar_reo11_small.geojson
 ```
