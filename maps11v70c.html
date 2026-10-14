@@ -2733,7 +2733,7 @@ function loadBurnScarData(monthId) {
                             areaSizeStr = areaSizeRaw.toLocaleString('th-TH', {maximumFractionDigits: 2});
                             
                             // สะสมยอดพื้นที่เผาไหม้ลงใน Object ตามชื่ออำเภอและจังหวัด
-                            let key = `อ.${apName} จ.${pvName}`;
+                            let key = `${apName} ${pvName}`;
                             if (!districtAreas[key]) {
                                 districtAreas[key] = 0;
                             }
