@@ -2726,7 +2726,13 @@ function loadBurnScarData(monthId) {
                         let apName = props.AP_TN || "ไม่ระบุอำเภอ";
                         let pvName = props.PV_TN || "ไม่ระบุจังหวัด";
                         let luName = props.LU_Name || "-";
-                        let areaSizeRaw = parseFloat(props.Area_rai) || 0;
+						let areaSizeRaw = parseFloat(props.Area_rai);
+
+// ถ้าไม่มีข้อมูล Area_rai ให้คำนวณพื้นที่เองจาก Polygon ด้วย Turf.js
+if (isNaN(areaSizeRaw) || areaSizeRaw === 0) {
+    let sqMeters = turf.area(feature); // คำนวณพื้นที่เป็นตารางเมตร
+    areaSizeRaw = sqMeters / 1600; // แปลงตารางเมตรเป็นไร่
+}     
                         let areaSizeStr = "-";
                         
                         if (areaSizeRaw > 0) {
