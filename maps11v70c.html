@@ -373,7 +373,6 @@
 </div>
 	
 	
-    
         </div>
         
           <div id="map-wrapper">
@@ -2732,7 +2731,7 @@ function loadBurnScarData(monthId) {
                         let apName = props.AP_TN || "ไม่ระบุอำเภอ";
                         let pvName = props.PV_TN || "ไม่ระบุจังหวัด";
                         let luName = props.LU_Name || "-";
-						let areaSizeRaw = parseFloat(props.Area_rai);
+                        let areaSizeRaw = parseFloat(props.Area_rai);
 
 // ถ้าไม่มีข้อมูล Area_rai ให้คำนวณพื้นที่เองจาก Polygon ด้วย Turf.js
 if (isNaN(areaSizeRaw) || areaSizeRaw === 0) {
@@ -2745,7 +2744,7 @@ if (isNaN(areaSizeRaw) || areaSizeRaw === 0) {
                             areaSizeStr = areaSizeRaw.toLocaleString('th-TH', {maximumFractionDigits: 2});
                             
                             // สะสมยอดพื้นที่เผาไหม้ลงใน Object ตามชื่ออำเภอและจังหวัด
-                            let key = `${apName} ${pvName}`;
+                            let key = `${apName} จ.${pvName}`;
                             if (!districtAreas[key]) {
                                 districtAreas[key] = 0;
                             }
@@ -2783,6 +2782,7 @@ if (isNaN(areaSizeRaw) || areaSizeRaw === 0) {
         }
     });
 }
+
 // ตัวแปรเก็บข้อความสำหรับคัดลอก
 let currentRankingText = "";
 
@@ -2828,6 +2828,36 @@ function renderBurnScarRanking(districtAreas) {
     });
 }
 
+// ฟังก์ชันจำลองการกด Ctrl+C เพื่อคัดลอกข้อความ รองรับเบราว์เซอร์เก่า
+function fallbackCopyTextToClipboard(text) {
+    var textArea = document.createElement("textarea");
+    textArea.value = text;
+    
+    // ตั้งค่าไม่ให้มองเห็นและไม่ให้เกิดผลกระทบกับตำแหน่งการเลื่อนหน้าจอ
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+        var successful = document.execCommand('copy');
+        if(successful){
+            showToast("คัดลอกข้อมูลลงคลิปบอร์ดสำเร็จ", "success");
+        } else {
+             showToast("ไม่สามารถคัดลอกข้อมูลได้ กรุณาลองใหม่", "error");
+        }
+    } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err);
+        showToast("เบราว์เซอร์ไม่รองรับการคัดลอกอัตโนมัติ", "error");
+    }
+
+    document.body.removeChild(textArea);
+}
+
+
 // ผูก Event ให้ปุ่มคัดลอกทำงาน
 document.getElementById('copyRankingBtn').addEventListener('click', function() {
     if (!currentRankingText) {
@@ -2835,12 +2865,18 @@ document.getElementById('copyRankingBtn').addEventListener('click', function() {
         return;
     }
     
-    navigator.clipboard.writeText(currentRankingText).then(() => {
-        showToast("คัดลอกข้อมูลลงคลิปบอร์ดสำเร็จ", "success");
-    }).catch(err => {
-        console.error('ไม่สามารถคัดลอกข้อความได้ ', err);
-        showToast("เบราว์เซอร์ไม่รองรับการคัดลอกอัตโนมัติ", "error");
-    });
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(currentRankingText).then(() => {
+            showToast("คัดลอกข้อมูลลงคลิปบอร์ดสำเร็จ", "success");
+        }).catch(err => {
+            console.error('ไม่สามารถคัดลอกข้อความได้ผ่าน clipboard API ', err);
+            // กรณี fail ให้ลอง fallback
+            fallbackCopyTextToClipboard(currentRankingText);
+        });
+    } else {
+       // ใช้ fallback method ถ้าไม่มี navigator.clipboard (เช่นไม่ได้ใช้ https)
+       fallbackCopyTextToClipboard(currentRankingText);
+    }
 });
 
 // ผูก Event สำหรับเปิดปิดกล่องอันดับ
