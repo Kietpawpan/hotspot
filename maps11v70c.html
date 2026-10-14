@@ -360,8 +360,13 @@
         <option value="6903">มี.ค. 2569</option>
         <option value="6904">เม.ย. 2569</option>
         <option value="6905">พ.ค. 2569</option>
-		-->
     </select>
+    <button id="toggleRankingBtn" style="padding: 8px 12px; background-color: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; margin-left: 10px;">📊 ดูอันดับรายอำเภอ</button>
+    
+    <div id="burnScarRankingContainer" style="display: none; width: 100%; margin-top: 15px; background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #fca5a5; max-height: 300px; overflow-y: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
+        <h4 style="margin: 0 0 10px 0; color: #b91c1c;">📊 อันดับอำเภอที่มีพื้นที่เผาไหม้สะสมสูงสุด</h4>
+        <ul id="burnScarRankingList" style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8;"></ul>
+    </div>
 </div>
         </div>
         
@@ -369,7 +374,7 @@
 
 	<div id="loadingOverlay">
                 <div class="maps-logo-text">MAPS 11</div>
- 		<div class="maps-sub-text">Management of Air Pollution Sector 11</div>
+		<div class="maps-sub-text">Management of Air Pollution Sector 11</div>
                 <div class="cyber-spinner"></div>
                 <div class="loading-status" id="loadingStatusText">INITIATING SATELLITE CONNECTION...</div>
             </div>
@@ -2549,7 +2554,7 @@ function loadSubBasinData() {
                 onEachFeature: function(feature, layer) {
                     // 🟢 ปรับแก้บรรทัดนี้: เพิ่มการตรวจสอบ (Safeguard) 🟢
                     let props = feature.properties || {}; // ถ้าไม่มี properties ให้มองเป็นออบเจ็กต์ว่าง ป้องกัน Error
-                                 
+                                  
                     // 🟢 เพิ่มบรรทัดนี้เพื่อแอบดูว่าในไฟล์มีชื่อคอลัมน์อะไรบ้าง 🟢
                     console.log("ข้อมูล Properties ของลุ่มน้ำ:", props); 
                     
@@ -2663,23 +2668,17 @@ setTimeout(() => {
     fetchPigFarmsData()
 }, 7500)
 
-// ฟังก์ชันโหลดข้อมูลรอยไหม้ซ้ำซากแบบไดนามิก (รองรับการโหลดหลายไฟล์พร้อมกัน)
+// ฟังก์ชันโหลดข้อมูลรอยไหม้ซ้ำซากแบบไดนามิก (อัปเดตใหม่ เพิ่มการจัดอันดับ)
 function loadBurnScarData(monthId) {
-    // ล้างข้อมูลเลเยอร์เดิมออกก่อน
     burnScarLayer.clearLayers();
     
-    // ดึงชื่อเดือนมาแสดงใน Popup
     const selectEl = document.getElementById('burnScarMonthSelect');
     const monthText = selectEl.options[selectEl.selectedIndex].text;
-
-    // กำหนดรายการไฟล์ที่จะโหลด
-    let fileUrls = [];
     
-    // กำหนดพาธพื้นฐานให้อยู่ในโฟลเดอร์เดียวกันกับ UI
+    let fileUrls = [];
     const baseUrl = ''; 
 
     if (monthId === "6904") {
-        // กรณีเดือน เม.ย. 2569 โหลด 4 ไฟล์พร้อมกัน
         fileUrls = [
             baseUrl + "burn_scar_reo11_small6904.geojson",
             baseUrl + "burn_scar_reo11_small6904Chaiyaphum.geojson",
@@ -2687,13 +2686,11 @@ function loadBurnScarData(monthId) {
             baseUrl + "burn_scar_reo11_small6904Surin.geojson"
         ];
     } else {
-        // กรณีเดือนอื่นๆ โหลดไฟล์เดียวตามปกติ
         fileUrls = [
             baseUrl + "burn_scar_reo11_small" + monthId + ".geojson"
         ];
     }
 
-    // ใช้ Promise.all เพื่อดาวน์โหลดไฟล์ทั้งหมดพร้อมกัน
     Promise.all(
         fileUrls.map(url => 
             fetch(url)
@@ -2703,12 +2700,13 @@ function loadBurnScarData(monthId) {
             })
             .catch(err => {
                 console.error("ไม่สามารถโหลดไฟล์ " + url, err);
-                return null; // คืนค่า null กรณีไฟล์บางตัวมีปัญหา เพื่อให้ไฟล์ที่เหลือยังแสดงผลได้
+                return null; 
             })
         )
     )
     .then(results => {
         let loadedCount = 0;
+        let districtAreas = {}; // ตัวแปรสำหรับเก็บยอดรวมพื้นที่แยกตามอำเภอ
         
         results.forEach(data => {
             if (data) {
@@ -2728,10 +2726,18 @@ function loadBurnScarData(monthId) {
                         let apName = props.AP_TN || "ไม่ระบุอำเภอ";
                         let pvName = props.PV_TN || "ไม่ระบุจังหวัด";
                         let luName = props.LU_Name || "-";
-                        let areaSize = props.Area_rai || "-";
+                        let areaSizeRaw = parseFloat(props.Area_rai) || 0;
+                        let areaSizeStr = "-";
                         
-                        if (!isNaN(areaSize) && areaSize !== "-") {
-                            areaSize = Number(areaSize).toLocaleString('th-TH', {maximumFractionDigits: 2});
+                        if (areaSizeRaw > 0) {
+                            areaSizeStr = areaSizeRaw.toLocaleString('th-TH', {maximumFractionDigits: 2});
+                            
+                            // สะสมยอดพื้นที่เผาไหม้ลงใน Object ตามชื่ออำเภอและจังหวัด
+                            let key = `อ.${apName} จ.${pvName}`;
+                            if (!districtAreas[key]) {
+                                districtAreas[key] = 0;
+                            }
+                            districtAreas[key] += areaSizeRaw;
                         }
 
                         let popupContent = `
@@ -2743,17 +2749,20 @@ function loadBurnScarData(monthId) {
                                 <b>อำเภอ:</b> ${apName}<br>
                                 <b>ตำบล:</b> ${tbName}<br>
                                 <b>ประเภทพื้นที่:</b> ${luName}<br>
-                                <b>ขนาดพื้นที่:</b> ${areaSize} ไร่<br>
+                                <b>ขนาดพื้นที่:</b> ${areaSizeStr} ไร่<br>
                                 <b>ข้อมูลอ้างอิง:</b> GISTDA
                             </div>`;
                         
                         layer.bindPopup(popupContent);
-                        layer.bindTooltip("พื้นที่เผาไหม้: " + tbName + " (" + areaSize + " ไร่)", { sticky: true });
+                        layer.bindTooltip("พื้นที่เผาไหม้: " + tbName + " (" + areaSizeStr + " ไร่)", { sticky: true });
                     }
                 }).addTo(burnScarLayer);
                 loadedCount++;
             }
         });
+
+        // นำข้อมูลที่รวมเสร็จแล้วไปจัดอันดับและแสดงผล
+        renderBurnScarRanking(districtAreas);
 
         if (loadedCount > 0) {
             showToast(`โหลดข้อมูลพื้นที่เผาไหม้ ${monthText} สำเร็จ`, "success");
@@ -2763,7 +2772,41 @@ function loadBurnScarData(monthId) {
     });
 }
 
+// ฟังก์ชันสำหรับจัดเรียงและสร้างรายการอันดับลงในหน้าจอ
+function renderBurnScarRanking(districtAreas) {
+    const listEl = document.getElementById('burnScarRankingList');
+    if (!listEl) return;
+    
+    listEl.innerHTML = '';
+    
+    // แปลงข้อมูลเป็น Array และจัดเรียงจากมากไปหาน้อย
+    let sortedDistricts = Object.keys(districtAreas).map(key => {
+        return { name: key, area: districtAreas[key] };
+    }).sort((a, b) => b.area - a.area);
+    
+    if (sortedDistricts.length === 0) {
+        listEl.innerHTML = '<li style="color: #64748b; list-style: none;">ไม่พบข้อมูลพื้นที่เผาไหม้ในเดือนนี้</li>';
+        return;
+    }
+    
+    // สร้างรายการ (List) แสดงผลบนจอ
+    sortedDistricts.forEach((item, index) => {
+        let li = document.createElement('li');
+        li.style.marginBottom = '5px';
+        li.innerHTML = `<b>อันดับ ${index + 1}.</b> ${item.name} มีพื้นที่เผาไหม้ <span style="color: #dc2626; font-weight: bold;">${item.area.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span> ไร่`;
+        listEl.appendChild(li);
+    });
+}
 
+// ผูก Event สำหรับเปิดปิดกล่องอันดับ
+document.getElementById('toggleRankingBtn').addEventListener('click', function() {
+    const container = document.getElementById('burnScarRankingContainer');
+    if (container.style.display === 'none') {
+        container.style.display = 'block';
+    } else {
+        container.style.display = 'none';
+    }
+});
 
 // ผูก Event ให้โหลดข้อมูลใหม่เมื่อเปลี่ยนเดือนใน Dropdown
 document.getElementById('burnScarMonthSelect').addEventListener('change', function() {
