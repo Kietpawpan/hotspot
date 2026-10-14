@@ -362,12 +362,18 @@
         <option value="6905">พ.ค. 2569</option>
     </select>
     <button id="toggleRankingBtn" style="padding: 8px 12px; background-color: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; margin-left: 10px;">📊 ดูอันดับรายอำเภอ</button>
-    
-    <div id="burnScarRankingContainer" style="display: none; width: 100%; margin-top: 15px; background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #fca5a5; max-height: 300px; overflow-y: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
-        <h4 style="margin: 0 0 10px 0; color: #b91c1c;">📊 อันดับอำเภอที่มีพื้นที่เผาไหม้สะสมสูงสุด</h4>
-        <ul id="burnScarRankingList" style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8;"></ul>
+
+
+<div id="burnScarRankingContainer" style="display: none; width: 100%; margin-top: 15px; background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #fca5a5; max-height: 300px; overflow-y: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h4 style="margin: 0; color: #b91c1c;">📊 อันดับอำเภอที่มีพื้นที่เผาไหม้สะสมสูงสุด</h4>
+        <button id="copyRankingBtn" style="padding: 6px 12px; background-color: #4b5563; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold;">📋 คัดลอกข้อมูล</button>
     </div>
+    <ul id="burnScarRankingList" style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8;"></ul>
 </div>
+	
+	
+    
         </div>
         
           <div id="map-wrapper">
@@ -2777,13 +2783,20 @@ if (isNaN(areaSizeRaw) || areaSizeRaw === 0) {
         }
     });
 }
+// ตัวแปรเก็บข้อความสำหรับคัดลอก
+let currentRankingText = "";
 
-// ฟังก์ชันสำหรับจัดเรียงและสร้างรายการอันดับลงในหน้าจอ
+// ฟังก์ชันสำหรับจัดเรียงและสร้างรายการอันดับลงในหน้าจอ (อัปเดตเพิ่มการจัดฟอร์แมตข้อความ)
 function renderBurnScarRanking(districtAreas) {
     const listEl = document.getElementById('burnScarRankingList');
     if (!listEl) return;
     
     listEl.innerHTML = '';
+    currentRankingText = "";
+    
+    // ดึงชื่อเดือนที่กำลังเลือกอยู่
+    const selectEl = document.getElementById('burnScarMonthSelect');
+    const monthText = selectEl.options[selectEl.selectedIndex].text;
     
     // แปลงข้อมูลเป็น Array และจัดเรียงจากมากไปหาน้อย
     let sortedDistricts = Object.keys(districtAreas).map(key => {
@@ -2792,17 +2805,43 @@ function renderBurnScarRanking(districtAreas) {
     
     if (sortedDistricts.length === 0) {
         listEl.innerHTML = '<li style="color: #64748b; list-style: none;">ไม่พบข้อมูลพื้นที่เผาไหม้ในเดือนนี้</li>';
+        currentRankingText = `ไม่พบข้อมูลพื้นที่เผาไหม้ในเดือน ${monthText}`;
         return;
     }
     
-    // สร้างรายการ (List) แสดงผลบนจอ
+    // เตรียมข้อความส่วนหัวสำหรับคลิปบอร์ด
+    currentRankingText = `รายงานอันดับพื้นที่เผาไหม้ซ้ำซาก (${monthText})\n`;
+    currentRankingText += `===================================\n`;
+    
+    // สร้างรายการ (List) แสดงผลบนจอและต่อข้อความเตรียมคัดลอก
     sortedDistricts.forEach((item, index) => {
+        let areaFormatted = item.area.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        
+        // สำหรับแสดงบนหน้าเว็บ
         let li = document.createElement('li');
         li.style.marginBottom = '5px';
-        li.innerHTML = `<b>อันดับ ${index + 1}.</b> ${item.name} มีพื้นที่เผาไหม้ <span style="color: #dc2626; font-weight: bold;">${item.area.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span> ไร่`;
+        li.innerHTML = `<b>อันดับ ${index + 1}.</b> ${item.name} มีพื้นที่เผาไหม้ <span style="color: #dc2626; font-weight: bold;">${areaFormatted}</span> ไร่`;
         listEl.appendChild(li);
+        
+        // สำหรับคลิปบอร์ด
+        currentRankingText += `${index + 1}. ${item.name} : ${areaFormatted} ไร่\n`;
     });
 }
+
+// ผูก Event ให้ปุ่มคัดลอกทำงาน
+document.getElementById('copyRankingBtn').addEventListener('click', function() {
+    if (!currentRankingText) {
+        showToast("ไม่มีข้อมูลให้คัดลอก", "warning");
+        return;
+    }
+    
+    navigator.clipboard.writeText(currentRankingText).then(() => {
+        showToast("คัดลอกข้อมูลลงคลิปบอร์ดสำเร็จ", "success");
+    }).catch(err => {
+        console.error('ไม่สามารถคัดลอกข้อความได้ ', err);
+        showToast("เบราว์เซอร์ไม่รองรับการคัดลอกอัตโนมัติ", "error");
+    });
+});
 
 // ผูก Event สำหรับเปิดปิดกล่องอันดับ
 document.getElementById('toggleRankingBtn').addEventListener('click', function() {
