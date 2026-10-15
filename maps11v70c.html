@@ -1385,7 +1385,11 @@ let targetFeatures = globalCoreFeatures.filter(feature => {
                 else if (confStr === 'n' || confStr === 'nominal') confDisplay = "ปานกลาง";
                 else if (confStr === 'l' || confStr === 'low') confDisplay = "ต่ำ";
 
-                let satDisplay = props.satellite === 'N' ? "Suomi-NPP" : (props.satellite === '1' ? "NOAA-20" : props.satellite);
+				let satDisplay = satellite;
+if (satellite === 'N') satDisplay = "Suomi-NPP";
+else if (satellite === '1') satDisplay = "NOAA-20";
+else if (satellite === '21') satDisplay = "NOAA-21";
+                
                 let lat = props.latitude;
                 let lon = props.longitude;
          	    let googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
