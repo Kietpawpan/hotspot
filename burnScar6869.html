@@ -175,18 +175,18 @@
 
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
-            attribution: '© OpenStreetMap'
+            attribution: '© OpenStreetMap | EPO11'
         });
 
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 18,
-            attribution: '© Esri'
+            attribution: '© Esri | EPO11'
         });
 
         const googleHybridLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
             maxZoom: 20,
             subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: '© Google Maps'
+            attribution: '© Google Maps | EPO11'
         });
 
         osmLayer.addTo(map);
