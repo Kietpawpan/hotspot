@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAPS 11 - Burn Scar Mapping</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#dc2626">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+
+    <style>
+        body { font-family: sans-serif; background-color: #f3f4f6; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #b91c1c; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 20px; }
+        .control-panel { background: #fef2f2; padding: 15px; border-radius: 8px; border: 1px solid #fca5a5; margin-bottom: 15px; }
+        
+        #map-wrapper { position: relative; }
+        #map { height: 600px; width: 100%; border-radius: 8px; z-index: 10; }
+
+        .legend-wrapper {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            width: 280px;
+        }
+        .legend-header {
+            background: #b91c1c;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+        .legend-header.open { border-radius: 8px 8px 0 0; }
+        .legend-box {
+            padding: 10px 15px;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 450px;
+            overflow-y: auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .legend-title { font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 10px; }
+        .legend-title:first-child { margin-top: 0; }
+
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            min-width: 280px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            opacity: 0;
+            transform: translateX(100%);
+            animation: slideIn 0.3s forwards;
+        }
+        .toast.success { background-color: #16a34a; }
+        .toast.error { background-color: #dc2626; }
+        .toast.warning { background-color: #f59e0b; color: white; }
+        .toast.info { background-color: #2563eb; }
+
+        @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeOut { to { opacity: 0; transform: translateX(100%); } }
+
+        @media (max-width: 600px) {
+            .legend-box { width: 160px; font-size: 12px; }
+            #map { height: 450px; }
+        }
+
+        .leaflet-control-scale-line {
+            border: 2px solid #b91c1c !important;
+            border-top: none !important;
+            background: rgba(255, 255, 255, 0.85) !important;
+            color: #1e293b !important;
+            font-weight: bold !important;
+            font-size: 13px !important;
+            padding: 4px 8px !important;
+            border-radius: 0 0 4px 4px !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+        }
+        .scale-hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+    <div class="container">
+
+        <h2>MAPS 11 - Burn Scars</h2>
+        <div class="subtitle">ระบบแผนที่พื้นที่เผาไหม้ซ้ำซาก สคพ. 11 (นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์)</div>
+          
+        <div class="control-panel">
+            <div id="burnScarSelectorContainer" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <label style="font-size: 16px; font-weight: bold; color: #dc2626;">🔥 เลือกเดือนพื้นที่เผาไหม้:</label>
+                <select id="burnScarMonthSelect" style="padding: 8px 12px; border: 1px solid #fca5a5; border-radius: 6px; font-size: 15px; background-color: #fff; color: #991b1b; cursor: pointer;">
+                    <option value="6811">พ.ย. 2568</option>
+                    <option value="6812">ธ.ค. 2568</option>
+                    <option value="6901">ม.ค. 2569</option>
+                    <option value="6902">ก.พ. 2569</option>
+                    <option value="6903">มี.ค. 2569</option>
+                    <option value="6904">เม.ย. 2569</option>
+                    <option value="6905">พ.ค. 2569</option>
+                </select>
+                <button id="toggleRankingBtn" style="padding: 8px 12px; background-color: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; margin-left: 10px;">📊 ดูอันดับรายอำเภอ</button>
+
+                <div id="burnScarRankingContainer" style="display: none; width: 100%; margin-top: 15px; background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #fca5a5; max-height: 300px; overflow-y: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="margin: 0; color: #b91c1c;">📊 อันดับอำเภอที่มีพื้นที่เผาไหม้สะสมสูงสุด</h4>
+                        <button id="copyRankingBtn" style="padding: 6px 12px; background-color: #4b5563; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold;">📋 คัดลอกข้อมูล</button>
+                    </div>
+                    <ul id="burnScarRankingList" style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8;"></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div id="map-wrapper">
+            <div id="map"></div>
+        </div>
+
+    </div> 
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // ฟังก์ชันแสดง Toast แจ้งเตือน
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            let icon = 'ℹ️';
+            if (type === 'success') icon = '✅';
+            if (type === 'error') icon = '❌';
+            if (type === 'warning') icon = '⚠️';
+
+            toast.innerHTML = `<span style="margin-right:8px; font-size:16px;">${icon}</span> ${message}`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s forwards';
+                setTimeout(() => { toast.remove(); }, 300);
+            }, 3000);
+        }
+
+        const map = L.map('map', {
+            zoomSnap: 0.25,
+            zoomDelta: 0.5,
+            wheelPxPerZoomLevel: 120
+        }).setView([15.2, 102.5], 8);
+
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap'
+        });
+
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: '© Esri'
+        });
+
+        const googleHybridLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '© Google Maps'
+        });
+
+        osmLayer.addTo(map);
+
+        const baseMaps = {
+            "แผนที่ถนน (OSM)": osmLayer,
+            "ภาพถ่ายดาวเทียม (Esri)": satelliteLayer,
+            "ภาพถ่ายดาวเทียม (Google)": googleHybridLayer
+        };
+
+        const burnScarLayer = L.layerGroup();
+        const boundaryLayer = L.layerGroup().addTo(map);
+
+        const overlayMaps = {
+            "🔥 พื้นที่เผาไหม้ซ้ำซาก (GISTDA)": burnScarLayer
+        };
+
+        const layerControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
+        burnScarLayer.addTo(map);
+
+        let activeLayers = new Set(["🔥 พื้นที่เผาไหม้ซ้ำซาก (GISTDA)"]);
+
+        // Legend Control
+        const dynamicLegendControl = L.control({position: 'bottomleft'});
+        dynamicLegendControl.onAdd = function (map) {
+            const wrapper = L.DomUtil.create('div', 'legend-wrapper');
+            L.DomEvent.disableClickPropagation(wrapper);
+            L.DomEvent.disableScrollPropagation(wrapper);
+
+            const header = L.DomUtil.create('div', 'legend-header open', wrapper);
+            header.innerHTML = '<span>📋 คำอธิบายสัญลักษณ์</span><span id="legend-toggle-icon">▼</span>';
+            
+            const content = L.DomUtil.create('div', 'legend-box', wrapper);
+            content.id = 'dynamic-legend';
+
+            header.onclick = function() {
+                if (content.style.display === 'none') {
+                    content.style.display = 'block';
+                    header.className = 'legend-header open';
+                    document.getElementById('legend-toggle-icon').innerText = '▼';
+                } else {
+                    content.style.display = 'none';
+                    header.className = 'legend-header';
+                    document.getElementById('legend-toggle-icon').innerText = '▲';
+                }
+            };
+            return wrapper;
+        };
+        dynamicLegendControl.addTo(map);
+
+        function updateDynamicLegend() {
+            const legendDiv = document.getElementById('dynamic-legend');
+            if (!legendDiv) return;
+
+            let html = '';
+            if (activeLayers.has("🔥 พื้นที่เผาไหม้ซ้ำซาก (GISTDA)")) {
+                html += '<div class="legend-title">🔥 พื้นที่เผาไหม้ซ้ำซาก (GISTDA)</div>';
+                html += '<div><span style="display:inline-block; width:15px; height:15px; background:rgba(220, 38, 38, 0.3); border:1px solid #dc2626; margin-right:5px; vertical-align:middle;"></span> พื้นที่เสี่ยงเผาซ้ำซาก</div>';
+            } else {
+                html += '<div style="color:#64748b; text-align:center;">ไม่ได้เลือกข้อมูลแสดงผล</div>';
+            }
+            legendDiv.innerHTML = html;
+        }
+
+        map.on('overlayadd', function(e) {
+            activeLayers.add(e.name);
+            updateDynamicLegend();
+        });
+
+        map.on('overlayremove', function(e) {
+            activeLayers.delete(e.name);
+            updateDynamicLegend();
+        });
+        
+        updateDynamicLegend();
+
+        // โหลดขอบเขตพื้นที่ 4 จังหวัด
+        const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres-Overpass24Percent.json';
+        const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
+        
+        fetch(geojsonBoundariesUrl)
+            .then(res => res.json())
+            .then(data => {
+                const boundaryGeoJSON = {
+                    type: "FeatureCollection",
+                    features: data.features.filter(f => {
+                        const propStr = JSON.stringify(f.properties);
+                        return targetKeywords.some(keyword => propStr.includes(keyword));
+                    })
+                };
+
+                const bLayer = L.geoJSON(boundaryGeoJSON, {
+                    style: {
+                        color: "#4a148c", 
+                        weight: 3,        
+                        opacity: 1,        
+                        fillOpacity: 0.05
+                    }
+                }).addTo(boundaryLayer);
+
+                if (boundaryGeoJSON.features.length > 0) {
+                    map.fitBounds(bLayer.getBounds());
+                }
+            })
+            .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้', err));
+
+        // ตัวแปรและฟังก์ชันระบบพื้นที่เผาไหม้ซ้ำซาก
+        let districtAreas = {}; 
+        let currentRankingText = "";
+
+        function loadBurnScarData(monthId) {
+            burnScarLayer.clearLayers();
+            
+            const selectEl = document.getElementById('burnScarMonthSelect');
+            const monthText = selectEl.options[selectEl.selectedIndex].text;
+            
+            let fileUrls = [];
+            const baseUrl = ''; // หากไฟล์อยู่คนละ Host ให้ใส่ URL เต็มที่นี่
+
+            // ใช้เงื่อนไขเดิมของคุณ
+            if (monthId === "6904") {
+                fileUrls = [
+                    baseUrl + "burn_scar_reo11_small6904.geojson",
+                    baseUrl + "burn_scar_reo11_small6904Chaiyaphum.geojson",
+                    baseUrl + "burn_scar_reo11_small6904Buriram.geojson",
+                    baseUrl + "burn_scar_reo11_small6904Surin.geojson"
+                ];
+            } else {
+                fileUrls = [
+                    baseUrl + "burn_scar_reo11_small" + monthId + ".geojson"
+                ];
+            }
+
+            Promise.all(
+                fileUrls.map(url => 
+                    fetch(url)
+                    .then(res => {
+                        if (!res.ok) throw new Error("HTTP Status " + res.status + " for " + url);
+                        return res.json();
+                    })
+                    .catch(err => {
+                        console.warn("ไม่สามารถโหลดไฟล์ " + url, err);
+                        return null; 
+                    })
+                )
+            )
+            .then(results => {
+                let loadedCount = 0;
+                districtAreas = {}; 
+                
+                results.forEach(data => {
+                    if (data) {
+                        L.geoJSON(data, {
+                            style: function(feature) {
+                                return {
+                                    color: "#dc2626",
+                                    weight: 1.5,
+                                    fillColor: "#ef4444",
+                                    fillOpacity: 0.3,
+                                    dashArray: '4'
+                                };
+                            },
+                            onEachFeature: function(feature, layer) {
+                                let props = feature.properties || {};
+                                let tbName = props.TB_TN || "ไม่ระบุตำบล";
+                                let apName = props.AP_TN || "ไม่ระบุอำเภอ";
+                                let pvName = props.PV_TN || "ไม่ระบุจังหวัด";
+                                let luName = props.LU_Name || "-";
+                                let areaSizeRaw = parseFloat(props.Area_rai);
+
+                                if (isNaN(areaSizeRaw) || areaSizeRaw === 0) {
+                                    let sqMeters = turf.area(feature); 
+                                    areaSizeRaw = sqMeters / 1600; 
+                                }    
+                                
+                                let areaSizeStr = "-";
+                                
+                                if (areaSizeRaw > 0) {
+                                    areaSizeStr = areaSizeRaw.toLocaleString('th-TH', {maximumFractionDigits: 2});
+                                    
+                                    let key = `${apName} จ.${pvName}`;
+                                    if (!districtAreas[key]) {
+                                        districtAreas[key] = 0;
+                                    }
+                                    districtAreas[key] += areaSizeRaw;
+                                }
+
+                                let popupContent = `
+                                    <div style="text-align:center; min-width:180px;">
+                                        <div style="background-color:#dc2626; color:white; padding:6px; border-radius:4px; margin-bottom:8px;">
+                                            <b>🔥 พื้นที่เผาไหม้ซ้ำซาก (${monthText})</b>
+                                        </div>
+                                        <b>จังหวัด:</b> <span style="color:#b91c1c; font-weight:bold;">${pvName}</span><br>
+                                        <b>อำเภอ:</b> ${apName}<br>
+                                        <b>ตำบล:</b> ${tbName}<br>
+                                        <b>ประเภทพื้นที่:</b> ${luName}<br>
+                                        <b>ขนาดพื้นที่:</b> ${areaSizeStr} ไร่<br>
+                                        <b>ข้อมูลอ้างอิง:</b> GISTDA
+                                    </div>`;
+                                
+                                layer.bindPopup(popupContent);
+                                layer.bindTooltip("พื้นที่เผาไหม้: " + tbName + " (" + areaSizeStr + " ไร่)", { sticky: true });
+                            }
+                        }).addTo(burnScarLayer);
+                        loadedCount++;
+                    }
+                });
+
+                renderBurnScarRanking(districtAreas);
+
+                if (loadedCount > 0) {
+                    showToast(`โหลดข้อมูลพื้นที่เผาไหม้ ${monthText} สำเร็จ`, "success");
+                } else {
+                    showToast(`ไม่พบข้อมูลพื้นที่เผาไหม้ของ ${monthText} ในระบบ`, "warning");
+                }
+            });
+        }
+
+        function renderBurnScarRanking(districtAreas) {
+            const listEl = document.getElementById('burnScarRankingList');
+            if (!listEl) return;
+            
+            listEl.innerHTML = '';
+            currentRankingText = "";
+            
+            const selectEl = document.getElementById('burnScarMonthSelect');
+            const monthText = selectEl.options[selectEl.selectedIndex].text;
+            
+            let sortedDistricts = Object.keys(districtAreas).map(key => {
+                return { name: key, area: districtAreas[key] };
+            }).sort((a, b) => b.area - a.area);
+            
+            if (sortedDistricts.length === 0) {
+                listEl.innerHTML = '<li style="color: #64748b; list-style: none;">ไม่พบข้อมูลพื้นที่เผาไหม้ในเดือนนี้</li>';
+                currentRankingText = `ไม่พบข้อมูลพื้นที่เผาไหม้ในเดือน ${monthText}`;
+                return;
+            }
+            
+            currentRankingText = `รายงานอันดับพื้นที่เผาไหม้ซ้ำซาก (${monthText})\n`;
+            currentRankingText += `===================================\n`;
+            
+            sortedDistricts.forEach((item, index) => {
+                let areaFormatted = item.area.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                
+                let li = document.createElement('li');
+                li.style.marginBottom = '5px';
+                li.innerHTML = `<b>อันดับ ${index + 1}.</b> ${item.name} มีพื้นที่เผาไหม้ <span style="color: #dc2626; font-weight: bold;">${areaFormatted}</span> ไร่`;
+                listEl.appendChild(li);
+                
+                currentRankingText += `${index + 1}. ${item.name} : ${areaFormatted} ไร่\n`;
+            });
+        }
+
+        function fallbackCopyTextToClipboard(text) {
+            var textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                var successful = document.execCommand('copy');
+                if(successful){
+                    showToast("คัดลอกข้อมูลลงคลิปบอร์ดสำเร็จ", "success");
+                } else {
+                     showToast("ไม่สามารถคัดลอกข้อมูลได้ กรุณาลองใหม่", "error");
+                }
+            } catch (err) {
+                console.error('Fallback error:', err);
+                showToast("เบราว์เซอร์ไม่รองรับการคัดลอกอัตโนมัติ", "error");
+            }
+            document.body.removeChild(textArea);
+        }
+
+        document.getElementById('copyRankingBtn').addEventListener('click', function() {
+            if (!currentRankingText) {
+                showToast("ไม่มีข้อมูลให้คัดลอก", "warning");
+                return;
+            }
+            
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(currentRankingText).then(() => {
+                    showToast("คัดลอกข้อมูลลงคลิปบอร์ดสำเร็จ", "success");
+                }).catch(err => {
+                    fallbackCopyTextToClipboard(currentRankingText);
+                });
+            } else {
+               fallbackCopyTextToClipboard(currentRankingText);
+            }
+        });
+
+        document.getElementById('toggleRankingBtn').addEventListener('click', function() {
+            const container = document.getElementById('burnScarRankingContainer');
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+            } else {
+                container.style.display = 'none';
+            }
+        });
+
+        document.getElementById('burnScarMonthSelect').addEventListener('change', function() {
+            loadBurnScarData(this.value);
+        });
+
+        setTimeout(() => {
+            const initialMonth = document.getElementById('burnScarMonthSelect').value;
+            loadBurnScarData(initialMonth);
+        }, 500);
+
+        const scaleControl = L.control.scale({
+            position: 'bottomright',
+            metric: true,
+            imperial: false,
+            maxWidth: 200
+        }).addTo(map);
+
+        const scaleContainer = scaleControl.getContainer();
+        L.DomEvent.disableClickPropagation(scaleContainer);
+
+        scaleContainer.addEventListener('click', function(e) {
+            e.stopPropagation();
+            this.classList.add('scale-hidden');
+            showToast("ซ่อนมาตราส่วนแล้ว (ซูมแผนที่เพื่อแสดงอีกครั้ง)", "info");
+        });
+
+        map.on('zoomend', function() {
+            if (scaleContainer.classList.contains('scale-hidden')) {
+                scaleContainer.classList.remove('scale-hidden');
+            }
+        });
+    </script>
+</body>
+</html>
