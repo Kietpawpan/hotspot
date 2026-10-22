@@ -84,6 +84,23 @@
             z-index: 1000;
             cursor: default; 
         }
+
+        /* Styles for Standard Values Popup on Map */
+        #std-popup {
+            position: absolute;
+            top: 80px; /* ขยับหลบปุ่มเลือก Layer มุมขวาบน */
+            right: 15px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+            border-left: 4px solid #0284c7;
+            display: none;
+            min-width: 200px;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+        }
     </style>
 </head>
 <body>
@@ -96,13 +113,11 @@
         <div class="control-panel">
             <div id="incidentContainer" style="display: flex; flex-direction: column; gap: 12px; background-color: #fff1f2; padding: 15px; border-radius: 8px; border: 1px solid #fda4af;">
                 
-
-<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #fda4af;">
-    <label style="font-size: 14px; font-weight: bold; color: #0284c7;">🔍 ค้นหาสถานที่:</label>
-    <input type="text" id="searchPlaceInput" placeholder="พิมพ์ชื่อสถานที่ หรือวางลิงก์แผนที่..." style="padding: 8px; border: 1px solid #7dd3fc; border-radius: 6px; flex: 1; min-width: 150px;">
-    <button id="searchPlaceBtn" style="padding: 8px 15px; background-color: #0284c7; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(2, 132, 199, 0.3);">ค้นหาพิกัด</button>
-</div>
-
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #fda4af;">
+                    <label style="font-size: 14px; font-weight: bold; color: #0284c7;">🔍 ค้นหาสถานที่:</label>
+                    <input type="text" id="searchPlaceInput" placeholder="พิมพ์ชื่อสถานที่ หรือวางลิงก์แผนที่..." style="padding: 8px; border: 1px solid #7dd3fc; border-radius: 6px; flex: 1; min-width: 150px;">
+                    <button id="searchPlaceBtn" style="padding: 8px 15px; background-color: #0284c7; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(2, 132, 199, 0.3);">ค้นหาพิกัด</button>
+                </div>
 
                 <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <label style="font-size: 16px; font-weight: bold; color: #be123c;">🚨 จุดเกิดเหตุด่วน:</label>
@@ -139,41 +154,55 @@
                 </div>
 
                 <div style="width: 100%; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
-                    <label style="font-size: 14px; font-weight: bold; color: #be123c;">☣️ สารอันตรายที่เฝ้าระวัง:</label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="VOCs" onchange="updateMeasurementTable()"> VOCs</label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="CO" onchange="updateMeasurementTable()"> CO</label>
+                    <label style="font-size: 14px; font-weight: bold; color: #be123c; width: 100%;">☣️ สารอันตรายตามประกาศคุณภาพอากาศ:</label>
                     <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="SO<sub>2</sub>" onchange="updateMeasurementTable()"> SO<sub>2</sub></label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="NO<sub>2</sub>" onchange="updateMeasurementTable()"> NO<sub>2</sub></label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="CO" onchange="updateMeasurementTable()"> CO</label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="O<sub>3</sub>" onchange="updateMeasurementTable()"> O<sub>3</sub></label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="TSP" onchange="updateMeasurementTable()"> TSP</label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="PM<sub>10</sub>" onchange="updateMeasurementTable()"> PM<sub>10</sub></label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" id="pm25Checkbox" name="hazard" value="PM<sub>2.5</sub>" onchange="handlePM25Toggle(this)"> PM<sub>2.5</sub></label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="Pb" onchange="updateMeasurementTable()"> Pb</label>
+                </div>
+                
+                <div style="width: 100%; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 5px;">
+                    <label style="font-size: 14px; font-weight: bold; color: #be123c;">สารเคมีอื่นๆ (ฉุกเฉิน):</label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="VOCs" onchange="updateMeasurementTable()"> VOCs</label>
                     <label style="font-size: 13px; cursor: pointer;"><input type="checkbox" name="hazard" value="Cl<sub>2</sub>" onchange="updateMeasurementTable()"> Cl<sub>2</sub></label>
-
-
-<label style="font-size: 13px; cursor: pointer;"><input type="checkbox" id="pm25Checkbox" name="hazard" value="PM<sub>2.5</sub>" onchange="handlePM25Toggle(this)"> PM<sub>2.5</sub></label>
-
-              </label>
-
                     <div style="display: flex; align-items: center; gap: 5px;">
                         <input type="text" id="customHazardName" placeholder="ระบุสารอื่นๆ..." style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; width: 110px;">
                         <button type="button" onclick="addCustomHazard()" style="padding: 4px 8px; background: #be123c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">+ เพิ่มสาร</button>
                     </div>
+                </div>
 
-                    <div id="measurementContainer" style="width: 100%; display: none; margin-top: 5px; padding-top: 10px; border-top: 1px dashed #fda4af;">
-                        <label style="font-size: 14px; font-weight: bold; color: #be123c; margin-bottom: 5px; display: block;">📊 ผลการตรวจวัดมลพิษภาคสนาม:</label>
-                        <div style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; background: white;">
-                                <thead>
-                                    <tr style="background-color: #f1f5f9;">
-                                        <th style="padding: 6px; border: 1px solid #cbd5e1; min-width: 80px;">สารอันตราย</th>
-                                        <th style="padding: 6px; border: 1px solid #cbd5e1;"><input type="number" id="dist05" value="0.5" step="0.1" min="0.1" style="width: 45px; text-align: center; border: 1px solid #94a3b8; border-radius: 4px; font-size: 12px; font-weight: bold; color: #0284c7;" onchange="updateRadiiCircles()"> กม.</th>
-                                        <th style="padding: 6px; border: 1px solid #cbd5e1;"><input type="number" id="dist10" value="1.0" step="0.1" min="0.1" style="width: 45px; text-align: center; border: 1px solid #94a3b8; border-radius: 4px; font-size: 12px; font-weight: bold; color: #0284c7;" onchange="updateRadiiCircles()"> กม.</th>
-                                        <th style="padding: 6px; border: 1px solid #cbd5e1;"><input type="number" id="dist15" value="1.5" step="0.1" min="0.1" style="width: 45px; text-align: center; border: 1px solid #94a3b8; border-radius: 4px; font-size: 12px; font-weight: bold; color: #0284c7;" onchange="updateRadiiCircles()"> กม.</th>
-                                        <th style="padding: 6px; border: 1px solid #cbd5e1;"><input type="number" id="dist20" value="2.0" step="0.1" min="0.1" style="width: 45px; text-align: center; border: 1px solid #94a3b8; border-radius: 4px; font-size: 12px; font-weight: bold; color: #0284c7;" onchange="updateRadiiCircles()"> กม.</th>
-                                        <th style="padding: 6px; border: 1px solid #cbd5e1;">หน่วย</th>
-                                        <th style="padding: 6px; border: 1px solid #cbd5e1;">จัดการ</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="measurementBody">
-                                </tbody>
-                            </table>
-                        </div>
+                <div style="width: 100%; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">
+                    <label style="display: flex; align-items: center; cursor: pointer; font-size: 13px; color: #0284c7; font-weight: bold;">
+                        <input type="checkbox" id="toggleStdBtn" checked style="margin-right: 5px; accent-color: #0284c7;" onchange="updateMeasurementTable()"> แสดง/แก้ไขค่ามาตรฐานในตาราง
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer; font-size: 13px; color: #0284c7; font-weight: bold;">
+                        <input type="checkbox" id="toggleMapStdBtn" checked style="margin-right: 5px; accent-color: #0284c7;" onchange="updateMapPopupOnly()"> แสดงค่ามาตรฐานบนแผนที่
+                    </label>
+                </div>
+
+                <div id="measurementContainer" style="width: 100%; display: none; margin-top: 5px; padding-top: 10px; border-top: 1px dashed #fda4af;">
+                    <label style="font-size: 14px; font-weight: bold; color: #be123c; margin-bottom: 5px; display: block;">📊 ผลการตรวจวัดมลพิษภาคสนาม:</label>
+                    
+                    <datalist id="unit-options">
+                        <option value="ppm"></option>
+                        <option value="ppb"></option>
+                        <option value="mg/m³"></option>
+                        <option value="μg/m³"></option>
+                        <option value="%LEL"></option>
+                    </datalist>
+
+                    <div style="overflow-x: auto;">
+                        <table id="dataTable" style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; background: white;">
+                            <thead id="dataHead">
+                                <!-- ส่วนหัวตารางถูกสร้างผ่าน JavaScript -->
+                            </thead>
+                            <tbody id="measurementBody">
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -196,13 +225,18 @@
             </div>
             <div id="map"></div>
 
+            <!-- Popup แสดงค่ามาตรฐานบนแผนที่ -->
+            <div id="std-popup">
+                <div style="font-weight: bold; color: #0284c7; margin-bottom: 8px; font-size: 14px;">📋 ค่ามาตรฐานมลพิษ</div>
+                <div id="std-popup-content" style="font-size: 12.5px; line-height: 1.6; color: #475569;">
+                    <!-- เนื้อหาจะถูกแทรกผ่าน JS -->
+                </div>
+            </div>
 
-<div id="pm25-remark" style="display: none; margin-top: 15px; padding: 15px; background-color: #f0fdf4; border-left: 4px solid #16a34a; border-radius: 8px; font-size: 14px; color: #166534; box-shadow: 0 2px 4px rgba(0 0 0 0.05);">
-            <b>📌 หมายเหตุการประเมินฝุ่นละออง (PM<sub>2.5</sub>) พื้นหลัง:</b>
-            <div id="pm25-remark-content" style="margin-top: 8px;">กำลังรอข้อมูล...</div>
-        </div>
-
-
+            <div id="pm25-remark" style="display: none; margin-top: 15px; padding: 15px; background-color: #f0fdf4; border-left: 4px solid #16a34a; border-radius: 8px; font-size: 14px; color: #166534; box-shadow: 0 2px 4px rgba(0 0 0 0.05);">
+                <b>📌 หมายเหตุการประเมินฝุ่นละออง (PM<sub>2.5</sub>) พื้นหลัง:</b>
+                <div id="pm25-remark-content" style="margin-top: 8px;">กำลังรอข้อมูล...</div>
+            </div>
         </div>
 
     </div> 
@@ -215,6 +249,9 @@
         const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres4K.json';
         const targetKeywords = ["Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Surin"];
         let dashboardControl = null;
+        
+        // ตัวแปรเก็บค่าตั้งต้นของรัศมี เพื่อให้ปักหมุดทำงานได้ทันทีแม้ยังไม่แสดงตาราง
+        let currentDistances = { d05: 0.5, d10: 1.0, d15: 1.5, d20: 2.0 };
 
         document.getElementById('customHazardName').addEventListener('input', function(e) {
             const cursorPosition = this.selectionStart;
@@ -284,6 +321,11 @@
 
         const layerControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
 
+        // ตั้งค่า Event ป้องกันการทำงานทับซ้อนกับแผนที่สำหรับกล่องมาตรฐาน
+        const stdPopupEl = document.getElementById('std-popup');
+        L.DomEvent.disableClickPropagation(stdPopupEl);
+        L.DomEvent.disableScrollPropagation(stdPopupEl);
+
         fetch(geojsonBoundariesUrl)
             .then(res => res.json())
             .then(data => {
@@ -342,10 +384,10 @@
             const legendDiv = document.getElementById('dynamic-legend');
             if (!legendDiv) return;
 
-            const d05 = document.getElementById('dist05') ? document.getElementById('dist05').value : '0.5';
-            const d10 = document.getElementById('dist10') ? document.getElementById('dist10').value : '1.0';
-            const d15 = document.getElementById('dist15') ? document.getElementById('dist15').value : '1.5';
-            const d20 = document.getElementById('dist20') ? document.getElementById('dist20').value : '2.0';
+            const d05 = document.getElementById('dist05') ? document.getElementById('dist05').value : currentDistances.d05;
+            const d10 = document.getElementById('dist10') ? document.getElementById('dist10').value : currentDistances.d10;
+            const d15 = document.getElementById('dist15') ? document.getElementById('dist15').value : currentDistances.d15;
+            const d20 = document.getElementById('dist20') ? document.getElementById('dist20').value : currentDistances.d20;
 
             if (activeLayers.size === 0) {
                 legendDiv.innerHTML = '<div style="color:#64748b; text-align:center;">ไม่ได้เลือกข้อมูลแสดงผล</div>';
@@ -423,10 +465,18 @@
         function updateRadiiCircles() {
             if (!currentIncidentData) return;
 
-            const d05 = parseFloat(document.getElementById('dist05').value) || 0.5;
-            const d10 = parseFloat(document.getElementById('dist10').value) || 1.0;
-            const d15 = parseFloat(document.getElementById('dist15').value) || 1.5;
-            const d20 = parseFloat(document.getElementById('dist20').value) || 2.0;
+            // สำรองค่ารัศมีไว้เสมอ เผื่อกรณีตารางยังไม่แสดงก็จะได้มีค่าใช้ปักหมุด
+            const el05 = document.getElementById('dist05');
+            if (el05) currentDistances.d05 = parseFloat(el05.value) || 0.5;
+            
+            const el10 = document.getElementById('dist10');
+            if (el10) currentDistances.d10 = parseFloat(el10.value) || 1.0;
+            
+            const el15 = document.getElementById('dist15');
+            if (el15) currentDistances.d15 = parseFloat(el15.value) || 1.5;
+            
+            const el20 = document.getElementById('dist20');
+            if (el20) currentDistances.d20 = parseFloat(el20.value) || 2.0;
 
             if (currentRadiiLayer) {
                 incidentLayer.removeLayer(currentRadiiLayer);
@@ -434,10 +484,10 @@
             currentRadiiLayer = L.layerGroup();
 
             const radiiConfig = [
-                { dist: d20 * 1000, color: '#16a34a' },
-                { dist: d15 * 1000, color: '#eab308' },
-                { dist: d10 * 1000, color: '#f97316' },
-                { dist: d05 * 1000, color: '#ef4444' }
+                { dist: currentDistances.d20 * 1000, color: '#16a34a' },
+                { dist: currentDistances.d15 * 1000, color: '#eab308' },
+                { dist: currentDistances.d10 * 1000, color: '#f97316' },
+                { dist: currentDistances.d05 * 1000, color: '#ef4444' }
             ].sort((a, b) => b.dist - a.dist);
 
             radiiConfig.forEach(item => {
@@ -683,6 +733,19 @@
         let customHazardsList = [];
         let currentSelectedHazards = [];
 
+        const defaultHazardsConfig = {
+            "SO<sub>2</sub>": { unit: "ppb", std: "100 (1 ชม.)" },
+            "NO<sub>2</sub>": { unit: "ppb", std: "120 (1 ชม.)" },
+            "CO": { unit: "ppm", std: "30 (1 ชม.)" },
+            "O<sub>3</sub>": { unit: "ppb", std: "100 (1 ชม.)" },
+            "TSP": { unit: "μg/m³", std: "200 (24 ชม.)" },
+            "PM<sub>10</sub>": { unit: "μg/m³", std: "100 (24 ชม.)" },
+            "PM<sub>2.5</sub>": { unit: "μg/m³", std: "37.5 (24 ชม.)" },
+            "Pb": { unit: "μg/m³", std: "1 (1 เดือน)" },
+            "VOCs": { unit: "ppm", std: "-" },
+            "Cl<sub>2</sub>": { unit: "ppm", std: "-" }
+        };
+
         function addCustomHazard() {
             const input = document.getElementById('customHazardName');
             let name = input.value.trim();
@@ -713,45 +776,96 @@
             updateMeasurementTable();
         }
 
+        // ฟังก์ชันอัปเดตเฉพาะหน้าต่าง Popup บนแผนที่ เพื่อป้องกันไม่ให้โฟกัสในตารางหลุด
+        window.updateMapPopupOnly = function() {
+            const stdPopupEl = document.getElementById('std-popup');
+            const stdPopupContent = document.getElementById('std-popup-content');
+            const showMapStd = document.getElementById('toggleMapStdBtn') && document.getElementById('toggleMapStdBtn').checked;
+            
+            if (currentSelectedHazards.length === 0 || !showMapStd) {
+                stdPopupEl.style.display = 'none';
+                return;
+            }
+
+            let stdMapHtml = '';
+            let hasMapStandard = false;
+
+            currentSelectedHazards.forEach(hazard => {
+                const data = measurementData[hazard];
+                if (data && data.std && data.std !== '-') {
+                    stdMapHtml += `<div style="border-bottom: 1px dotted #cbd5e1; padding: 6px 0;"><b>${hazard}</b>: ${data.std} <span style="color:#94a3b8;">${data.unit}</span></div>`;
+                    hasMapStandard = true;
+                }
+            });
+
+            if (hasMapStandard) {
+                stdPopupContent.innerHTML = stdMapHtml;
+                stdPopupEl.style.display = 'block';
+            } else {
+                stdPopupEl.style.display = 'none';
+            }
+        }
+
         function updateMeasurementTable() {
             const baseHazards = Array.from(document.querySelectorAll('input[name="hazard"]:checked')).map(cb => cb.value);
             currentSelectedHazards = [...baseHazards, ...customHazardsList];
 
             const container = document.getElementById('measurementContainer');
+            const dataHead = document.getElementById('dataHead');
             const tbody = document.getElementById('measurementBody');
+            const showStd = document.getElementById('toggleStdBtn') && document.getElementById('toggleStdBtn').checked;
             
             if (currentSelectedHazards.length === 0) {
                 container.style.display = 'none';
                 tbody.innerHTML = '';
+                updateMapPopupOnly();
                 updateDynamicLegend();
                 return;
             }
 
             container.style.display = 'block';
-            tbody.innerHTML = '';
+            
+            const dist05Val = document.getElementById('dist05') ? document.getElementById('dist05').value : currentDistances.d05;
+            const dist10Val = document.getElementById('dist10') ? document.getElementById('dist10').value : currentDistances.d10;
+            const dist15Val = document.getElementById('dist15') ? document.getElementById('dist15').value : currentDistances.d15;
+            const dist20Val = document.getElementById('dist20') ? document.getElementById('dist20').value : currentDistances.d20;
 
+            dataHead.innerHTML = `
+                <tr style="background-color: #f1f5f9;">
+                    <th style="padding: 6px; border: 1px solid #cbd5e1; min-width: 90px;">สารอันตราย</th>
+                    ${showStd ? `<th style="padding: 6px; border: 1px solid #cbd5e1; font-size: 11px; width: 60px;">ค่ามาตรฐาน</th>` : ''}
+                    <th style="padding: 6px; border: 1px solid #cbd5e1;"><input type="number" id="dist05" value="${dist05Val}" step="0.1" min="0.1" style="width: 45px; text-align: center; border: 1px solid #94a3b8; border-radius: 4px; font-size: 12px; font-weight: bold; color: #0284c7;" onchange="updateRadiiCircles(); updateMeasurementTable();"> กม.</th>
+                    <th style="padding: 6px; border: 1px solid #cbd5e1;"><input type="number" id="dist10" value="${dist10Val}" step="0.1" min="0.1" style="width: 45px; text-align: center; border: 1px solid #94a3b8; border-radius: 4px; font-size: 12px; font-weight: bold; color: #0284c7;" onchange="updateRadiiCircles(); updateMeasurementTable();"> กม.</th>
+                    <th style="padding: 6px; border: 1px solid #cbd5e1;"><input type="number" id="dist15" value="${dist15Val}" step="0.1" min="0.1" style="width: 45px; text-align: center; border: 1px solid #94a3b8; border-radius: 4px; font-size: 12px; font-weight: bold; color: #0284c7;" onchange="updateRadiiCircles(); updateMeasurementTable();"> กม.</th>
+                    <th style="padding: 6px; border: 1px solid #cbd5e1;"><input type="number" id="dist20" value="${dist20Val}" step="0.1" min="0.1" style="width: 45px; text-align: center; border: 1px solid #94a3b8; border-radius: 4px; font-size: 12px; font-weight: bold; color: #0284c7;" onchange="updateRadiiCircles(); updateMeasurementTable();"> กม.</th>
+                    <th style="padding: 6px; border: 1px solid #cbd5e1;">หน่วย</th>
+                    <th style="padding: 6px; border: 1px solid #cbd5e1;">จัดการ</th>
+                </tr>
+            `;
+
+            tbody.innerHTML = '';
+            
             currentSelectedHazards.forEach(hazard => {
                 if (!measurementData[hazard]) {
-                    measurementData[hazard] = { d05: '', d10: '', d15: '', d20: '', unit: 'ppm' };
+                    let defaultUnit = defaultHazardsConfig[hazard] ? defaultHazardsConfig[hazard].unit : 'ppm';
+                    let defaultStd = defaultHazardsConfig[hazard] ? defaultHazardsConfig[hazard].std : '-';
+                    measurementData[hazard] = { d05: '', d10: '', d15: '', d20: '', unit: defaultUnit, std: defaultStd };
                 }
                 const data = measurementData[hazard];
                 const isCustom = customHazardsList.includes(hazard);
 
                 const tr = document.createElement('tr');
+                let tdStdHtml = showStd ? `<td style="padding: 2px; border: 1px solid #cbd5e1;"><input type="text" class="meas-input" data-hazard="${hazard}" data-dist="std" value="${data.std}" style="width: 60px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; padding: 4px 2px;"></td>` : '';
+                
                 tr.innerHTML = `
                     <td style="padding: 4px; border: 1px solid #cbd5e1; text-align: left; font-weight: bold; color: #be123c;">${hazard}</td>
+                    ${tdStdHtml}
                     <td style="padding: 2px; border: 1px solid #cbd5e1;"><input type="number" class="meas-input" data-hazard="${hazard}" data-dist="d05" value="${data.d05}" style="width: 45px; text-align: center; border: 1px solid #ccc; border-radius: 4px;"></td>
                     <td style="padding: 2px; border: 1px solid #cbd5e1;"><input type="number" class="meas-input" data-hazard="${hazard}" data-dist="d10" value="${data.d10}" style="width: 45px; text-align: center; border: 1px solid #ccc; border-radius: 4px;"></td>
                     <td style="padding: 2px; border: 1px solid #cbd5e1;"><input type="number" class="meas-input" data-hazard="${hazard}" data-dist="d15" value="${data.d15}" style="width: 45px; text-align: center; border: 1px solid #ccc; border-radius: 4px;"></td>
                     <td style="padding: 2px; border: 1px solid #cbd5e1;"><input type="number" class="meas-input" data-hazard="${hazard}" data-dist="d20" value="${data.d20}" style="width: 45px; text-align: center; border: 1px solid #ccc; border-radius: 4px;"></td>
                     <td style="padding: 2px; border: 1px solid #cbd5e1;">
-                        <select class="meas-input" data-hazard="${hazard}" data-dist="unit" style="width: 60px; border: 1px solid #ccc; border-radius: 4px;">
-                            <option value="ppm" ${data.unit === 'ppm' ? 'selected' : ''}>ppm</option>
-                            <option value="ppb" ${data.unit === 'ppb' ? 'selected' : ''}>ppb</option>
-                            <option value="mg/m³" ${data.unit === 'mg/m³' ? 'selected' : ''}>mg/m³</option>
-                            <option value="μg/m³" ${data.unit === 'μg/m³' ? 'selected' : ''}>μg/m³</option>
-                            <option value="%LEL" ${data.unit === '%LEL' ? 'selected' : ''}>%LEL</option>
-                        </select>
+                        <input type="text" class="meas-input" data-hazard="${hazard}" data-dist="unit" value="${data.unit}" list="unit-options" style="width: 60px; text-align: center; border: 1px solid #ccc; border-radius: 4px; padding: 2px;">
                     </td>
                     <td style="padding: 2px; border: 1px solid #cbd5e1;">
                         ${isCustom ? `<button onclick="removeCustomHazard('${hazard}')" style="background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:10px; padding:4px;">❌</button>` : '-'}
@@ -760,15 +874,22 @@
                 tbody.appendChild(tr);
             });
 
+            // ตรวจจับเหตุการณ์พิมพ์ในตาราง
             document.querySelectorAll('.meas-input').forEach(input => {
                 input.addEventListener('input', (e) => {
                     const h = e.target.getAttribute('data-hazard');
                     const d = e.target.getAttribute('data-dist');
                     measurementData[h][d] = e.target.value;
-                    updateDynamicLegend();
+                    
+                    if (d === 'std' || d === 'unit') {
+                        updateMapPopupOnly(); 
+                    } else {
+                        updateDynamicLegend();
+                    }
                 });
             });
             
+            updateMapPopupOnly();
             updateDynamicLegend();
         }
 
@@ -933,12 +1054,14 @@
                 const d10 = document.getElementById('dist10') ? document.getElementById('dist10').value : '1.0';
                 const d15 = document.getElementById('dist15') ? document.getElementById('dist15').value : '1.5';
                 const d20 = document.getElementById('dist20') ? document.getElementById('dist20').value : '2.0';
+                const showStd = document.getElementById('toggleStdBtn') && document.getElementById('toggleStdBtn').checked;
 
                 report += `📊 ผลการตรวจวัดภาคสนาม:\n`;
                 currentSelectedHazards.forEach(h => {
                     let data = measurementData[h];
                     if (data && (data.d05 || data.d10 || data.d15 || data.d20)) {
-                        report += `- ${formatForLine(h)}: ${d05}กม.=${data.d05||'-'} | ${d10}กม.=${data.d10||'-'} | ${d15}กม.=${data.d15||'-'} | ${d20}กม.=${data.d20||'-'} ${data.unit}\n`;
+                        let stdTextStr = (showStd && data.std && data.std !== '-') ? ` (มาตรฐาน: ${data.std})` : '';
+                        report += `- ${formatForLine(h)}${stdTextStr}: ${d05}กม.=${data.d05||'-'} | ${d10}กม.=${data.d10||'-'} | ${d15}กม.=${data.d15||'-'} | ${d20}กม.=${data.d20||'-'} ${data.unit}\n`;
                     }
                 });
                 report += `\n`;
@@ -1089,7 +1212,7 @@ async function fetchBackgroundPM25(lat, lon) {
                     
                     const hazardName = "PM<sub>2.5</sub>";
                     if (!measurementData[hazardName]) {
-                        measurementData[hazardName] = { d05: '', d10: '', d15: '', d20: '', unit: 'μg/m³' };
+                        measurementData[hazardName] = { d05: '', d10: '', d15: '', d20: '', unit: 'μg/m³', std: '37.5 (24 ชม.)' };
                     }
                     
                     measurementData[hazardName].d05 = pm25Value;
