@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAPS 11 - Landfill Fire Risk & Incident Monitoring</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MAPS 11">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://kietpawpan.github.io/hotspot/img/EPO11App.png">
+    <link rel="manifest" href="manifest3.json">
+    <meta name="theme-color" content="#4a148c">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+
+    <style>
+        body { font-family: sans-serif; background-color: #f3f4f6; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #4a148c; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 20px; }
+        .control-panel { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
+        .status-box { font-size: 15px; color: #4a148c; margin-bottom: 5px; background: #e9d5ff; padding: 10px; border-radius: 6px; border: 1px solid #d8b4fe; }
+        
+        #map-wrapper { position: relative; }
+        #loadingOverlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+            color: white;
+            transition: opacity 0.5s ease;
+        }
+        .maps-logo-text {
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            margin-bottom: 5px;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(56, 189, 248, 0.6), 0 0 30px rgba(56, 189, 248, 0.4);
+            animation: pulseText 2s infinite;
+        }
+        .maps-sub-text {
+            font-size: 16px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-bottom: 40px;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+        .cyber-spinner {
+            width: 70px;
+            height: 70px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #38bdf8;
+            border-right: 4px solid #818cf8;
+            border-bottom: 4px solid #c084fc;
+            border-radius: 50%;
+            animation: spin 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+            margin-bottom: 25px;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+        }
+        .loading-status {
+            font-size: 15px;
+            color: #38bdf8;
+            font-weight: 500;
+            letter-spacing: 1px;
+            animation: blink 1.5s infinite;
+        }
+        @keyframes pulseText {
+            0% { transform: scale(0.98); opacity: 0.8; }
+            50% { transform: scale(1.02); opacity: 1; }
+            100% { transform: scale(0.98); opacity: 0.8; }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* CSS สำหรับแจ้งเตือนภัยบ่อขยะ */
+        @keyframes blink-alert-anim {
+            0% { opacity: 0.1; transform: scale(0.95); }
+            50% { opacity: 0.6; transform: scale(1.02); }
+            100% { opacity: 0.1; transform: scale(0.95); }
+        }
+        .blink-alert {
+            animation: blink-alert-anim 1.2s infinite alternate;
+            transform-origin: center;
+        }
+
+        #map { height: 600px; width: 100%; border-radius: 8px; z-index: 10; }
+
+        .legend-wrapper {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            width: 280px;
+        }
+        .legend-header {
+            background: #4a148c;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        .legend-header:hover {
+            background: #3b0f70;
+        }
+        .legend-header.open {
+            border-radius: 8px 8px 0 0;
+        }
+        .legend-box {
+            padding: 10px 15px;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 450px;
+            overflow-y: auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .legend-title { font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 10px; }
+        .legend-title:first-child { margin-top: 0; }
+        .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
+
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            min-width: 280px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            opacity: 0;
+            transform: translateX(100%);
+            animation: slideIn 0.3s forwards;
+        }
+        .toast.success { background-color: #16a34a; }
+        .toast.error { background-color: #dc2626; }
+        .toast.warning { background-color: #f59e0b; color: white; }
+        .toast.info { background-color: #2563eb; }
+
+        @keyframes slideIn {
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateX(100%); }
+        }
+
+        @media (max-width: 600px) {
+            .legend-wrapper { width: 180px; }
+            .legend-header { font-size: 12px; padding: 6px 10px; }
+            .legend-box { width: 160px; font-size: 12px; padding: 8px 10px; }
+            #map { height: 450px; }
+        }
+
+        .leaflet-control-scale-line {
+            border: 2px solid #4a148c !important;
+            border-top: none !important;
+            background: rgba(255, 255, 255, 0.85) !important;
+            color: #1e293b !important;
+            font-weight: bold !important;
+            font-size: 13px !important;
+            line-height: 1.2 !important;
+            padding: 4px 8px !important;
+            border-radius: 0 0 4px 4px !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+            backdrop-filter: blur(4px);
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+        .scale-hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+    <div class="container">
+        <h2>MAPS 11 Pro 3.0</h2>
+        <div class="subtitle">ระบบเฝ้าระวังไฟไหม้บ่อขยะและจำลองทิศทางควันจุดเกิดเหตุด่วน สคพ. 11 (นครราชสีมา ชัยภูมิ บุรีรัมย์ สุรินทร์)</div>
+          
+        <div class="control-panel">
+            <div class="status-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 5px;">
+                    <div class="status-box" style="flex: 1; margin-bottom: 0;">
+                        🛰️ <b>สถานะข้อมูล:</b> <span id="lastUpdateDisplay" style="color: #b91c1c; font-weight: bold;">กำลังดาวน์โหลดและประมวลผลข้อมูล NASA...</span>
+                    </div>
+                    <button id="forceSyncBtn" style="padding: 10px 15px; background-color: #d97706; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: background 0.2s;">
+                        🔄 อัปเดตดาวเทียมเดี๋ยวนี้
+                    </button>
+                </div>
+            </div>
+          
+            <div id="timeSelectorContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
+                <label style="font-size: 16px; margin-bottom: 10px; display: block;">
+                    <b>ช่วงเวลาจุดความร้อนที่ใช้ประเมินความเสี่ยงบ่อขยะ: </b>
+                    <span style="font-size: 14px; color: #64748b;">(นับจากเวลาปัจจุบัน)</span>
+                </label>
+                <div style="display: flex; gap: 15px; align-items: center; font-size: 15px; margin-top: 10px; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="radio" name="timeFilter" value="24-all" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;" checked> 24 ชม.
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="radio" name="timeFilter" value="12-morning" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 12 ชม. รอบเช้า (00:00 - 11:59 น.)
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="radio" name="timeFilter" value="12-afternoon" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 12 ชม. รอบบ่าย (12:00 - 23:59 น.)
+                    </label>
+                </div>
+            </div>
+
+            <!-- ส่วนปักหมุดจุดเกิดเหตุด่วนและจำลองกรวยควันตามทิศลม -->
+            <div id="incidentContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background-color: #fff1f2; padding: 10px; border-radius: 8px;">
+                <label style="font-size: 16px; font-weight: bold; color: #be123c;">🚨 จุดเกิดเหตุด่วน:</label>
+                <input type="text" id="incidentName" placeholder="ชื่อเหตุการณ์" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; flex: 1; min-width: 150px;">
+                <input type="number" id="latInput" placeholder="Lat" step="any" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 90px;">
+                <input type="number" id="lonInput" placeholder="Lon" step="any" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 90px;">
+                
+                <div style="display: flex; gap: 5px; align-items: center; flex-wrap: wrap;">
+                    <button id="dropPinBtn" style="padding: 8px 12px; background-color: #e11d48; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">📍 ปักหมุด</button>
+                    <button id="editPinBtn" style="padding: 8px 12px; background-color: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">✏️ Edit</button>
+                    <button id="clearPinBtn" style="padding: 8px 12px; background-color: #64748b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🗑️ ล้าง</button>
+                    <label style="display: flex; align-items: center; cursor: pointer; margin-left: 5px; font-size: 14px; color: #475569; font-weight: bold;">
+                        <input type="checkbox" id="togglePlumeBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #64748b;"> แสดงควัน
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer; margin-left: 10px; font-size: 14px; color: #475569; font-weight: bold;">
+                        <input type="checkbox" id="toggleRadiusBtn" checked style="margin-right: 5px; width: 16px; height: 16px; accent-color: #ef4444;"> แสดงรัศมี
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 5px; align-items: center; border-left: 2px solid #fda4af; padding-left: 10px; margin-left: 5px;">
+                    <label style="font-size: 14px; font-weight: bold; color: #be123c;">ทิศลม (องศา):</label>
+                    <input type="number" id="manualWindDir" placeholder="0-360" min="0" max="360" style="padding: 8px; border: 1px solid #fda4af; border-radius: 6px; width: 80px;">
+                    <button id="updateWindBtn" style="padding: 8px 12px; background-color: #0284c7; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 ปรับทิศ</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="map-wrapper">
+            <div id="loadingOverlay">
+                <div class="maps-logo-text">MAPS 11</div>
+                <div class="maps-sub-text">Management of Air Pollution Sector 11</div>
+                <div class="cyber-spinner"></div>
+                <div class="loading-status" id="loadingStatusText">INITIATING SATELLITE CONNECTION...</div>
+            </div>
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const gasWebappUrl = 'https://script.google.com/macros/s/AKfycbxuZ2j2Cuoy6xUEFO7N0wxV2O47ZqAV3eOOtkrRWdAk7C6Fz_mlvP6O5sAplBOH9HG4IA/exec';
+        const longdoApiKey = 'bce812933744d2530d26f0fabb0017cf';
+        const geojsonBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres-Overpass24Percent.json';
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            let icon = 'ℹ️';
+            if (type === 'success') icon = '✅';
+            if (type === 'error') icon = '❌';
+            if (type === 'warning') icon = '⚠️';
+
+            toast.innerHTML = `<span style="margin-right:8px; font-size:16px;">${icon}</span> ${message}`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s forwards';
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3000);
+        }
+
+        const map = L.map('map', {
+            zoomSnap: 0.25,
+            zoomDelta: 0.5,
+            wheelPxPerZoomLevel: 120
+        }).setView([15.2, 102.5], 8);
+
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap | EPO11'
+        });
+
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: '© Esri | EPO11'
+        });
+
+        const googleHybridLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '© Google Maps | EPO11'
+        });
+
+        osmLayer.addTo(map);
+
+        const baseMaps = {
+            "แผนที่ถนน (OSM)": osmLayer,
+            "ภาพถ่ายดาวเทียม (Esri)": satelliteLayer,
+            "ภาพถ่ายดาวเทียม (Google)": googleHybridLayer
+        };
+
+        // เลเยอร์แจ้งเตือนไฟไหม้บ่อขยะ และ เลเยอร์จุดเกิดเหตุด่วน
+        const riskAlertLayer = L.layerGroup().addTo(map);
+        const incidentLayer = L.layerGroup().addTo(map);
+
+        const overlayMaps = {
+            "🚨 แจ้งเตือนไฟไหม้บ่อขยะ": riskAlertLayer,
+            "จุดเกิดเหตุด่วน (🚨)": incidentLayer
+        };
+
+        L.control.layers(baseMaps, overlayMaps).addTo(map);
+
+        const targetKeywords = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์", "Nakhon Ratchasima", "Chaiyaphum", "Buri Ram", "Buriram", "Surin"];
+        let boundaryGeoJSON = null;
+        let globalCoreFeatures = [];
+        let currentFilteredHotspots = [];
+        let landfillMarkers = [];
+        let currentRiskCount = 0;
+
+        let currentTimeframe = 24;
+        let currentTimeOfDay = 'all';
+        const RISK_RADIUS_KM = 0.5;
+
+        let activeLayers = new Set(["🚨 แจ้งเตือนไฟไหม้บ่อขยะ", "จุดเกิดเหตุด่วน (🚨)"]);
+
+        let currentIncidentData = null;
+        let currentPlumeLayer = null;
+        let currentRadiiLayer = null;
+        let currentWindSpeed = 0;
+
+        // โหลดขอบเขต 4 จังหวัด สคพ.11
+        fetch(geojsonBoundariesUrl)
+            .then(res => res.json())
+            .then(data => {
+                boundaryGeoJSON = {
+                    type: "FeatureCollection",
+                    features: data.features.filter(f => {
+                        const propStr = JSON.stringify(f.properties);
+                        return targetKeywords.some(keyword => propStr.includes(keyword));
+                    })
+                };
+
+                const boundaryLayer = L.geoJSON(boundaryGeoJSON, {
+                    style: {
+                        color: "#4a148c",
+                        weight: 5,
+                        opacity: 1,
+                        fillOpacity: 0.05
+                    }
+                }).addTo(map);
+
+                if (boundaryGeoJSON.features.length > 0) {
+                    map.fitBounds(boundaryLayer.getBounds());
+                }
+
+                boundaryGeoJSON.features.forEach(f => f.bbox = turf.bbox(f));
+
+                fetchNasaData();
+                fetchLandfillData();
+            })
+            .catch(err => console.error('ไม่สามารถโหลดข้อมูลขอบเขตจังหวัดได้', err));
+
+        // กล่องคำอธิบายสัญลักษณ์ (Legend)
+        const dynamicLegendControl = L.control({position: 'bottomleft'});
+        dynamicLegendControl.onAdd = function () {
+            const wrapper = L.DomUtil.create('div', 'legend-wrapper');
+            L.DomEvent.disableClickPropagation(wrapper);
+            L.DomEvent.disableScrollPropagation(wrapper);
+
+            const header = L.DomUtil.create('div', 'legend-header open', wrapper);
+            header.innerHTML = '<span>📋 คำอธิบายสัญลักษณ์</span><span id="legend-toggle-icon">▼</span>';
+            
+            const content = L.DomUtil.create('div', 'legend-box', wrapper);
+            content.id = 'dynamic-legend';
+
+            header.onclick = function() {
+                if (content.style.display === 'none') {
+                    content.style.display = 'block';
+                    header.className = 'legend-header open';
+                    document.getElementById('legend-toggle-icon').innerText = '▼';
+                } else {
+                    content.style.display = 'none';
+                    header.className = 'legend-header';
+                    document.getElementById('legend-toggle-icon').innerText = '▲';
+                }
+            };
+
+            return wrapper;
+        };
+        dynamicLegendControl.addTo(map);
+
+        function updateDynamicLegend() {
+            const legendDiv = document.getElementById('dynamic-legend');
+            if (!legendDiv) return;
+
+            if (activeLayers.size === 0) {
+                legendDiv.innerHTML = '<div style="color:#64748b; text-align:center;">ไม่ได้เลือกข้อมูลแสดงผล</div>';
+                return;
+            }
+
+            let html = '';
+            if (activeLayers.has("🚨 แจ้งเตือนไฟไหม้บ่อขยะ")) {
+                html += '<div class="legend-title" style="color:#d50000;">🚨 พื้นที่เฝ้าระวังไฟไหม้บ่อขยะ</div>';
+                html += '<div><span class="dot" style="background:#ff1744; animation: blink-alert-anim 1.2s infinite alternate;"></span> รัศมีเฝ้าระวัง ' + RISK_RADIUS_KM + ' กม.</div>';
+                html += '<div style="margin-top:6px; font-size:13px;">พบพื้นที่เสี่ยง: <b style="color:#b91c1c;">' + currentRiskCount + '</b> แห่ง</div>';
+            }
+
+            if (activeLayers.has("จุดเกิดเหตุด่วน (🚨)") && currentIncidentData && document.getElementById('toggleRadiusBtn').checked) {
+                html += '<div class="legend-title">🚨 รัศมีจุดเกิดเหตุ</div>';
+                html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #ef4444; margin-right:5px; vertical-align:middle;"></span> ระยะ 500 เมตร</div>';
+                html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #f97316; margin-right:5px; vertical-align:middle;"></span> ระยะ 1 กิโลเมตร</div>';
+                html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #eab308; margin-right:5px; vertical-align:middle;"></span> ระยะ 1.5 กิโลเมตร</div>';
+                html += '<div><span style="display:inline-block; width:15px; border-top:3px dashed #16a34a; margin-right:5px; vertical-align:middle;"></span> ระยะ 2 กิโลเมตร</div>';
+            }
+
+            legendDiv.innerHTML = html || '<div style="color:#64748b; text-align:center;">ไม่มีสัญลักษณ์เพิ่มเติม</div>';
+        }
+
+        map.on('overlayadd', function(e) {
+            activeLayers.add(e.name);
+            updateDynamicLegend();
+        });
+
+        map.on('overlayremove', function(e) {
+            activeLayers.delete(e.name);
+            updateDynamicLegend();
+        });
+
+        // ดึงข้อมูลจุดความร้อน NASA เพื่อใช้คำนวณความเสี่ยงไฟไหม้บ่อขยะ
+        function fetchNasaData() {
+            let statusEl = document.getElementById('lastUpdateDisplay');
+            if (statusEl) statusEl.innerHTML = `<span style="color:#0284c7;">กำลังดึงข้อมูลและตรวจสอบพิกัดเชิงพื้นที่...</span>`;
+            
+            let overlayStatus = document.getElementById('loadingStatusText');
+            if (overlayStatus) overlayStatus.innerText = `FETCHING HOTSPOTS FROM MAPS11 DATABASE...`;
+
+            fetch(gasWebappUrl + "?action=hotspots")
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) throw new Error(data.error);
+
+                    globalCoreFeatures = [];
+                    const targetProvs = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
+
+                    if (data.points && Array.isArray(data.points)) {
+                        data.points.forEach((pt, index) => {
+                            const lat = parseFloat(pt.lat);
+                            const lon = parseFloat(pt.lon);
+                            
+                            if (!isNaN(lat) && !isNaN(lon)) {
+                                let props = {
+                                    latitude: lat,
+                                    longitude: lon,
+                                    acq_date: pt.date,
+                                    acq_time: pt.time
+                                };
+
+                                const dateParts = String(pt.date).split('-');
+                                if (dateParts.length === 3) {
+                                    const timeStr = String(pt.time).padStart(4, '0');
+                                    const hours = parseInt(timeStr.substring(0, 2), 10);
+                                    const mins = parseInt(timeStr.substring(2, 4), 10);
+                                    props.parsed_datetime = new Date(Date.UTC(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10), hours, mins));
+                                } else {
+                                    props.parsed_datetime = new Date();
+                                }
+
+                                let turfPt = turf.point([lon, lat]);
+                                let strictProvName = null;
+
+                                if (boundaryGeoJSON && boundaryGeoJSON.features) {
+                                    for (let b of boundaryGeoJSON.features) {
+                                        if (lon >= b.bbox[0] && lat >= b.bbox[1] && lon <= b.bbox[2] && lat <= b.bbox[3]) {
+                                            if (turf.booleanPointInPolygon(turfPt, b)) {
+                                                let propStr = JSON.stringify(b.properties);
+                                                for (let target of targetProvs) {
+                                                    if (propStr.includes(target)) {
+                                                        strictProvName = target;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (strictProvName) break;
+                                    }
+                                }
+
+                                if (strictProvName) {
+                                    props.prov_name = strictProvName;
+                                    globalCoreFeatures.push({
+                                        type: "Feature",
+                                        geometry: turfPt.geometry,
+                                        properties: props
+                                    });
+                                }
+                            }
+                            
+                            if (index % 10 === 0 && overlayStatus) {
+                                let percent = Math.round((index / data.points.length) * 100);
+                                overlayStatus.innerText = `PROCESSING COORDINATES... ${percent}%`;
+                            }
+                        });
+                    }
+
+                    let loadingOverlay = document.getElementById('loadingOverlay');
+                    if (loadingOverlay) {
+                        loadingOverlay.style.display = 'none';
+                        clearInterval(loadingInterval);
+                    }
+
+                    applyTimeFilter();
+                    showToast("ประมวลผลข้อมูลเฝ้าระวังไฟไหม้บ่อขยะสำเร็จ", "success");
+                })
+                .catch(error => {
+                    console.error('เกิดข้อผิดพลาดในการดึงข้อมูลจาก GAS', error);
+                    document.getElementById('lastUpdateDisplay').innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูลส่วนกลาง";
+                    let loadingOverlay = document.getElementById('loadingOverlay');
+                    if (loadingOverlay) loadingOverlay.style.display = 'none';
+                });
+        }
+
+        // ดึงพิกัดบ่อขยะเพื่อใช้เป็นจุดอ้างอิงในเรดาร์แจ้งเตือนไฟไหม้
+        function fetchLandfillData() {
+            const gasUrl = 'https://script.google.com/macros/s/AKfycbwWI0NvtyToeNBq5Y0Yu6VCKiJh27JDSDBZTJ0IbQ1mGsErkJfFdzYdkiVAw72GGWKZ/exec';
+
+            fetch(gasUrl)
+                .then(res => res.json())
+                .then(data => {
+                    const targetProvinces = ["นครราชสีมา", "ชัยภูมิ", "บุรีรัมย์", "สุรินทร์"];
+                    landfillMarkers = [];
+
+                    data.forEach(row => {
+                        let prov = row["จังหวัด"] || "";
+                        let isTarget = targetProvinces.some(p => prov.includes(p));
+
+                        if (isTarget) {
+                            let lat = parseFloat(row["ละติจูด"]);
+                            let lon = parseFloat(row["ลองจิจูด"]);
+                            
+                            if (!isNaN(lat) && !isNaN(lon)) {
+                                let siteName = row["ชื่อสถานที่"] || "ไม่ระบุชื่อ";
+                                let address = row["ที่ตั้ง"] || "-";
+
+                                landfillMarkers.push({
+                                    marker: L.marker([lat, lon]),
+                                    address: address,
+                                    name: siteName
+                                });
+                            }
+                        }
+                    });
+
+                    calculateWasteFireRisk();
+                })
+                .catch(err => {
+                    console.error("เกิดข้อผิดพลาดในการโหลดข้อมูลสถานที่กำจัดขยะ", err);
+                });
+        }
+
+        function applyTimeFilter() {
+            let filteredFeatures = [];
+
+            let now = new Date();
+            if (globalCoreFeatures.length > 0) {
+                let maxTime = 0;
+                globalCoreFeatures.forEach(f => {
+                    let t = f.properties.parsed_datetime.getTime();
+                    if (t > maxTime) maxTime = t;
+                });
+                now = new Date(maxTime);
+            }
+            let cutoffTime = new Date(now.getTime() - (currentTimeframe * 60 * 60 * 1000));
+
+            globalCoreFeatures.forEach(feature => {
+                if (feature.properties.parsed_datetime >= cutoffTime) {
+                    let dt = feature.properties.parsed_datetime;
+                    let localHour = (dt.getUTCHours() + 7) % 24;
+                    let isMorning = localHour >= 0 && localHour < 12;
+                    let isAfternoon = localHour >= 12 && localHour < 24;
+
+                    let matchTimeOfDay = true;
+                    if (currentTimeOfDay === 'morning' && !isMorning) matchTimeOfDay = false;
+                    if (currentTimeOfDay === 'afternoon' && !isAfternoon) matchTimeOfDay = false;
+
+                    if (matchTimeOfDay) {
+                        filteredFeatures.push(feature);
+                    }
+                }
+            });
+
+            if (filteredFeatures.length === 0 && globalCoreFeatures.length === 0) {
+                document.getElementById('lastUpdateDisplay').innerText = "ไม่พบจุดความร้อนในรอบ " + currentTimeframe + " ชม. ล่าสุด";
+            } else {
+                let displayTxt = "วิเคราะห์จุดความร้อนรอบ " + currentTimeframe + " ชม. ล่าสุด";
+                if (currentTimeframe === 12) {
+                    if (currentTimeOfDay === 'morning') displayTxt += " (เฉพาะรอบเช้า)";
+                    else if (currentTimeOfDay === 'afternoon') displayTxt += " (เฉพาะรอบบ่าย)";
+                }
+                document.getElementById('lastUpdateDisplay').innerText = displayTxt + " สำเร็จ (Suomi-NPP)";
+            }
+
+            currentFilteredHotspots = filteredFeatures;
+            calculateWasteFireRisk();
+        }
+
+        document.querySelectorAll('.time-radio').forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.checked) {
+                    const parts = this.value.split('-');
+                    currentTimeframe = parseInt(parts[0], 10);
+                    currentTimeOfDay = parts[1];
+                    applyTimeFilter();
+                }
+            });
+        });
+
+        // ระบบเรดาร์คำนวณและแจ้งเตือนภัยไฟไหม้บ่อขยะอัตโนมัติ
+        function calculateWasteFireRisk() {
+            riskAlertLayer.clearLayers();
+
+            if (!landfillMarkers || landfillMarkers.length === 0 || !currentFilteredHotspots || currentFilteredHotspots.length === 0) {
+                currentRiskCount = 0;
+                updateDynamicLegend();
+                return;
+            }
+
+            let risksFound = [];
+
+            landfillMarkers.forEach(site => {
+                let sitePt = turf.point([site.marker.getLatLng().lng, site.marker.getLatLng().lat]);
+                let nearHotspots = 0;
+
+                currentFilteredHotspots.forEach(f => {
+                    let hotPt = turf.point([f.geometry.coordinates[0], f.geometry.coordinates[1]]);
+                    let distance = turf.distance(sitePt, hotPt, {units: 'kilometers'});
+                    if (distance <= RISK_RADIUS_KM) {
+                        nearHotspots++;
+                    }
+                });
+
+                if (nearHotspots > 0) {
+                    risksFound.push({
+                        siteName: site.name,
+                        address: site.address,
+                        latlng: site.marker.getLatLng(),
+                        count: nearHotspots
+                    });
+                }
+            });
+
+            currentRiskCount = risksFound.length;
+            updateDynamicLegend();
+            displayFireRiskAlerts(risksFound);
+        }
+
+        function displayFireRiskAlerts(risks) {
+            if (risks.length > 0) {
+                risks.forEach(risk => {
+                    let navUrl = `https://www.google.com/maps/dir/?api=1&destination=${risk.latlng.lat},${risk.latlng.lng}`;
+                    L.circle(risk.latlng, {
+                        radius: RISK_RADIUS_KM * 1000,
+                        color: '#d50000',
+                        fillColor: '#ff1744',
+                        fillOpacity: 0.3,
+                        weight: 3,
+                        className: 'blink-alert'
+                    }).addTo(riskAlertLayer)
+                      .bindPopup(`
+                        <div style="text-align:center; font-size:14px; min-width:200px;">
+                            <div style="background-color:#d50000; color:white; padding:5px; border-radius:4px; margin-bottom:8px;">
+                                <b>🚨 พื้นที่เสี่ยงไฟไหม้บ่อขยะ!</b>
+                            </div>
+                            <b>บ่อขยะ:</b> <span style="color:#b91c1c; font-weight:bold;">${risk.siteName}</span><br>
+                            <b>ที่ตั้ง:</b> ${risk.address}<br>
+                            <b>ตรวจพบจุดความร้อน:</b> <span style="color:#d50000; font-weight:bold;">${risk.count}</span> จุด (ในรัศมี ${RISK_RADIUS_KM} กม.)<br>
+                            <a href="${navUrl}" target="_blank" style="display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold; margin-top:8px;">📍 เปิดนำทางด้วย Google Maps</a>
+                        </div>
+                      `);
+                });
+                
+                showToast(`⚠️ เฝ้าระวังฉุกเฉิน พบจุดความร้อนใกล้บ่อขยะ ${risks.length} แห่ง`, "error");
+            }
+        }
+
+        // ==========================================
+        // ฟังก์ชันจุดเกิดเหตุด่วน & กรวยควันตามทิศทางลม
+        // ==========================================
+        document.getElementById('dropPinBtn').addEventListener('click', createIncidentMarker);
+
+        [document.getElementById('latInput'), document.getElementById('lonInput')].forEach(input => {
+            input.addEventListener('keypress', (e) => { if (e.key === 'Enter') createIncidentMarker(); });
+        });
+
+        document.getElementById('toggleRadiusBtn').addEventListener('change', function() {
+            if (currentRadiiLayer) {
+                if (this.checked) {
+                    currentRadiiLayer.addTo(incidentLayer);
+                } else {
+                    incidentLayer.removeLayer(currentRadiiLayer);
+                }
+                updateDynamicLegend();
+            }
+        });
+
+        document.getElementById('togglePlumeBtn').addEventListener('change', function() {
+            if (currentPlumeLayer) {
+                if (this.checked) {
+                    currentPlumeLayer.addTo(incidentLayer);
+                } else {
+                    incidentLayer.removeLayer(currentPlumeLayer);
+                }
+            }
+        });
+
+        document.getElementById('clearPinBtn').addEventListener('click', function() {
+            incidentLayer.clearLayers();
+            currentIncidentData = null;
+            currentPlumeLayer = null;
+            currentRadiiLayer = null;
+            currentWindSpeed = 0;
+            document.getElementById('incidentName').value = "";
+            document.getElementById('latInput').value = "";
+            document.getElementById('lonInput').value = "";
+            document.getElementById('manualWindDir').value = "";
+            showToast("ล้างจุดปักหมุดเรียบร้อยแล้ว", "info");
+            updateDynamicLegend();
+        });
+
+        document.getElementById('editPinBtn').addEventListener('click', function() {
+            if (!currentIncidentData) {
+                showToast("ไม่พบจุดที่ปักไว้ให้แก้ไข", "warning");
+                return;
+            }
+            document.getElementById('incidentName').value = currentIncidentData.name;
+            document.getElementById('latInput').value = currentIncidentData.lat;
+            document.getElementById('lonInput').value = currentIncidentData.lon;
+            if (currentIncidentData.windDir !== undefined) {
+                document.getElementById('manualWindDir').value = currentIncidentData.windDir;
+            }
+            showToast("ดึงข้อมูลมาที่ช่องแก้ไขแล้ว", "success");
+        });
+
+        document.getElementById('updateWindBtn').addEventListener('click', function() {
+            if (!currentIncidentData) {
+                showToast("กรุณาปักหมุดจุดเกิดเหตุก่อนครับ", "warning");
+                return;
+            }
+            
+            const manualDir = parseFloat(document.getElementById('manualWindDir').value);
+            if (isNaN(manualDir) || manualDir < 0 || manualDir > 360) {
+                showToast("กรุณาระบุองศาลมระหว่าง 0-360", "warning");
+                return;
+            }
+
+            currentIncidentData.windDir = manualDir;
+            
+            const dirEl = document.getElementById('inc-wind-dir');
+            if (dirEl) {
+                dirEl.innerHTML = `<span style="display:inline-block; transform: rotate(${manualDir + 180}deg); color:#0284c7;">⬆️</span> <span style="color:#0284c7; font-weight:bold;">${manualDir}° (ปรับแก้เอง)</span>`;
+            }
+            
+            drawPlumeAndCalculateRisk(currentIncidentData.lat, currentIncidentData.lon, manualDir, currentWindSpeed || 5);
+            showToast("อัปเดตทิศทางควันเรียบร้อยแล้ว", "success");
+        });
+
+        async function createIncidentMarker() {
+            const name = document.getElementById('incidentName').value.trim() || "ไม่ได้ระบุชื่อเหตุการณ์";
+            const lat = parseFloat(document.getElementById('latInput').value);
+            const lon = parseFloat(document.getElementById('lonInput').value);
+
+            if (isNaN(lat) || isNaN(lon)) {
+                showToast("กรุณากรอกพิกัดให้ครบถ้วน", "warning");
+                return;
+            }
+
+            currentIncidentData = { name, lat, lon };
+            updateDynamicLegend();
+
+            incidentLayer.clearLayers();
+            currentPlumeLayer = null;
+            currentRadiiLayer = L.layerGroup();
+
+            const radii = [
+                { r: 2000, color: '#16a34a' },
+                { r: 1500, color: '#eab308' },
+                { r: 1000, color: '#f97316' },
+                { r: 500, color: '#ef4444' }
+            ];
+
+            radii.forEach(item => {
+                L.circle([lat, lon], {
+                    radius: item.r,
+                    color: item.color,
+                    fillColor: item.color,
+                    fillOpacity: 0.15,
+                    weight: 2,
+                    dashArray: '5 5'
+                }).addTo(currentRadiiLayer);
+            });
+
+            if (document.getElementById('toggleRadiusBtn').checked) {
+                currentRadiiLayer.addTo(incidentLayer);
+            }
+
+            const fireIcon = L.divIcon({
+                html: `<div style="font-size: 30px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); cursor: pointer;">🔥</div>`,
+                className: '',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+                popupAnchor: [0, -30]
+            });
+
+            const marker = L.marker([lat, lon], { icon: fireIcon }).addTo(incidentLayer);
+            
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('th-TH');
+            const dateStr = now.toLocaleDateString('th-TH');
+
+            let popupContent = `
+                <div style='font-size: 14px; min-width: 220px;'>
+                    <div style='background-color:#e11d48; color:white; padding:6px; border-radius:4px; margin-bottom:8px; text-align:center; line-height:1.4;'>
+                        <b>🚨 รายงานจุดเกิดเหตุ<br>(${name})</b>
+                    </div>
+                    <b>จังหวัด:</b> <span id="inc-province" style="color:#0284c7; font-weight:bold;">กำลังค้นหา...</span><br>
+                    <b>พิกัด:</b> ${lat.toFixed(5)}  ${lon.toFixed(5)}<br>
+                    <b>เวลาที่รายงาน:</b> ${dateStr} ${timeStr}<br>
+                    
+                    <div style='background-color:#f8fafc; padding:8px; border:1px solid #e2e8f0; border-radius:6px; margin-top:8px;'>
+                        <div style='color:#475569; font-weight:bold; margin-bottom:4px; font-size:13px;'>💨 สภาพลม ณ จุดเกิดเหตุ</div>
+                        <b>ทิศทางลม:</b> <span id="inc-wind-dir">กำลังโหลด...</span><br>
+                        <b>ความเร็ว:</b> <span id="inc-wind-speed">กำลังโหลด...</span>
+                        <div style='background-color:#fef2f2; padding:6px; border:1px solid #fca5a5; border-radius:4px; margin-top:6px;'>
+                            <div style='color:#b91c1c; font-weight:bold; font-size:12px; margin-bottom:2px;'>⚠️ คาดการณ์ตำบลท้ายลม (2-5 กม.)</div>
+                            <span id="inc-downwind" style='color:#7f1d1d; font-size:13px; font-weight:bold;'>กำลังวิเคราะห์...</span>
+                        </div>
+                    </div>
+                    <br>
+                    <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" style='display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold;'>📍 เปิด Google Maps</a>
+                </div>
+            `;
+
+            marker.bindPopup(popupContent).openPopup();
+            map.setView([lat, lon], 13);
+
+            fetch(`https://api.longdo.com/map/services/address?lon=${lon}&lat=${lat}&key=${longdoApiKey}`)
+                .then(res => res.json())
+                .then(data => {
+                    const provEl = document.getElementById('inc-province');
+                    if (provEl && data && data.province) {
+                        provEl.innerText = data.province.replace(/^จังหวัด/g, '').trim();
+                    } else if (provEl) {
+                        provEl.innerText = "ไม่พบข้อมูลจังหวัด";
+                    }
+                })
+                .catch(() => {
+                    if (document.getElementById('inc-province')) document.getElementById('inc-province').innerText = "ข้อผิดพลาดเครือข่าย";
+                });
+
+            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.current) {
+                        currentWindSpeed = data.current.wind_speed_10m;
+                        currentIncidentData.windDir = data.current.wind_direction_10m;
+                        
+                        document.getElementById('manualWindDir').value = currentIncidentData.windDir;
+
+                        const dirEl = document.getElementById('inc-wind-dir');
+                        const speedEl = document.getElementById('inc-wind-speed');
+
+                        if (dirEl) dirEl.innerHTML = `<span style="display:inline-block; transform: rotate(${currentIncidentData.windDir + 180}deg);">⬆️</span> ${currentIncidentData.windDir}°`;
+                        if (speedEl) speedEl.innerText = `${currentWindSpeed} กม./ชม.`;
+
+                        drawPlumeAndCalculateRisk(lat, lon, currentIncidentData.windDir, currentWindSpeed);
+                    }
+                });
+        }
+
+        async function drawPlumeAndCalculateRisk(lat, lon, dir, speed) {
+            if (currentPlumeLayer) {
+                incidentLayer.removeLayer(currentPlumeLayer);
+                currentPlumeLayer = null;
+            }
+
+            const downwindEl = document.getElementById('inc-downwind');
+
+            if (speed > 1) {
+                const smokeAngle = (dir + 180) % 360;
+                const bearing = smokeAngle > 180 ? smokeAngle - 360 : smokeAngle;
+                
+                const distance = 5;
+                const spread = 40;
+                
+                const leftBearing = bearing - (spread / 2);
+                const rightBearing = bearing + (spread / 2);
+                
+                const leftPt = turf.destination([lon, lat], distance, leftBearing, {units: 'kilometers'}).geometry.coordinates;
+                const rightPt = turf.destination([lon, lat], distance, rightBearing, {units: 'kilometers'}).geometry.coordinates;
+                
+                const coneCoords = [
+                    [lat, lon],
+                    [leftPt[1], leftPt[0]],
+                    [rightPt[1], rightPt[0]]
+                ];
+                
+                currentPlumeLayer = L.polygon(coneCoords, {
+                    color: '#64748b',
+                    fillColor: '#94a3b8',
+                    fillOpacity: 0.4,
+                    weight: 1,
+                    dashArray: '4, 4'
+                });
+                
+                if (document.getElementById('togglePlumeBtn').checked) {
+                    currentPlumeLayer.addTo(incidentLayer);
+                }
+
+                const pt1 = turf.destination([lon, lat], 2.5, bearing, {units: 'kilometers'}).geometry.coordinates;
+                const pt2 = turf.destination([lon, lat], 5, bearing, {units: 'kilometers'}).geometry.coordinates;
+
+                if (downwindEl) downwindEl.innerHTML = "<span style='color:#64748b;'>กำลังคำนวณพื้นที่ใหม่...</span>";
+
+                try {
+                    const results = await Promise.all([
+                        fetch(`https://api.longdo.com/map/services/address?lon=${pt1[0]}&lat=${pt1[1]}&key=${longdoApiKey}`).then(r => r.json()),
+                        fetch(`https://api.longdo.com/map/services/address?lon=${pt2[0]}&lat=${pt2[1]}&key=${longdoApiKey}`).then(r => r.json())
+                    ]);
+
+                    let riskAreas = [];
+                    results.forEach(res => {
+                        if (res && res.subdistrict) {
+                            const t = res.subdistrict.replace(/^ตำบล|แขวง/g, '').trim();
+                            const a = res.district ? res.district.replace(/^อำเภอ|เขต/g, '').trim() : '';
+                            if (!riskAreas.includes(`${t} ${a}`)) riskAreas.push(`${t} ${a}`);
+                        }
+                    });
+                    if (downwindEl) downwindEl.innerHTML = riskAreas.length > 0 ? riskAreas.join(' และ ') : "ไม่พบข้อมูลชุมชน";
+                } catch (e) {
+                    if (downwindEl) downwindEl.innerHTML = "การวิเคราะห์พิกัดขัดข้อง";
+                }
+            } else {
+                if (downwindEl) downwindEl.innerHTML = "ลมสงบ ควันอาจสะสมในพื้นที่เกิดเหตุ";
+            }
+        }
+
+        // คลิกบนแผนที่เพื่อดึงพิกัดลงช่องจุดเกิดเหตุด่วน
+        map.on('click', function(e) {
+            let clickLat = e.latlng.lat.toFixed(5);
+            let clickLon = e.latlng.lng.toFixed(5);
+            let popupContent = `<div style='text-align:center; font-size:14px;'>
+                <b>📍 พิกัดที่เลือก</b><br>
+                Lat: <span style='color:#e11d48; font-weight:bold;'>${clickLat}</span><br>
+                Lon: <span style='color:#e11d48; font-weight:bold;'>${clickLon}</span><br>
+                <a href="https://www.google.com/maps/search/?api=1&query=${clickLat},${clickLon}" target="_blank" style="display:block; text-align:center; background-color:#3b82f6; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold; margin-top:10px;">🔍 เปิดดูพื้นที่บน Google Maps</a>
+            </div>`;
+
+            L.popup()
+                .setLatLng(e.latlng)
+                .setContent(popupContent)
+                .openOn(map);
+
+            let latInputEl = document.getElementById('latInput');
+            let lonInputEl = document.getElementById('lonInput');
+
+            if (latInputEl && lonInputEl) {
+                latInputEl.value = clickLat;
+                lonInputEl.value = clickLon;
+                showToast("ดึงพิกัดลงช่องเกิดเหตุด่วนเรียบร้อยแล้ว", "success");
+            }
+        });
+
+        const statusTexts = [
+            "INITIATING SATELLITE CONNECTION...",
+            "ANALYZING NASA FIRMS DATA...",
+            "CHECKING LANDFILL RISK BUFFERS..."
+        ];
+        let statusIndex = 0;
+        const loadingInterval = setInterval(() => {
+            const statusEl = document.getElementById('loadingStatusText');
+            if (statusEl) {
+                statusIndex = (statusIndex + 1) % statusTexts.length;
+                statusEl.innerText = statusTexts[statusIndex];
+            }
+        }, 1200);
+
+        // ปุ่ม Force Sync NASA
+        document.getElementById('forceSyncBtn').addEventListener('click', function() {
+            const btn = this;
+            btn.disabled = true;
+            btn.style.backgroundColor = '#9ca3af';
+            btn.style.cursor = 'wait';
+            btn.innerHTML = '⏳ กำลังสั่งการเซิร์ฟเวอร์...';
+            
+            showToast("กำลังสั่งการระบบหลังบ้านให้ดึงข้อมูลจาก NASA (อาจใช้เวลา 15-30 วินาที กรุณารอ)...", "info");
+
+            fetch(gasWebappUrl + "?action=force_sync_nasa")
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) throw new Error(data.error);
+                    showToast("ดึงข้อมูลดาวเทียม NASA ล่าสุดสำเร็จ! กำลังประมวลผลใหม่...", "success");
+                    fetchNasaData();
+                })
+                .catch(err => {
+                    console.error(err);
+                    showToast("เกิดข้อผิดพลาดในการดึงข้อมูลสด กรุณาลองใหม่อีกครั้ง", "error");
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.style.backgroundColor = '#d97706';
+                    btn.style.cursor = 'pointer';
+                    btn.innerHTML = '🔄 อัปเดตดาวเทียมเดี๋ยวนี้';
+                });
+        });
+
+        // มาตราส่วนแผนที่ (Scale Control)
+        const scaleControl = L.control.scale({
+            position: 'bottomright',
+            metric: true,
+            imperial: false,
+            maxWidth: 200
+        }).addTo(map);
+
+        const scaleContainer = scaleControl.getContainer();
+        L.DomEvent.disableClickPropagation(scaleContainer);
+
+        scaleContainer.addEventListener('click', function(e) {
+            e.stopPropagation();
+            this.classList.add('scale-hidden');
+            showToast("ซ่อนมาตราส่วนแล้ว (ซูมแผนที่เพื่อแสดงอีกครั้ง)", "info");
+        });
+
+        map.on('zoomend', function() {
+            if (scaleContainer.classList.contains('scale-hidden')) {
+                scaleContainer.classList.remove('scale-hidden');
+            }
+        });
+    </script>
+</body>
+</html>
