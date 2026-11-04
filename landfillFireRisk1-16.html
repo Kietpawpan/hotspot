@@ -457,8 +457,13 @@
         const gasWebappUrl = 'https://script.google.com/macros/s/AKfycbxuZ2j2Cuoy6xUEFO7N0wxV2O47ZqAV3eOOtkrRWdAk7C6Fz_mlvP6O5sAplBOH9HG4IA/exec';
         const landfillGasUrl = 'https://script.google.com/macros/s/AKfycbwWI0NvtyToeNBq5Y0Yu6VCKiJh27JDSDBZTJ0IbQ1mGsErkJfFdzYdkiVAw72GGWKZ/exec';
         const longdoApiKey = 'bce812933744d2530d26f0fabb0017cf';
-        const highResBoundariesUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/MAPS11_boundary_highres-Overpass24Percent.json';
+        
+        // ใส่ลิงก์โฟลเดอร์หลักบน GitHub ที่เก็บไฟล์ EPO1 ถึง EPO16
+        const githubBaseUrl = 'https://raw.githubusercontent.com/Kietpawpan/hotspot/refs/heads/main/';
         const thailandBoundariesUrl = 'https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json';
+
+        // ตัวแปรสำหรับเก็บข้อมูลที่โหลดมาแล้ว จะได้ไม่ต้องโหลดซ้ำ
+        let boundaryCache = {};
 
         const urlParams = new URLSearchParams(window.location.search);
         const paramEpo = urlParams.get('epo');
@@ -540,7 +545,6 @@
 
         L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-        let highResGeoJSONData = null;
         let thailandGeoJSONData = null;
         let boundaryGeoJSON = null;
 
@@ -586,7 +590,7 @@
             return null;
         }
 
-        function updateRegionUIAndBoundaries(epoId, fitMap = true) {
+        async function updateRegionUIAndBoundaries(epoId, fitMap = true) {
             const region = EPO_REGIONS[epoId];
             if (!region) return;
 
@@ -600,12 +604,37 @@
             boundaryLayerGroup.clearLayers();
             let matchedFeatures = [];
 
-            const primarySource = (epoId === "11" && highResGeoJSONData) ? highResGeoJSONData : thailandGeoJSONData;
+            // ตรวจสอบว่าเคยโหลดไฟล์ของ สคพ. นี้มาแล้วหรือยัง
+            let primarySource = boundaryCache[epoId];
+            
+            // ถ้ายังไม่เคยโหลด ให้ดึงไฟล์จาก GitHub
+            if (!primarySource) {
+                // สร้างชื่อไฟล์ตาม สคพ. เช่น EPO1_boundary.json
+                // ถ้าเป็น สคพ. 11 จะดึงไฟล์ MAPS11_boundary_highres-Overpass24Percent.json
+                let fileName = (epoId === "11") ? "MAPS11_boundary_highres-Overpass24Percent.json" : `EPO${epoId}_boundary.json`;
+                let fileUrl = `${githubBaseUrl}${fileName}`;
+                try {
+                    let res = await fetch(fileUrl);
+                    if (res.ok) {
+                        primarySource = await res.json();
+                        boundaryCache[epoId] = primarySource; // เก็บไว้ใน Cache
+                    }
+                } catch (err) {
+                    console.warn(`ไม่พบไฟล์ขอบเขตความละเอียดสูงของ สคพ. ${epoId}`);
+                }
+            }
+
             const fallbackSource = thailandGeoJSONData;
 
-            if (primarySource && primarySource.features) {
+if (primarySource && primarySource.features) {
                 primarySource.features.forEach(f => {
-                    const matchedProv = matchFeatureToProvince(f, region);
+                    let matchedProv = matchFeatureToProvince(f, region);
+                    
+                    // เพิ่มเงื่อนไข: หากโหลดไฟล์ EPO สำเร็จ (ไม่ใช่ไฟล์สำรอง) ให้ใช้เส้นนี้วาดได้เลยแม้ไม่มีชื่อจังหวัด
+                    if (!matchedProv && primarySource !== fallbackSource) {
+                        matchedProv = region.name;
+                    }
+
                     if (matchedProv) {
                         let clone = JSON.parse(JSON.stringify(f));
                         clone.properties = clone.properties || {};
@@ -614,7 +643,8 @@
                         matchedFeatures.push(clone);
                     }
                 });
-            }
+            }       
+
 
             if (fallbackSource && primarySource !== fallbackSource) {
                 const foundProvs = new Set(matchedFeatures.map(f => f.properties.matched_prov_th));
@@ -901,21 +931,20 @@
             hotspotLayer.addLayer(geoJsonLayer);
         }
 
-        Promise.all([
-            fetch(highResBoundariesUrl).then(r => r.json()).catch(() => null),
-            fetch(thailandBoundariesUrl).then(r => r.json()).catch(() => null)
-        ]).then(([highResData, thaiData]) => {
-            highResGeoJSONData = highResData;
+        // ปรับการโหลดตอนเริ่มต้น
+        fetch(thailandBoundariesUrl).then(r => r.json()).catch(() => null)
+        .then(thaiData => {
             thailandGeoJSONData = thaiData;
-
-            updateRegionUIAndBoundaries(currentEpoId, true);
-            fetchNasaData();
-            fetchLandfillData();
+            updateRegionUIAndBoundaries(currentEpoId, true).then(() => {
+                fetchNasaData();
+                fetchLandfillData();
+            });
         });
 
-        document.getElementById('epoRegionSelect').addEventListener('change', function() {
+        // ปรับ Event Listener เมื่อเปลี่ยน สคพ.
+        document.getElementById('epoRegionSelect').addEventListener('change', async function() {
             currentEpoId = this.value;
-            updateRegionUIAndBoundaries(currentEpoId, true);
+            await updateRegionUIAndBoundaries(currentEpoId, true);
             processRegionalData();
             showToast(`สลับพื้นที่ไปยัง ${EPO_REGIONS[currentEpoId].name} เรียบร้อยแล้ว`, "info");
         });
