@@ -287,6 +287,9 @@
 
                     <div style="flex: 1; min-width: 240px;">
                         🛰️ <b>สถานะข้อมูล:</b> <span id="lastUpdateDisplay" style="color: #b91c1c; font-weight: bold;">กำลังดาวน์โหลดและประมวลผลข้อมูล NASA...</span>
+                        <div style="font-size: 13px; color: #475569; margin-top: 4px;">
+                            🕒 <b>อัปเดตข้อมูลดาวเทียมล่าสุด:</b> <span id="lastSyncDisplay">-</span>
+                        </div>
                     </div>
 
                     <button id="forceSyncBtn" style="padding: 10px 15px; background-color: #d97706; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: background 0.2s;">
@@ -1272,6 +1275,50 @@ if (primarySource && primarySource.features) {
             updateDynamicLegend();
         });
 
+        // ============================================================================
+        // เวลาอัปเดตล่าสุดของข้อมูลจาก GAS (ค่า updated = LAST_SYNC ที่ trigger ซิงก์ NASA ทุก 30 นาที)
+        // ============================================================================
+        const SYNC_STALE_MINUTES = 120; // เกิน 2 ชม. ถือว่าข้อมูลอาจค้าง (ควรอัปเดตทุก 30 นาที)
+        let lastSyncIso = null;
+
+        function formatThaiDateTime(date) {
+            const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+            const th = new Date(date.getTime() + (7 * 60 * 60 * 1000)); // เวลาไทย UTC+7
+            return th.getUTCDate() + " " + thaiMonths[th.getUTCMonth()] + " " + (th.getUTCFullYear() + 543) +
+                " เวลา " + String(th.getUTCHours()).padStart(2, '0') + ":" + String(th.getUTCMinutes()).padStart(2, '0') + " น.";
+        }
+
+        function formatAgo(minutes) {
+            if (minutes < 1) return "เมื่อสักครู่";
+            if (minutes < 60) return `${minutes} นาทีที่แล้ว`;
+            if (minutes < 24 * 60) {
+                const h = Math.floor(minutes / 60), m = minutes % 60;
+                return m ? `${h} ชม. ${m} นาทีที่แล้ว` : `${h} ชม.ที่แล้ว`;
+            }
+            return `${Math.floor(minutes / (24 * 60))} วันที่แล้ว`;
+        }
+
+        function renderLastSync() {
+            const el = document.getElementById('lastSyncDisplay');
+            if (!el) return;
+
+            const syncDate = lastSyncIso ? new Date(lastSyncIso) : null;
+            if (!syncDate || isNaN(syncDate.getTime())) {
+                el.innerHTML = '<span style="color:#64748b;">ไม่มีข้อมูลเวลาอัปเดตจากระบบส่วนกลาง</span>';
+                return;
+            }
+
+            const minutesAgo = Math.max(0, Math.floor((Date.now() - syncDate.getTime()) / 60000));
+            const isStale = minutesAgo > SYNC_STALE_MINUTES;
+            const color = isStale ? '#b45309' : '#15803d';
+            el.innerHTML = `<span style="color:${color}; font-weight:bold;">${formatThaiDateTime(syncDate)}</span>` +
+                ` <span style="color:${color};">(${formatAgo(minutesAgo)})</span>` +
+                (isStale ? ' <span style="color:#b45309;" title="ปกติระบบอัปเดตทุก 30 นาที">⚠️ ข้อมูลอาจไม่เป็นปัจจุบัน ลองกดอัปเดตดาวเทียม</span>' : '');
+        }
+
+        // อัปเดตข้อความ "x นาทีที่แล้ว" ทุก 1 นาที
+        setInterval(renderLastSync, 60000);
+
         function fetchNasaData() {
             let statusEl = document.getElementById('lastUpdateDisplay');
             if (statusEl) statusEl.innerHTML = `<span style="color:#0284c7;">กำลังดึงข้อมูลและตรวจสอบพิกัดเชิงพื้นที่...</span>`;
@@ -1285,6 +1332,8 @@ if (primarySource && primarySource.features) {
                     if (data.error) throw new Error(data.error);
 
                     rawHotspotPoints = Array.isArray(data.points) ? data.points : [];
+                    lastSyncIso = data.updated || null;
+                    renderLastSync();
 
                     let loadingOverlay = document.getElementById('loadingOverlay');
                     if (loadingOverlay) {
