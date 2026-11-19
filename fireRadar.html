@@ -250,6 +250,90 @@
         }
         .epo-row.clickable { cursor: pointer; }
         .epo-row.clickable:hover { outline: 1px solid #c084fc; }
+
+        /* ===== PM2.5 รายจังหวัด (สถานีกรมควบคุมมลพิษ) ===== */
+        .pm-marker {
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 11px;
+            border: 1.5px solid rgba(15, 23, 42, 0.55);
+            font-size: 11px;
+            font-weight: 800;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+            cursor: pointer;
+        }
+        /* สถานี คพ. ตอนซูมออก: รูปข้าวหลามตัด (ต่างจากจุดความร้อนที่เป็นวงกลม) */
+        .pm-dot {
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            border-radius: 2px;
+            transform: rotate(45deg);
+            border: 1.5px solid rgba(15, 23, 42, 0.8);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.35);
+            cursor: pointer;
+        }
+        .pm-swatch {
+            display: inline-block;
+            width: 9px;
+            height: 9px;
+            transform: rotate(45deg);
+            border: 1.5px solid rgba(15, 23, 42, 0.8);
+            border-radius: 1px;
+            margin: 0 8px 0 3px;
+        }
+        .pm25-table th.rank, .pm25-table td.rank { text-align: center; width: 56px; }
+        .pm25-panel {
+            margin-top: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 15px;
+            background: #f8fafc;
+        }
+        .pm25-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .pm25-panel-title { font-size: 17px; font-weight: bold; color: #4a148c; }
+        .pm25-meta { font-size: 13px; color: #475569; margin-top: 3px; }
+        .pm25-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 14px; }
+        .pm25-tools select, .pm25-tools button {
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .pm25-tools select { border: 1px solid #c084fc; color: #4a148c; background: #fff; }
+        .pm25-tools button { border: none; background: #0284c7; color: #fff; font-weight: bold; }
+        .pm25-tools button:disabled { background: #9ca3af; cursor: wait; }
+        .pm25-scale { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; font-size: 12px; }
+        .pm25-chip { padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(15,23,42,0.2); font-weight: bold; }
+        .pm25-summary { font-size: 14px; margin: 6px 0 8px; }
+        .pm25-table-wrap { overflow-x: auto; max-height: 460px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; }
+        .pm25-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .pm25-table th {
+            position: sticky; top: 0; z-index: 1;
+            background: #4a148c; color: #fff; padding: 7px 8px; text-align: left; white-space: nowrap; font-size: 13px;
+        }
+        .pm25-table td { padding: 6px 8px; border-top: 1px solid #f1f5f9; vertical-align: middle; }
+        .pm25-table tbody tr { cursor: pointer; }
+        .pm25-table tbody tr:hover { background: #f3e8ff; }
+        .pm25-table .num { text-align: right; white-space: nowrap; }
+        .pm25-badge { display: inline-block; min-width: 46px; text-align: center; padding: 2px 8px; border-radius: 6px; font-weight: 800; border: 1px solid rgba(15,23,42,0.2); }
+        .pm25-sub { display: block; font-size: 11px; color: #64748b; }
+        .pm25-note { font-size: 12px; color: #64748b; margin-top: 8px; line-height: 1.5; }
+        .pm25-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 6px; padding: 8px 10px; font-size: 14px; }
+        @media (max-width: 600px) {
+            .pm25-table { font-size: 12px; }
+            .pm25-table th, .pm25-table td { padding: 5px 6px; }
+        }
     </style>
 </head>
 <body>
@@ -316,6 +400,15 @@
                 </div>
             </div>
 
+            <!-- ตัวเลือกแสดงค่า PM2.5 รายจังหวัดจากสถานีกรมควบคุมมลพิษ -->
+            <div id="pm25ToggleContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 16px; flex-wrap: wrap;">
+                    <input type="checkbox" id="pm25Toggle" style="width: 18px; height: 18px; accent-color: #4a148c; margin: 0;">
+                    <b>🌫️ แสดงค่า PM2.5 รายจังหวัด พร้อมจัดอันดับ</b>
+                    <span style="font-size: 14px; color: #64748b;">(สถานีตรวจวัดคุณภาพอากาศ กรมควบคุมมลพิษ)</span>
+                </label>
+            </div>
+
             <!-- ส่วนปักหมุดจุดเกิดเหตุด่วนและจำลองกรวยควันตามทิศลม -->
             <div id="incidentContainer" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background-color: #fff1f2; padding: 10px; border-radius: 8px;">
                 <label style="font-size: 16px; font-weight: bold; color: #be123c;">🚨 จุดเกิดเหตุด่วน:</label>
@@ -351,6 +444,46 @@
                 <div class="loading-status" id="loadingStatusText">INITIATING SATELLITE CONNECTION...</div>
             </div>
             <div id="map"></div>
+        </div>
+
+        <!-- ตารางจัดอันดับค่า PM2.5 รายจังหวัด (แสดงเมื่อเปิดตัวเลือก PM2.5) -->
+        <div id="pm25Panel" class="pm25-panel" style="display: none;">
+            <div class="pm25-panel-header">
+                <div>
+                    <div class="pm25-panel-title">🌫️ อันดับค่า PM2.5 รายจังหวัด <span id="pm25Scope" style="font-weight: normal; color: #475569;"></span></div>
+                    <div class="pm25-meta" id="pm25Meta">-</div>
+                </div>
+                <div class="pm25-tools">
+                    <label for="pm25AggSelect">ค่าจังหวัดจาก:</label>
+                    <select id="pm25AggSelect">
+                        <option value="max" selected>สถานีที่ค่าสูงสุด</option>
+                        <option value="mean">ค่าเฉลี่ยทุกสถานี</option>
+                    </select>
+                    <button type="button" id="pm25RefreshBtn">🔄 รีเฟรช</button>
+                </div>
+            </div>
+            <div class="pm25-scale" id="pm25Scale"></div>
+            <div class="pm25-summary" id="pm25Summary"></div>
+            <div class="pm25-table-wrap">
+                <table class="pm25-table">
+                    <thead>
+                        <tr>
+                            <th class="rank">อันดับ</th>
+                            <th>จังหวัด</th>
+                            <th class="num">PM2.5<span class="pm25-sub" style="color:#e9d5ff;">มคก./ลบ.ม.</span></th>
+                            <th>ระดับคุณภาพอากาศ</th>
+                            <th class="num">สถานี</th>
+                            <th class="num" id="pm25HotspotHeader">🔥 จุดความร้อน</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pm25TableBody"></tbody>
+                </table>
+            </div>
+            <div class="pm25-note" id="pm25Missing"></div>
+            <div class="pm25-note">
+                ที่มา: สถานีตรวจวัดคุณภาพอากาศ กรมควบคุมมลพิษ (Air4Thai) · เกณฑ์สีตามดัชนีคุณภาพอากาศของ คพ. ·
+                มาตรฐาน PM2.5 เฉลี่ย 24 ชม. ไม่เกิน 37.5 มคก./ลบ.ม. · คลิกแถวเพื่อซูมไปที่จังหวัด
+            </div>
         </div>
     </div>
 
@@ -505,6 +638,22 @@
             return isNational(epoId) ? NATIONAL_VIEW.name : EPO_REGIONS[epoId].name;
         }
 
+        // ============================================================================
+        // PM2.5 จากสถานีตรวจวัดคุณภาพอากาศ กรมควบคุมมลพิษ (Air4Thai)
+        // ============================================================================
+        // เกณฑ์สีตามดัชนีคุณภาพอากาศของ คพ. (มคก./ลบ.ม.)
+        const PM25_LEVELS = [
+            { max: 15.0,     color: '#3BCCFF', text: '#0f172a', range: '0 - 15.0',    label: 'ดีมาก' },
+            { max: 25.0,     color: '#92D050', text: '#0f172a', range: '15.1 - 25.0', label: 'ดี' },
+            { max: 37.5,     color: '#FFFF00', text: '#0f172a', range: '25.1 - 37.5', label: 'ปานกลาง' },
+            { max: 75.0,     color: '#FFA200', text: '#0f172a', range: '37.6 - 75.0', label: 'เริ่มมีผลกระทบต่อสุขภาพ' },
+            { max: Infinity, color: '#F04646', text: '#ffffff', range: '75.1 ขึ้นไป',  label: 'มีผลกระทบต่อสุขภาพ' }
+        ];
+        const PM25_STANDARD = 37.5;          // มาตรฐานเฉลี่ย 24 ชม.
+        const PM25_REFRESH_MINUTES = 15;     // รีเฟรชอัตโนมัติขณะเปิดตัวเลือก
+        const PM25_LABEL_ZOOM = 8;           // ซูมตั้งแต่ระดับนี้แสดงตัวเลขบนหมุดสถานี (ต่ำกว่านี้แสดงเป็นจุดสี)
+        const ALL_TH_PROVINCES = Object.keys(PROVINCE_TO_EPO).concat(["กรุงเทพมหานคร"]);
+
         const gasWebappUrl = 'https://script.google.com/macros/s/AKfycbyJfWRJFtBwsIZecPHZYJda69wXoWdmp1fINaU8-qagZdI7sc8TvB5FzKpGqosbxaUf/exec';
         const landfillGasUrl = 'https://script.google.com/macros/s/AKfycbwWI0NvtyToeNBq5Y0Yu6VCKiJh27JDSDBZTJ0IbQ1mGsErkJfFdzYdkiVAw72GGWKZ/exec';
         const longdoApiKey = 'bce812933744d2530d26f0fabb0017cf';
@@ -523,12 +672,17 @@
         document.getElementById('epoRegionSelect').value = currentEpoId;
 
         // อัปเดตพารามิเตอร์ ?epo= บนแถบที่อยู่ เพื่อให้คัดลอกลิงก์ไปแชร์แล้วเปิดพื้นที่เดิมได้
-        function syncEpoUrlParam(epoId) {
+        function setUrlParam(key, value) {
             try {
                 const u = new URL(window.location.href);
-                u.searchParams.set('epo', epoId);
+                if (value === null || value === undefined) u.searchParams.delete(key);
+                else u.searchParams.set(key, value);
                 window.history.replaceState(null, '', u.toString());
             } catch (e) { /* ไม่รองรับ history API ก็ข้ามไป */ }
+        }
+
+        function syncEpoUrlParam(epoId) {
+            setUrlParam('epo', epoId);
         }
 
         function showToast(message, type = 'info') {
@@ -590,7 +744,13 @@
         const boundaryLayerGroup = L.layerGroup().addTo(map);
         const riskAlertLayer = L.layerGroup().addTo(map);
         const incidentLayer = L.layerGroup().addTo(map);
-        const landfillLayer = L.layerGroup(); 
+        const landfillLayer = L.layerGroup();
+
+        // ชั้นข้อมูล PM2.5 รายจังหวัด: สีพื้นจังหวัดอยู่ใน pane ที่ต่ำกว่าจุดความร้อน เพื่อไม่ให้บังหมุดอื่น
+        map.createPane('pm25Pane');
+        map.getPane('pm25Pane').style.zIndex = 350;
+        const PM25_LAYER_NAME = "🌫️ PM2.5 รายจังหวัด (คพ.)";
+        const pm25Layer = L.layerGroup();
         
         // กำหนดเลเยอร์จัดกลุ่มจุดความร้อน
         const hotspotLayer = L.markerClusterGroup({
@@ -605,7 +765,8 @@
             "🔥 จุดความร้อน (NASA)": hotspotLayer,
             "🚨 แจ้งเตือนไฟไหม้บ่อขยะ": riskAlertLayer,
             "จุดเกิดเหตุด่วน (🚨)": incidentLayer,
-            "🗑️ สถานที่กำจัดขยะ": landfillLayer
+            "🗑️ สถานที่กำจัดขยะ": landfillLayer,
+            [PM25_LAYER_NAME]: pm25Layer
         };
 
         L.control.layers(baseMaps, overlayMaps).addTo(map);
@@ -634,6 +795,14 @@
         let currentRadiiLayer = null;
         let currentWindSpeed = 0;
 
+        // สถานะข้อมูล PM2.5 (โหลดเมื่อเปิดตัวเลือกครั้งแรก)
+        let pm25Stations = null;      // รายการสถานีที่จัดรูปแบบแล้ว
+        let pm25LoadedAt = 0;         // เวลาที่โหลดข้อมูลล่าสุด (ms)
+        let pm25LoadPromise = null;   // กันการโหลดซ้อน
+        let pm25LoadError = null;     // ข้อความผิดพลาดล่าสุด
+        let pm25LegendSummary = null; // สรุปสำหรับคำอธิบายสัญลักษณ์บนแผนที่
+        let pm25LastDetailed = null;  // หมุดสถานีแสดงแบบตัวเลข (true) หรือจุดสี (false)
+
         function matchFeatureToProvince(feature, regionConfig) {
             const props = feature.properties || {};
             const propValues = Object.values(props).map(v => String(v || ""));
@@ -656,23 +825,28 @@
         }
 
         // โหลดขอบเขต 77 จังหวัด: ลองจากแหล่งเดิมก่อน ถ้าไม่ได้ใช้ไฟล์ thailand.json ในรีโปนี้ (ข้อมูลชุดเดียวกัน)
-        async function ensureThailandBoundaries() {
-            if (thailandGeoJSONData && Array.isArray(thailandGeoJSONData.features)) return thailandGeoJSONData;
-            const urls = [thailandBoundariesUrl, 'thailand.json', githubBaseUrl + 'thailand.json'];
-            for (const url of urls) {
-                try {
-                    const res = await fetch(url);
-                    if (!res.ok) continue;
-                    const data = await res.json();
-                    if (data && Array.isArray(data.features)) {
-                        thailandGeoJSONData = data;
-                        return data;
+        let thailandBoundariesPromise = null; // กันการโหลดไฟล์ซ้ำเมื่อถูกเรียกพร้อมกันหลายจุด
+        function ensureThailandBoundaries() {
+            if (thailandGeoJSONData && Array.isArray(thailandGeoJSONData.features)) return Promise.resolve(thailandGeoJSONData);
+            if (thailandBoundariesPromise) return thailandBoundariesPromise;
+            thailandBoundariesPromise = (async () => {
+                const urls = [thailandBoundariesUrl, 'thailand.json', githubBaseUrl + 'thailand.json'];
+                for (const url of urls) {
+                    try {
+                        const res = await fetch(url);
+                        if (!res.ok) continue;
+                        const data = await res.json();
+                        if (data && Array.isArray(data.features)) {
+                            thailandGeoJSONData = data;
+                            return data;
+                        }
+                    } catch (e) {
+                        console.warn('โหลดขอบเขตจังหวัดไม่สำเร็จ:', url, e);
                     }
-                } catch (e) {
-                    console.warn('โหลดขอบเขตจังหวัดไม่สำเร็จ:', url, e);
                 }
-            }
-            return null;
+                return null;
+            })().finally(() => { thailandBoundariesPromise = null; });
+            return thailandBoundariesPromise;
         }
 
         // โหมดทั้งประเทศ: วาดเส้นขอบ 77 จังหวัด และผูกชื่อจังหวัด (ไทย) + สคพ. ที่รับผิดชอบไว้กับแต่ละ polygon
@@ -1195,6 +1369,21 @@ if (primarySource && primarySource.features) {
                 }
             }
 
+            if (activeLayers.has(PM25_LAYER_NAME)) {
+                html += `<div class="legend-title">🌫️ PM2.5 รายจังหวัด (${regionLabel()})</div>`;
+                html += '<div style="font-size:12px; color:#475569; margin-bottom:2px;">◆ สถานี คพ. · สีพื้น = ค่าจังหวัด · ซูมเข้าเพื่อดูตัวเลข</div>';
+                PM25_LEVELS.forEach(lv => {
+                    html += `<div><span class="pm-swatch" style="background:${lv.color};"></span>${lv.range} ${lv.label}</div>`;
+                });
+                if (pm25LegendSummary) {
+                    html += `<div style="margin-top:4px; font-size:13px;">มีข้อมูล <b>${pm25LegendSummary.provinces}</b> จังหวัด · เกินมาตรฐาน <b style="color:#b91c1c;">${pm25LegendSummary.overStd}</b> จังหวัด</div>`;
+                } else if (pm25LoadError) {
+                    html += '<div style="margin-top:4px; font-size:13px; color:#b91c1c;">โหลดข้อมูล PM2.5 ไม่สำเร็จ</div>';
+                } else {
+                    html += '<div style="margin-top:4px; font-size:13px; color:#64748b;">กำลังโหลดข้อมูล...</div>';
+                }
+            }
+
             if (activeLayers.has("🚨 แจ้งเตือนไฟไหม้บ่อขยะ")) {
                 html += `<div class="legend-title" style="color:#d50000;">🚨 เฝ้าระวังไฟไหม้บ่อขยะ (${regionLabel()})</div>`;
                 html += '<div><span class="dot" style="background:#ff1744; animation: blink-alert-anim 1.2s infinite alternate;"></span> รัศมีเฝ้าระวัง ' + RISK_RADIUS_KM + ' กม.</div>';
@@ -1454,6 +1643,9 @@ if (primarySource && primarySource.features) {
             
             // คำนวณความเสี่ยงบ่อขยะใหม่หลังจากกรองเวลาแล้ว
             calculateWasteFireRisk();
+
+            // อัปเดตตาราง PM2.5 (คอลัมน์จุดความร้อน/ขอบเขตพื้นที่) ถ้าเปิดตัวเลือกอยู่
+            if (map.hasLayer(pm25Layer)) renderPm25();
         }
 
         document.querySelectorAll('.time-radio').forEach(radio => {
@@ -1910,6 +2102,423 @@ if (primarySource && primarySource.features) {
                     btn.innerHTML = '🔄 อัปเดตดาวเทียมเดี๋ยวนี้';
                 });
         });
+
+        // ============================================================================
+        // PM2.5 รายจังหวัด: โหลดข้อมูล → ระบุจังหวัด → สรุปรายจังหวัด → วาดแผนที่และตารางจัดอันดับ
+        // ============================================================================
+        // แหล่งข้อมูลเรียงตามลำดับ: (1) GAS ?action=pm25 (ดึง Air4Thai ฝั่งเซิร์ฟเวอร์ ไม่ติด CORS)
+        // (2) เรียก Air4Thai ตรงจากเบราว์เซอร์ (ใช้ได้เฉพาะเมื่อ Air4Thai อนุญาต CORS)
+        const PM25_SOURCES = [
+            gasWebappUrl + '?action=pm25',
+            'https://air4thai.pcd.go.th/services/getNewAQI_JSON.php',
+            'https://air4thai.com/forweb/getAQI_JSON.php'
+        ];
+
+        let pm25ProvinceIndex = null;
+        let pm25StationMarkers = new Map(); // station id -> marker
+
+        function escHtml(v) {
+            return String(v === null || v === undefined ? '' : v)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function getPm25Level(v) {
+            if (v === null || v === undefined || isNaN(v)) return null;
+            return PM25_LEVELS.find(lv => v <= lv.max);
+        }
+
+        function fmtPm(v) {
+            if (v === null || v === undefined || isNaN(v)) return '-';
+            return Number.isInteger(v) ? String(v) : v.toFixed(1);
+        }
+
+        function formatAir4ThaiTime(date, time) {
+            const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+            const p = String(date || '').split('-');
+            if (p.length !== 3) return [date, time].filter(Boolean).join(' ') || '-';
+            let y = parseInt(p[0], 10);
+            if (y < 2500) y += 543;
+            const t = String(time || '').split(':').slice(0, 2).join(':');
+            return `${parseInt(p[2], 10)} ${thaiMonths[parseInt(p[1], 10) - 1] || p[1]} ${y}${t ? ' ' + t + ' น.' : ''}`;
+        }
+
+        // ดัชนีขอบเขต 77 จังหวัด (ชื่อไทย + bbox) สำหรับระบุจังหวัดของสถานีจากพิกัด
+        function getPm25ProvinceIndex() {
+            if (pm25ProvinceIndex) return pm25ProvinceIndex;
+            if (!thailandGeoJSONData || !thailandGeoJSONData.features) return [];
+            pm25ProvinceIndex = thailandGeoJSONData.features.map(f => {
+                const en = String((f.properties || {}).name || '').trim();
+                return { th: EN_TO_TH_PROVINCE[en] || en, bbox: turf.bbox(f), feature: f };
+            });
+            return pm25ProvinceIndex;
+        }
+
+        function matchThaiProvinceName(text) {
+            let t = String(text || '').trim().replace(/^(จังหวัด|จ\.)\s*/, '').trim();
+            if (!t) return null;
+            if (t.includes('กรุงเทพ')) return 'กรุงเทพมหานคร';
+            if (ALL_TH_PROVINCES.includes(t)) return t;
+            const byLength = ALL_TH_PROVINCES.slice().sort((a, b) => b.length - a.length);
+            return byLength.find(p => t.includes(p)) || null;
+        }
+
+        // ระบุจังหวัดของสถานี: ที่อยู่สถานีจาก คพ. (ส่วนท้ายหลังเครื่องหมายจุลภาค) → ชื่อจังหวัดจาก GAS → พิกัด
+        function resolveStationProvince(provHint, area, lat, lon) {
+            const tail = String(area || '').split(',').pop();
+            const fromArea = matchThaiProvinceName(tail);
+            if (fromArea) return fromArea;
+            const fromHint = matchThaiProvinceName(provHint);
+            if (fromHint) return fromHint;
+            const pt = turf.point([lon, lat]);
+            const hit = getPm25ProvinceIndex().find(p =>
+                lon >= p.bbox[0] && lat >= p.bbox[1] && lon <= p.bbox[2] && lat <= p.bbox[3] &&
+                turf.booleanPointInPolygon(pt, p.feature));
+            return hit ? hit.th : null;
+        }
+
+        // รองรับทั้งรูปแบบจาก GAS (ย่อแล้ว) และรูปแบบดิบของ Air4Thai (stations[].AQILast.PM25.value)
+        function normalizePm25Stations(data) {
+            const list = Array.isArray(data) ? data : (data && Array.isArray(data.stations) ? data.stations : null);
+            if (!list || list.length === 0) return null;
+
+            const out = [];
+            list.forEach((s, i) => {
+                const last = s.AQILast || {};
+                const lat = parseFloat(s.lat);
+                const lon = parseFloat(s.lon !== undefined ? s.lon : (s.long !== undefined ? s.long : s.lng));
+                if (isNaN(lat) || isNaN(lon)) return;
+
+                const rawPm = (s.pm25 !== undefined) ? s.pm25 : (last.PM25 ? last.PM25.value : undefined);
+                let pm = parseFloat(rawPm);
+                pm = (isNaN(pm) || pm < 0) ? null : Math.round(pm * 10) / 10;
+
+                const rawAqi = (s.aqi !== undefined) ? s.aqi : (last.AQI ? last.AQI.aqi : undefined);
+                let aqi = parseFloat(rawAqi);
+                aqi = (isNaN(aqi) || aqi < 0) ? null : aqi;
+
+                const area = String(s.area !== undefined ? s.area : (s.areaTH || ''));
+                const prov = resolveStationProvince(s.prov !== undefined ? s.prov : s.prov_name, area, lat, lon);
+
+                out.push({
+                    id: String(s.id || s.stationID || ('st' + i)),
+                    name: String(s.name || s.nameTH || 'ไม่ระบุชื่อสถานี'),
+                    area: area,
+                    lat: lat,
+                    lon: lon,
+                    prov: prov,
+                    epo: prov ? (PROVINCE_TO_EPO[prov] || null) : null,
+                    pm25: pm,
+                    aqi: aqi,
+                    date: String(s.date || last.date || ''),
+                    time: String(s.time || last.time || '')
+                });
+            });
+            return out.length ? out : null;
+        }
+
+        async function fetchJsonWithTimeout(url, ms) {
+            const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timer = ctrl ? setTimeout(() => ctrl.abort(), ms) : null;
+            try {
+                const res = await fetch(url, ctrl ? { signal: ctrl.signal } : {});
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return await res.json();
+            } finally {
+                if (timer) clearTimeout(timer);
+            }
+        }
+
+        function loadPm25Data(force = false) {
+            if (pm25LoadPromise) return pm25LoadPromise;
+            const fresh = pm25Stations && (Date.now() - pm25LoadedAt) < PM25_REFRESH_MINUTES * 60000;
+            if (fresh && !force) return Promise.resolve(pm25Stations);
+
+            pm25LoadPromise = (async () => {
+                await ensureThailandBoundaries();
+                const errors = [];
+                for (const url of PM25_SOURCES) {
+                    try {
+                        const data = await fetchJsonWithTimeout(url, 20000);
+                        if (data && data.error) throw new Error(data.error);
+                        const stations = normalizePm25Stations(data);
+                        if (!stations) throw new Error('ไม่พบข้อมูลสถานี');
+                        pm25Stations = stations;
+                        pm25LoadedAt = Date.now();
+                        pm25LoadError = null;
+                        return stations;
+                    } catch (err) {
+                        errors.push(`${url.split('?')[0].split('/').slice(0, 3).join('/')}: ${err.message || err}`);
+                    }
+                }
+                console.warn('โหลดข้อมูล PM2.5 ไม่สำเร็จทุกแหล่ง:', errors);
+                pm25LoadError = 'ดึงข้อมูล PM2.5 จากกรมควบคุมมลพิษไม่สำเร็จ กรุณาลองใหม่ภายหลัง';
+                if (!pm25Stations) throw new Error(pm25LoadError);
+                return pm25Stations; // ใช้ข้อมูลชุดเดิมต่อ
+            })().finally(() => { pm25LoadPromise = null; });
+
+            return pm25LoadPromise;
+        }
+
+        // สรุปรายจังหวัด: ค่าสูงสุด/ค่าเฉลี่ยของสถานีที่มีข้อมูล และสถานีที่ค่าสูงสุด
+        function aggregatePm25ByProvince(stations, mode) {
+            const byProv = new Map();
+            stations.forEach(st => {
+                if (!st.prov) return;
+                if (!byProv.has(st.prov)) byProv.set(st.prov, { prov: st.prov, epo: st.epo, stations: [] });
+                byProv.get(st.prov).stations.push(st);
+            });
+
+            const rows = [];
+            byProv.forEach(p => {
+                const valid = p.stations.filter(s => s.pm25 !== null);
+                let max = null, mean = null, top = null, latest = '';
+                if (valid.length) {
+                    top = valid.reduce((a, b) => (b.pm25 > a.pm25 ? b : a));
+                    max = top.pm25;
+                    mean = Math.round(valid.reduce((sum, s) => sum + s.pm25, 0) / valid.length * 10) / 10;
+                    valid.forEach(s => { const k = `${s.date} ${s.time}`; if (k > latest) latest = k; });
+                }
+                rows.push(Object.assign(p, {
+                    validCount: valid.length,
+                    max: max,
+                    mean: mean,
+                    value: mode === 'mean' ? mean : max,
+                    top: top,
+                    latest: latest
+                }));
+            });
+            return rows;
+        }
+
+        function pm25InScope(prov) {
+            if (isNational()) return true;
+            return PROVINCE_TO_EPO[prov] === currentEpoId;
+        }
+
+        function renderPm25() {
+            const panel = document.getElementById('pm25Panel');
+            const tbody = document.getElementById('pm25TableBody');
+            const meta = document.getElementById('pm25Meta');
+            const summaryEl = document.getElementById('pm25Summary');
+            const missingEl = document.getElementById('pm25Missing');
+            document.getElementById('pm25Scope').innerText = isNational() ? '(ทั่วประเทศ)' : `(${EPO_REGIONS[currentEpoId].name})`;
+            document.getElementById('pm25HotspotHeader').innerText = `🔥 จุดความร้อน (${currentTimeframe} ชม.)`;
+
+            // จำสถานีที่เปิดป้ายข้อมูลค้างไว้ เพื่อเปิดใหม่หลังวาดหมุดใหม่ (เช่น เมื่อซูมข้ามระดับแสดงตัวเลข)
+            let reopenStationId = null;
+            pm25StationMarkers.forEach((m, id) => { if (m.isPopupOpen()) reopenStationId = id; });
+
+            pm25Layer.clearLayers();
+            pm25StationMarkers = new Map();
+            const detailed = map.getZoom() >= PM25_LABEL_ZOOM;
+            pm25LastDetailed = detailed;
+
+            if (!pm25Stations) {
+                pm25LegendSummary = null;
+                tbody.innerHTML = '';
+                missingEl.innerHTML = '';
+                summaryEl.innerHTML = pm25LoadError
+                    ? `<div class="pm25-error">⚠️ ${escHtml(pm25LoadError)}</div>`
+                    : '<div style="color:#0284c7;">⏳ กำลังโหลดข้อมูล PM2.5 จากสถานีกรมควบคุมมลพิษ...</div>';
+                meta.innerText = '-';
+                updateDynamicLegend();
+                return;
+            }
+
+            const mode = document.getElementById('pm25AggSelect').value;
+            const allRows = aggregatePm25ByProvince(pm25Stations, mode);
+
+            // อันดับระดับประเทศ (ใช้แสดงประกอบในโหมดราย สคพ.)
+            const nationalRanked = allRows.filter(r => r.value !== null).sort((a, b) => b.value - a.value || a.prov.localeCompare(b.prov, 'th'));
+            const nationalRank = new Map(nationalRanked.map((r, i) => [r.prov, i + 1]));
+
+            const scopeRows = allRows.filter(r => pm25InScope(r.prov));
+            const ranked = scopeRows.filter(r => r.value !== null).sort((a, b) => b.value - a.value || a.prov.localeCompare(b.prov, 'th'));
+            const scopeProvs = isNational() ? ALL_TH_PROVINCES : EPO_REGIONS[currentEpoId].provincesTH;
+            const missing = scopeProvs.filter(p => !ranked.some(r => r.prov === p));
+
+            // จำนวนจุดความร้อนรายจังหวัดในช่วงเวลาที่เลือก
+            const hotspotByProv = {};
+            currentFilteredHotspots.forEach(f => {
+                const p = f.properties.prov_name;
+                hotspotByProv[p] = (hotspotByProv[p] || 0) + 1;
+            });
+
+            // --- แผนที่: สีพื้นจังหวัดตามค่า PM2.5 ---
+            const provFeatures = [];
+            getPm25ProvinceIndex().forEach(pi => {
+                const row = ranked.find(r => r.prov === pi.th);
+                if (row) provFeatures.push({ type: 'Feature', properties: { color: getPm25Level(row.value).color }, geometry: pi.feature.geometry });
+            });
+            L.geoJSON({ type: 'FeatureCollection', features: provFeatures }, {
+                pane: 'pm25Pane',
+                interactive: false,
+                style: f => ({ stroke: false, fillColor: f.properties.color, fillOpacity: 0.35 })
+            }).addTo(pm25Layer);
+
+            // --- แผนที่: หมุดค่าสถานี ---
+            pm25Stations.filter(st => st.prov && pm25InScope(st.prov)).forEach(st => {
+                const lv = getPm25Level(st.pm25);
+                const bg = lv ? lv.color : '#cbd5e1';
+                const fg = lv ? lv.text : '#334155';
+                const icon = detailed
+                    ? L.divIcon({
+                        className: '',
+                        html: `<div class="pm-marker" style="background:${bg}; color:${fg};">${fmtPm(st.pm25)}</div>`,
+                        iconSize: [40, 22],
+                        iconAnchor: [20, 11],
+                        popupAnchor: [0, -11]
+                    })
+                    : L.divIcon({
+                        className: '',
+                        html: `<div class="pm-dot" style="background:${bg};"></div>`,
+                        iconSize: [11, 11],
+                        iconAnchor: [5.5, 5.5],
+                        popupAnchor: [0, -7]
+                    });
+                const epoTxt = st.epo ? `สคพ. ${st.epo}` : (st.prov === 'กรุงเทพมหานคร' ? 'กรุงเทพมหานคร' : '-');
+                const popup = `<div style="font-size:14px; min-width:220px;">
+                    <div style="background:${bg}; color:${fg}; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center; border:1px solid rgba(15,23,42,0.2);"><b>สถานีตรวจวัดคุณภาพอากาศ (คพ.)</b></div>
+                    <b>สถานี:</b> ${escHtml(st.name)} <span style="color:#64748b;">(${escHtml(st.id)})</span><br>
+                    <b>ที่ตั้ง:</b> ${escHtml(st.area || '-')}<br>
+                    <b>จังหวัด:</b> <span style="color:#0284c7; font-weight:bold;">${escHtml(st.prov)}</span> (${epoTxt})<br>
+                    <b>PM2.5:</b> <span style="font-size:16px; font-weight:bold;">${fmtPm(st.pm25)}</span> มคก./ลบ.ม. ${lv ? '— ' + lv.label : '(ไม่มีข้อมูล)'}<br>
+                    ${st.aqi !== null ? `<b>AQI:</b> ${st.aqi}<br>` : ''}
+                    <b>เวลาตรวจวัด:</b> ${escHtml(formatAir4ThaiTime(st.date, st.time))}<br>
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${st.lat},${st.lon}" target="_blank" style="display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold; margin-top:8px;">📍 เปิดนำทางด้วย Google Maps</a>
+                </div>`;
+                const marker = L.marker([st.lat, st.lon], { icon: icon, zIndexOffset: st.pm25 === null ? 0 : Math.round(st.pm25 * 10) })
+                    .bindPopup(popup)
+                    .addTo(pm25Layer);
+                if (!detailed) {
+                    marker.bindTooltip(`${escHtml(st.prov)}: <b>${fmtPm(st.pm25)}</b> มคก./ลบ.ม.`, { direction: 'top', offset: [0, -6] });
+                }
+                pm25StationMarkers.set(st.id, marker);
+            });
+            if (reopenStationId && pm25StationMarkers.has(reopenStationId)) {
+                pm25StationMarkers.get(reopenStationId).openPopup();
+            }
+
+            // --- ตารางจัดอันดับ ---
+            let latest = '';
+            ranked.forEach(r => { if (r.latest > latest) latest = r.latest; });
+            const stationCount = pm25Stations.filter(st => st.prov && pm25InScope(st.prov)).length;
+            meta.innerText = `ข้อมูล ณ ${latest ? formatAir4ThaiTime(...latest.split(' ')) : '-'} · ${stationCount} สถานี · ` +
+                (mode === 'mean' ? 'ค่าจังหวัด = ค่าเฉลี่ยทุกสถานีในจังหวัด' : 'ค่าจังหวัด = สถานีที่ค่าสูงสุดในจังหวัด');
+
+            const overStd = ranked.filter(r => r.value > PM25_STANDARD).length;
+            summaryEl.innerHTML = `จังหวัดที่มีข้อมูล <b>${ranked.length}</b> จังหวัด · ` +
+                `เกินมาตรฐาน (> ${PM25_STANDARD}) <b style="color:#b91c1c;">${overStd}</b> จังหวัด` +
+                (ranked.length ? ` · สูงสุด <b>${escHtml(ranked[0].prov)}</b> ${fmtPm(ranked[0].value)} มคก./ลบ.ม.` : '');
+            pm25LegendSummary = { provinces: ranked.length, overStd: overStd };
+
+            tbody.innerHTML = ranked.map((r, i) => {
+                const lv = getPm25Level(r.value);
+                const sub = isNational()
+                    ? (r.epo ? `สคพ. ${r.epo}` : 'กทม.')
+                    : `อันดับ ${nationalRank.get(r.prov)} ของประเทศ`;
+                return `<tr data-prov="${escHtml(r.prov)}">
+                    <td class="rank"><b>${i + 1}</b></td>
+                    <td><b>${escHtml(r.prov)}</b><span class="pm25-sub">${sub}</span></td>
+                    <td class="num"><span class="pm25-badge" style="background:${lv.color}; color:${lv.text};">${fmtPm(r.value)}</span>${mode === 'max' && r.validCount > 1 ? `<span class="pm25-sub">เฉลี่ย ${fmtPm(r.mean)}</span>` : ''}</td>
+                    <td>${lv.label}</td>
+                    <td class="num">${r.validCount}${r.stations.length > r.validCount ? `<span class="pm25-sub">จาก ${r.stations.length}</span>` : ''}</td>
+                    <td class="num">${hotspotByProv[r.prov] || 0}</td>
+                </tr>`;
+            }).join('') || '<tr><td colspan="6" style="text-align:center; color:#64748b; padding:15px;">ไม่มีข้อมูล PM2.5 ในพื้นที่นี้</td></tr>';
+
+            tbody.querySelectorAll('tr[data-prov]').forEach(tr => {
+                tr.addEventListener('click', () => focusPm25Province(tr.getAttribute('data-prov'), ranked));
+            });
+
+            missingEl.innerHTML = missing.length
+                ? `ไม่มีข้อมูล PM2.5 ขณะนี้ (${missing.length} จังหวัด): ${missing.map(escHtml).join(', ')}`
+                : '';
+            if (pm25LoadError) {
+                missingEl.innerHTML += `<div style="color:#b45309;">⚠️ รีเฟรชล่าสุดไม่สำเร็จ แสดงข้อมูลชุดก่อนหน้า</div>`;
+            }
+
+            updateDynamicLegend();
+        }
+
+        // คลิกแถวในตาราง: ซูมไปที่จังหวัด และเปิดป้ายข้อมูลของสถานีที่ค่าสูงสุด
+        function focusPm25Province(prov, rows) {
+            const row = rows.find(r => r.prov === prov);
+            const stationId = row && row.top ? row.top.id : null;
+            // หมุดอาจถูกวาดใหม่หลังซูม จึงค้นหาหมุดล่าสุดจาก id ตอนจะเปิดป้าย
+            const openTop = () => {
+                const m = stationId ? pm25StationMarkers.get(stationId) : null;
+                if (m && !m.isPopupOpen()) m.openPopup();
+            };
+            const pi = getPm25ProvinceIndex().find(p => p.th === prov);
+            if (pi) {
+                map.once('moveend', () => setTimeout(openTop, 50));
+                map.fitBounds(L.geoJSON(pi.feature).getBounds(), { maxZoom: 10 });
+            }
+            setTimeout(openTop, 900); // สำรองกรณีแผนที่ไม่ได้ขยับ
+            document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // สลับรูปแบบหมุดสถานี (จุดสี ↔ ตัวเลข) เมื่อซูมข้ามระดับ PM25_LABEL_ZOOM
+        map.on('zoomend', function () {
+            if (!map.hasLayer(pm25Layer) || !pm25Stations) return;
+            if ((map.getZoom() >= PM25_LABEL_ZOOM) !== pm25LastDetailed) renderPm25();
+        });
+
+        async function refreshPm25(force) {
+            const btn = document.getElementById('pm25RefreshBtn');
+            btn.disabled = true;
+            btn.innerText = '⏳ กำลังโหลด...';
+            renderPm25(); // แสดงสถานะกำลังโหลด (ถ้ายังไม่มีข้อมูล)
+            try {
+                await loadPm25Data(force);
+                if (force) showToast('อัปเดตข้อมูล PM2.5 เรียบร้อยแล้ว', 'success');
+            } catch (err) {
+                showToast(pm25LoadError || 'ดึงข้อมูล PM2.5 ไม่สำเร็จ', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '🔄 รีเฟรช';
+                if (map.hasLayer(pm25Layer)) renderPm25();
+            }
+        }
+
+        // เปิด/ปิดได้ทั้งจากช่องติ๊กในแผงควบคุม และจากเมนูชั้นข้อมูลบนแผนที่ (ซิงก์กันผ่าน overlayadd/overlayremove)
+        document.getElementById('pm25Toggle').addEventListener('change', function () {
+            if (this.checked) map.addLayer(pm25Layer);
+            else map.removeLayer(pm25Layer);
+        });
+
+        map.on('overlayadd', function (e) {
+            if (e.layer !== pm25Layer) return;
+            document.getElementById('pm25Toggle').checked = true;
+            document.getElementById('pm25Panel').style.display = 'block';
+            setUrlParam('pm25', '1');
+            refreshPm25(false);
+        });
+
+        map.on('overlayremove', function (e) {
+            if (e.layer !== pm25Layer) return;
+            document.getElementById('pm25Toggle').checked = false;
+            document.getElementById('pm25Panel').style.display = 'none';
+            setUrlParam('pm25', null);
+        });
+
+        document.getElementById('pm25AggSelect').addEventListener('change', renderPm25);
+        document.getElementById('pm25RefreshBtn').addEventListener('click', () => refreshPm25(true));
+
+        document.getElementById('pm25Scale').innerHTML = PM25_LEVELS.map(lv =>
+            `<span class="pm25-chip" style="background:${lv.color}; color:${lv.text};">${lv.range} ${lv.label}</span>`).join('');
+
+        // รีเฟรชอัตโนมัติขณะเปิดตัวเลือก PM2.5 (Air4Thai อัปเดตรายชั่วโมง)
+        setInterval(() => {
+            if (map.hasLayer(pm25Layer) && Date.now() - pm25LoadedAt > PM25_REFRESH_MINUTES * 60000) {
+                loadPm25Data(true).then(renderPm25).catch(() => renderPm25());
+            }
+        }, 60000);
+
+        // เปิดหน้าพร้อมตัวเลือก PM2.5 ได้ด้วย ?pm25=1
+        if (urlParams.get('pm25') === '1') map.addLayer(pm25Layer);
 
         // มาตราส่วนแผนที่ (Scale Control)
         const scaleControl = L.control.scale({
