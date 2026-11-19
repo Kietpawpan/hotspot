@@ -979,8 +979,17 @@ if (primarySource && primarySource.features) {
                     let turfPt = turf.point([lon, lat]);
                     let strictProvName = null;
                     let epoId = national ? null : currentEpoId;
+                    const backendProv = String(pt.prov || "").trim();
 
-                    if (hasBoundary) {
+                    if (national && backendProv) {
+                        // GAS ส่งเฉพาะจุดในไทยและระบุจังหวัด (ชื่อไทย) มาแล้ว ใช้ค่านี้ได้เลย
+                        // ไม่ต้องคำนวณซ้ำด้วยขอบเขตที่หยาบกว่า (กันจุดริมชายฝั่ง/เกาะ/ชายแดนหลุด)
+                        const matched = PROVINCE_TO_EPO[backendProv]
+                            ? backendProv
+                            : Object.keys(PROVINCE_TO_EPO).find(p => backendProv.includes(p));
+                        strictProvName = matched || backendProv;
+                        epoId = matched ? PROVINCE_TO_EPO[matched] : null;
+                    } else if (hasBoundary) {
                         for (let b of boundaryGeoJSON.features) {
                             if (lon >= b.bbox[0] && lat >= b.bbox[1] && lon <= b.bbox[2] && lat <= b.bbox[3]) {
                                 if (turf.booleanPointInPolygon(turfPt, b)) {
@@ -991,11 +1000,8 @@ if (primarySource && primarySource.features) {
                             }
                         }
                     } else if (national) {
-                        // ไม่มีไฟล์ขอบเขตจังหวัด: แสดงทุกจุดที่ระบบส่วนกลางส่งมา
-                        const provTxt = String(pt.prov || "").trim();
-                        const matched = Object.keys(PROVINCE_TO_EPO).find(p => provTxt.includes(p));
-                        strictProvName = matched || provTxt || "ไม่ระบุจังหวัด";
-                        epoId = matched ? PROVINCE_TO_EPO[matched] : null;
+                        // ไม่มีชื่อจังหวัดจาก GAS และโหลดขอบเขตไม่ได้: แสดงทุกจุดที่ระบบส่วนกลางส่งมา
+                        strictProvName = "ไม่ระบุจังหวัด";
                     } else if (pt.prov) {
                         const matched = region.provincesTH.find(p => String(pt.prov).includes(p));
                         if (matched) strictProvName = matched;
