@@ -460,6 +460,10 @@
                         <option value="mean">ค่าเฉลี่ยทุกสถานี</option>
                     </select>
                     <button type="button" id="pm25RefreshBtn">🔄 รีเฟรช</button>
+                    <label id="pm25BkkLabel" style="display: flex; align-items: center; gap: 5px; cursor: pointer; flex-basis: 100%; font-size: 13px; color: #475569;">
+                        <input type="checkbox" id="pm25IncludeBkk" style="width: 16px; height: 16px; accent-color: #4a148c; margin: 0;">
+                        นับรวมสถานีของกรุงเทพมหานคร (กทม.) ด้วย
+                    </label>
                 </div>
             </div>
             <div class="pm25-scale" id="pm25Scale"></div>
@@ -2342,6 +2346,16 @@ if (primarySource && primarySource.features) {
             return rows;
         }
 
+        // ค่าเริ่มต้นนับเฉพาะสถานีของกรมควบคุมมลพิษ (รวมหน่วยเคลื่อนที่) ติ๊กช่องเพื่อนับรวมสถานีของ กทม. (type BKK)
+        function isBkkStation(st) {
+            return String(st.type || '').toUpperCase() === 'BKK';
+        }
+
+        function pm25ActiveStations() {
+            const includeBkk = document.getElementById('pm25IncludeBkk').checked;
+            return includeBkk ? pm25Stations : pm25Stations.filter(st => !isBkkStation(st));
+        }
+
         function pm25InScope(prov) {
             if (isNational()) return true;
             return PROVINCE_TO_EPO[prov] === currentEpoId;
@@ -2378,7 +2392,10 @@ if (primarySource && primarySource.features) {
             }
 
             const mode = document.getElementById('pm25AggSelect').value;
-            const allRows = aggregatePm25ByProvince(pm25Stations, mode);
+            const activeStations = pm25ActiveStations();
+            // ช่องเลือกสถานี กทม. มีผลเฉพาะโหมดทั้งประเทศ (กรุงเทพฯ ไม่อยู่ในเขต สคพ. ใด)
+            document.getElementById('pm25BkkLabel').style.display = isNational() ? 'flex' : 'none';
+            const allRows = aggregatePm25ByProvince(activeStations, mode);
 
             // อันดับระดับประเทศ (ใช้แสดงประกอบในโหมดราย สคพ.)
             const nationalRanked = allRows.filter(r => r.value !== null).sort((a, b) => b.value - a.value || a.prov.localeCompare(b.prov, 'th'));
@@ -2412,7 +2429,7 @@ if (primarySource && primarySource.features) {
             }).addTo(pm25Layer);
 
             // --- แผนที่: หมุดค่าสถานี ---
-            pm25Stations.filter(st => st.prov && pm25InScope(st.prov)).forEach(st => {
+            activeStations.filter(st => st.prov && pm25InScope(st.prov)).forEach(st => {
                 const lv = st.expired ? null : getPm25Level(st.pm25); // ข้อมูลเก่าเกิน 24 ชม. แสดงเป็นสีเทา
                 const bg = lv ? lv.color : '#cbd5e1';
                 const fg = lv ? lv.text : '#475569';
@@ -2462,10 +2479,13 @@ if (primarySource && primarySource.features) {
             // --- ตารางจัดอันดับ ---
             let latest = '';
             ranked.forEach(r => { if (r.latest > latest) latest = r.latest; });
-            const scopeStations = pm25Stations.filter(st => st.prov && pm25InScope(st.prov));
+            const scopeStations = activeStations.filter(st => st.prov && pm25InScope(st.prov));
+            const hiddenBkk = activeStations === pm25Stations ? 0
+                : pm25Stations.filter(st => isBkkStation(st) && st.prov && pm25InScope(st.prov)).length;
             const staleCount = scopeStations.filter(st => st.pm25 !== null && isStale(st)).length;
             const expiredCount = scopeStations.filter(st => st.expired).length;
             meta.innerText = `ข้อมูล ณ ${latest ? formatAir4ThaiTime(...latest.split(' ')) : '-'} · ${scopeStations.length} สถานี` +
+                (hiddenBkk ? ` (เฉพาะสถานี คพ. ไม่รวมสถานี กทม. ${hiddenBkk} แห่ง)` : '') +
                 (staleCount ? ` · ล่าช้าเกิน ${PM25_STALE_HOURS} ชม. ${staleCount} สถานี ⏱` : '') +
                 (expiredCount ? ` · ข้อมูลเก่าเกิน ${PM25_EXPIRE_HOURS} ชม. ${expiredCount} สถานี (ไม่นำมาจัดอันดับ)` : '') + ' · ' +
                 (mode === 'mean' ? 'ค่าจังหวัด = ค่าเฉลี่ยทุกสถานีในจังหวัด' : 'ค่าจังหวัด = สถานีที่ค่าสูงสุดในจังหวัด');
@@ -2504,7 +2524,7 @@ if (primarySource && primarySource.features) {
 
             // จังหวัดที่มีแต่ข้อมูลเก่า: บอกเวลาข้อมูลล่าสุดของสถานี
             const lastOldReading = prov => {
-                const olds = pm25Stations.filter(s => s.prov === prov && s.pm25 !== null);
+                const olds = activeStations.filter(s => s.prov === prov && s.pm25 !== null);
                 if (!olds.length) return '';
                 const newest = olds.reduce((a, b) => (b.ts > a.ts ? b : a));
                 return ` (ข้อมูลล่าสุด ${escHtml(formatAir4ThaiTime(newest.date, newest.time))})`;
@@ -2582,6 +2602,13 @@ if (primarySource && primarySource.features) {
         });
 
         document.getElementById('pm25AggSelect').addEventListener('change', renderPm25);
+
+        // นับรวมสถานี กทม. หรือไม่ (จำไว้ในลิงก์ด้วย ?pm25bkk=1 เพื่อแชร์มุมมองเดียวกันได้)
+        document.getElementById('pm25IncludeBkk').checked = urlParams.get('pm25bkk') === '1';
+        document.getElementById('pm25IncludeBkk').addEventListener('change', function () {
+            setUrlParam('pm25bkk', this.checked ? '1' : null);
+            if (pm25Stations) renderPm25();
+        });
         document.getElementById('pm25RefreshBtn').addEventListener('click', () => refreshPm25(true));
 
         document.getElementById('pm25Scale').innerHTML = PM25_LEVELS.map(lv =>
