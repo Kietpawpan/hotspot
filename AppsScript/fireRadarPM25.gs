@@ -1,11 +1,15 @@
 // ==========================================
 // Fire Radar: PM2.5 จากสถานีตรวจวัดคุณภาพอากาศ กรมควบคุมมลพิษ (Air4Thai) ทั่วประเทศ
-// ใช้คู่กับ MAPS11 Backend (ไฟล์ที่มี doGet / loadBoundaries / findProvince / jsonOut)
+// ไฟล์นี้ทำงานได้เอง (ไม่พึ่งฟังก์ชันจากไฟล์อื่น) วางในโปรเจกต์ GAS ใดก็ได้
+// แต่หน้า fireRadar.html เรียกโปรเจกต์ที่ลิงก์ Web App ลงท้ายด้วย ...qosbxaUf/exec
+// จึงควรวางในโปรเจกต์นั้น (MAPS11 Backend ตัวที่ดึง NASA ทั้งประเทศ)
 //
 // วิธีติดตั้ง
-// 1) ในโปรเจกต์ Apps Script เดียวกับ MAPS11 Backend: กด + > Script แล้ววางโค้ดไฟล์นี้ทั้งหมด
-// 2) ใน doGet() เพิ่มบรรทัดนี้ไว้ใต้ if (action === 'hotspots') ...
+// 1) เปิดโปรเจกต์ Apps Script ข้างต้น กด + > Script แล้ววางโค้ดไฟล์นี้ทั้งหมด
+// 2) ใน doGet() เพิ่มบรรทัดนี้ไว้ใกล้ ๆ บรรทัดที่ตรวจ action === 'hotspots'
 //        if (action === 'pm25') return getPm25Stations();
+//    (ถ้า doGet ใช้ e.parameter.action ตรง ๆ ให้เขียนเป็น
+//        if (e.parameter.action === 'pm25') return getPm25Stations(); )
 // 3) Deploy > Manage deployments > ✏️ แก้ไข > Version: New version > Deploy
 //    (ต้องสร้าง New version ทุกครั้ง ลิงก์ /exec เดิมจึงจะใช้โค้ดใหม่)
 // 4) ทดสอบเปิด <ลิงก์ /exec>?action=pm25 ต้องได้ JSON ที่มี "stations": [...]
@@ -22,29 +26,40 @@ function getPm25Stations() {
     return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
   }
 
+  // กันได้ข้อมูลเก่าค้าง: ใส่ header no-cache และพารามิเตอร์เวลา (แนวทางเดียวกับ backend เดิม)
   var res;
   try {
-    res = UrlFetchApp.fetch(AIR4THAI_ALL_URL, { muteHttpExceptions: true });
+    res = UrlFetchApp.fetch(AIR4THAI_ALL_URL + '?t=' + new Date().getTime(), {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      },
+      muteHttpExceptions: true
+    });
   } catch (err) {
-    return jsonOut({ error: 'เชื่อมต่อ Air4Thai ไม่ได้: ' + err });
+    return pm25JsonOut_({ error: 'เชื่อมต่อ Air4Thai ไม่ได้: ' + err });
   }
   if (res.getResponseCode() !== 200) {
-    return jsonOut({ error: 'Air4Thai ตอบกลับ HTTP ' + res.getResponseCode() });
+    return pm25JsonOut_({ error: 'Air4Thai ตอบกลับ HTTP ' + res.getResponseCode() });
   }
 
   var raw;
   try {
     raw = JSON.parse(res.getContentText());
   } catch (err) {
-    return jsonOut({ error: 'รูปแบบข้อมูล Air4Thai ไม่ถูกต้อง' });
+    return pm25JsonOut_({ error: 'รูปแบบข้อมูล Air4Thai ไม่ถูกต้อง' });
   }
 
-  // ระบุจังหวัดด้วยขอบเขตชุดเดียวกับจุดความร้อน (ถ้าโหลดไม่ได้ หน้าเว็บจะระบุจากที่อยู่สถานีแทน)
+  // ถ้าโปรเจกต์นี้มีฟังก์ชันขอบเขตจังหวัดของระบบจุดความร้อน (loadBoundaries/findProvince) จะใช้ระบุจังหวัดด้วย
+  // ถ้าไม่มี ไม่เป็นไร หน้าเว็บระบุจังหวัดจากที่อยู่สถานีของ คพ. และพิกัดเองได้
   var boundaries = [];
-  try {
-    boundaries = loadBoundaries();
-  } catch (err) {
-    console.error('โหลดขอบเขตจังหวัดไม่สำเร็จ: ' + err);
+  if (typeof loadBoundaries === 'function' && typeof findProvince === 'function') {
+    try {
+      boundaries = loadBoundaries();
+    } catch (err) {
+      console.error('โหลดขอบเขตจังหวัดไม่สำเร็จ: ' + err);
+    }
   }
 
   var stations = [];
@@ -64,7 +79,7 @@ function getPm25Stations() {
       type: s.stationType,
       lat: lat,
       lon: lon,
-      prov: boundaries.length ? findProvince(lon, lat, boundaries) : '',
+      prov: boundaries.length ? (findProvince(lon, lat, boundaries) || '') : '',
       pm25: (isNaN(pm) || pm < 0) ? null : pm,   // Air4Thai ใช้ -1 / -999 แทนค่าที่ไม่มีข้อมูล
       aqi: (isNaN(aqi) || aqi < 0) ? null : aqi,
       date: last.date || '',
@@ -73,7 +88,7 @@ function getPm25Stations() {
   });
 
   if (stations.length === 0) {
-    return jsonOut({ error: 'ไม่พบข้อมูลสถานีจาก Air4Thai' });
+    return pm25JsonOut_({ error: 'ไม่พบข้อมูลสถานีจาก Air4Thai' });
   }
 
   var out = JSON.stringify({
@@ -88,4 +103,9 @@ function getPm25Stations() {
     console.warn('เก็บแคช PM2.5 ไม่ได้: ' + err);
   }
   return ContentService.createTextOutput(out).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ตัวช่วยส่ง JSON ของไฟล์นี้เอง (ตั้งชื่อไม่ให้ชนกับฟังก์ชันในไฟล์อื่น)
+function pm25JsonOut_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
