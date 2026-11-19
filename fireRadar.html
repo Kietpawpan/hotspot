@@ -981,15 +981,20 @@ if (primarySource && primarySource.features) {
                     let epoId = national ? null : currentEpoId;
                     const backendProv = String(pt.prov || "").trim();
 
-                    if (national && backendProv) {
-                        // GAS ส่งเฉพาะจุดในไทยและระบุจังหวัด (ชื่อไทย) มาแล้ว ใช้ค่านี้ได้เลย
-                        // ไม่ต้องคำนวณซ้ำด้วยขอบเขตที่หยาบกว่า (กันจุดริมชายฝั่ง/เกาะ/ชายแดนหลุด)
+                    if (backendProv) {
+                        // GAS ส่งเฉพาะจุดในไทยและระบุจังหวัด (ชื่อไทย) มาแล้ว ใช้ค่านี้ได้เลยทั้งโหมดทั้งประเทศและราย สคพ.
+                        // ไม่ต้องคำนวณซ้ำด้วยเส้นขอบในหน้าเว็บ ตัวเลขทุกโหมดจึงตรงกับ backend เสมอ
                         const matched = PROVINCE_TO_EPO[backendProv]
                             ? backendProv
                             : Object.keys(PROVINCE_TO_EPO).find(p => backendProv.includes(p));
-                        strictProvName = matched || backendProv;
-                        epoId = matched ? PROVINCE_TO_EPO[matched] : null;
+                        if (national) {
+                            strictProvName = matched || backendProv;
+                            epoId = matched ? PROVINCE_TO_EPO[matched] : null;
+                        } else if (matched && PROVINCE_TO_EPO[matched] === currentEpoId) {
+                            strictProvName = matched;
+                        }
                     } else if (hasBoundary) {
+                        // สำรอง: จุดที่ไม่มีชื่อจังหวัดจาก GAS ให้ตรวจด้วยเส้นขอบ (วิธีเดิม)
                         for (let b of boundaryGeoJSON.features) {
                             if (lon >= b.bbox[0] && lat >= b.bbox[1] && lon <= b.bbox[2] && lat <= b.bbox[3]) {
                                 if (turf.booleanPointInPolygon(turfPt, b)) {
@@ -1002,9 +1007,6 @@ if (primarySource && primarySource.features) {
                     } else if (national) {
                         // ไม่มีชื่อจังหวัดจาก GAS และโหลดขอบเขตไม่ได้: แสดงทุกจุดที่ระบบส่วนกลางส่งมา
                         strictProvName = "ไม่ระบุจังหวัด";
-                    } else if (pt.prov) {
-                        const matched = region.provincesTH.find(p => String(pt.prov).includes(p));
-                        if (matched) strictProvName = matched;
                     }
 
                     if (strictProvName) {
