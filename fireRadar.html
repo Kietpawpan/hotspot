@@ -652,6 +652,7 @@
         const PM25_STANDARD = 37.5;          // มาตรฐานเฉลี่ย 24 ชม.
         const PM25_REFRESH_MINUTES = 15;     // รีเฟรชอัตโนมัติขณะเปิดตัวเลือก
         const PM25_LABEL_ZOOM = 8;           // ซูมตั้งแต่ระดับนี้แสดงตัวเลขบนหมุดสถานี (ต่ำกว่านี้แสดงเป็นจุดสี)
+        const PM25_STALE_HOURS = 3;          // ข้อมูลเก่ากว่าเวลาล่าสุดของทั้งชุดตั้งแต่กี่ชั่วโมง ถือว่าล่าช้า
         const ALL_TH_PROVINCES = Object.keys(PROVINCE_TO_EPO).concat(["กรุงเทพมหานคร"]);
 
         const gasWebappUrl = 'https://script.google.com/macros/s/AKfycbyJfWRJFtBwsIZecPHZYJda69wXoWdmp1fINaU8-qagZdI7sc8TvB5FzKpGqosbxaUf/exec';
@@ -2143,6 +2144,23 @@ if (primarySource && primarySource.features) {
             return `${parseInt(p[2], 10)} ${thaiMonths[parseInt(p[1], 10) - 1] || p[1]} ${y}${t ? ' ' + t + ' น.' : ''}`;
         }
 
+        // เวลาตรวจวัด (เวลาไทยตามที่ Air4Thai ส่งมา) แปลงเป็นตัวเลขไว้เทียบความล่าช้าระหว่างสถานี
+        function parseAir4ThaiTs(date, time) {
+            const d = String(date || '').split('-').map(Number);
+            const t = String(time || '').split(':').map(Number);
+            if (d.length !== 3 || d.some(isNaN)) return NaN;
+            let y = d[0];
+            if (y > 2400) y -= 543;
+            return Date.UTC(y, d[1] - 1, d[2], t[0] || 0, t[1] || 0);
+        }
+
+        function stationNetworkLabel(type) {
+            const t = String(type || '').toUpperCase();
+            if (t === 'GROUND') return 'กรมควบคุมมลพิษ';
+            if (t === 'BKK') return 'กรุงเทพมหานคร (กทม.)';
+            return type || '-';
+        }
+
         // ดัชนีขอบเขต 77 จังหวัด (ชื่อไทย + bbox) สำหรับระบุจังหวัดของสถานีจากพิกัด
         function getPm25ProvinceIndex() {
             if (pm25ProvinceIndex) return pm25ProvinceIndex;
@@ -2163,11 +2181,23 @@ if (primarySource && primarySource.features) {
             return byLength.find(p => t.includes(p)) || null;
         }
 
-        // ระบุจังหวัดของสถานี: ที่อยู่สถานีจาก คพ. (ส่วนท้ายหลังเครื่องหมายจุลภาค) → ชื่อจังหวัดจาก GAS → พิกัด
+        // ระบุจังหวัดของสถานี ตามลำดับความน่าเชื่อถือ:
+        // 1) ส่วนท้ายหลังจุลภาคของที่อยู่ คพ. เช่น "ต.ปากน้ำ อ.เมือง, กระบี่"
+        // 2) ที่อยู่ที่ระบุชัด เช่น "จ.xxx" / "จังหวัดxxx" / "กรุงเทพ"
+        //    (ไม่ค้นชื่อจังหวัดในข้อความทั้งก้อน เพราะชื่ออำเภออาจมีชื่อจังหวัดซ้อน เช่น "อ.ตากฟ้า")
+        // 3) ชื่อจังหวัดจาก GAS  4) พิกัดเทียบขอบเขตจังหวัด
         function resolveStationProvince(provHint, area, lat, lon) {
-            const tail = String(area || '').split(',').pop();
-            const fromArea = matchThaiProvinceName(tail);
-            if (fromArea) return fromArea;
+            const a = String(area || '');
+            if (a.includes(',')) {
+                const fromTail = matchThaiProvinceName(a.split(',').pop());
+                if (fromTail) return fromTail;
+            }
+            if (a.includes('กรุงเทพ')) return 'กรุงเทพมหานคร';
+            const explicit = a.match(/(?:จ\.|จังหวัด)\s*([ก-๙]+)/);
+            if (explicit) {
+                const fromExplicit = matchThaiProvinceName(explicit[1]);
+                if (fromExplicit) return fromExplicit;
+            }
             const fromHint = matchThaiProvinceName(provHint);
             if (fromHint) return fromHint;
             const pt = turf.point([lon, lat]);
@@ -2197,21 +2227,25 @@ if (primarySource && primarySource.features) {
                 let aqi = parseFloat(rawAqi);
                 aqi = (isNaN(aqi) || aqi < 0) ? null : aqi;
 
-                const area = String(s.area !== undefined ? s.area : (s.areaTH || ''));
+                const area = String(s.area !== undefined ? s.area : (s.areaTH || '')).trim();
                 const prov = resolveStationProvince(s.prov !== undefined ? s.prov : s.prov_name, area, lat, lon);
+                const date = String(s.date || last.date || '');
+                const time = String(s.time || last.time || '');
 
                 out.push({
                     id: String(s.id || s.stationID || ('st' + i)),
-                    name: String(s.name || s.nameTH || 'ไม่ระบุชื่อสถานี'),
+                    name: String(s.name || s.nameTH || 'ไม่ระบุชื่อสถานี').trim(),
                     area: area,
+                    type: String(s.type || s.stationType || ''),
                     lat: lat,
                     lon: lon,
                     prov: prov,
                     epo: prov ? (PROVINCE_TO_EPO[prov] || null) : null,
                     pm25: pm,
                     aqi: aqi,
-                    date: String(s.date || last.date || ''),
-                    time: String(s.time || last.time || '')
+                    date: date,
+                    time: time,
+                    ts: parseAir4ThaiTs(date, time)
                 });
             });
             return out.length ? out : null;
@@ -2338,6 +2372,12 @@ if (primarySource && primarySource.features) {
             const scopeProvs = isNational() ? ALL_TH_PROVINCES : EPO_REGIONS[currentEpoId].provincesTH;
             const missing = scopeProvs.filter(p => !ranked.some(r => r.prov === p));
 
+            // ความล่าช้าของข้อมูล: เทียบกับเวลาตรวจวัดล่าสุดของทั้งชุด (บางสถานีอาจค้างหลายชั่วโมง)
+            let latestTs = NaN;
+            pm25Stations.forEach(st => { if (st.pm25 !== null && !isNaN(st.ts) && !(st.ts <= latestTs)) latestTs = st.ts; });
+            const staleHours = st => (isNaN(latestTs) || isNaN(st.ts)) ? 0 : Math.floor((latestTs - st.ts) / 3600000);
+            const isStale = st => st && staleHours(st) >= PM25_STALE_HOURS;
+
             // จำนวนจุดความร้อนรายจังหวัดในช่วงเวลาที่เลือก
             const hotspotByProv = {};
             currentFilteredHotspots.forEach(f => {
@@ -2378,14 +2418,17 @@ if (primarySource && primarySource.features) {
                         popupAnchor: [0, -7]
                     });
                 const epoTxt = st.epo ? `สคพ. ${st.epo}` : (st.prov === 'กรุงเทพมหานคร' ? 'กรุงเทพมหานคร' : '-');
+                const staleNote = (st.pm25 !== null && isStale(st))
+                    ? ` <span style="color:#b45309; font-weight:bold;">⏱ ล่าช้า ${staleHours(st)} ชม.</span>` : '';
                 const popup = `<div style="font-size:14px; min-width:220px;">
-                    <div style="background:${bg}; color:${fg}; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center; border:1px solid rgba(15,23,42,0.2);"><b>สถานีตรวจวัดคุณภาพอากาศ (คพ.)</b></div>
+                    <div style="background:${bg}; color:${fg}; padding:5px; border-radius:4px; margin-bottom:8px; text-align:center; border:1px solid rgba(15,23,42,0.2);"><b>สถานีตรวจวัดคุณภาพอากาศ (Air4Thai)</b></div>
                     <b>สถานี:</b> ${escHtml(st.name)} <span style="color:#64748b;">(${escHtml(st.id)})</span><br>
                     <b>ที่ตั้ง:</b> ${escHtml(st.area || '-')}<br>
                     <b>จังหวัด:</b> <span style="color:#0284c7; font-weight:bold;">${escHtml(st.prov)}</span> (${epoTxt})<br>
+                    <b>เครือข่ายสถานี:</b> ${escHtml(stationNetworkLabel(st.type))}<br>
                     <b>PM2.5:</b> <span style="font-size:16px; font-weight:bold;">${fmtPm(st.pm25)}</span> มคก./ลบ.ม. ${lv ? '— ' + lv.label : '(ไม่มีข้อมูล)'}<br>
                     ${st.aqi !== null ? `<b>AQI:</b> ${st.aqi}<br>` : ''}
-                    <b>เวลาตรวจวัด:</b> ${escHtml(formatAir4ThaiTime(st.date, st.time))}<br>
+                    <b>เวลาตรวจวัด:</b> ${escHtml(formatAir4ThaiTime(st.date, st.time))}${staleNote}<br>
                     <a href="https://www.google.com/maps/dir/?api=1&destination=${st.lat},${st.lon}" target="_blank" style="display:block; text-align:center; background-color:#16a34a; color:white; padding:8px 0; border-radius:6px; text-decoration:none; font-weight:bold; margin-top:8px;">📍 เปิดนำทางด้วย Google Maps</a>
                 </div>`;
                 const marker = L.marker([st.lat, st.lon], { icon: icon, zIndexOffset: st.pm25 === null ? 0 : Math.round(st.pm25 * 10) })
@@ -2403,8 +2446,10 @@ if (primarySource && primarySource.features) {
             // --- ตารางจัดอันดับ ---
             let latest = '';
             ranked.forEach(r => { if (r.latest > latest) latest = r.latest; });
-            const stationCount = pm25Stations.filter(st => st.prov && pm25InScope(st.prov)).length;
-            meta.innerText = `ข้อมูล ณ ${latest ? formatAir4ThaiTime(...latest.split(' ')) : '-'} · ${stationCount} สถานี · ` +
+            const scopeStations = pm25Stations.filter(st => st.prov && pm25InScope(st.prov));
+            const staleCount = scopeStations.filter(st => st.pm25 !== null && isStale(st)).length;
+            meta.innerText = `ข้อมูล ณ ${latest ? formatAir4ThaiTime(...latest.split(' ')) : '-'} · ${scopeStations.length} สถานี` +
+                (staleCount ? ` (ข้อมูลล่าช้าเกิน ${PM25_STALE_HOURS} ชม. ${staleCount} สถานี ⏱)` : '') + ' · ' +
                 (mode === 'mean' ? 'ค่าจังหวัด = ค่าเฉลี่ยทุกสถานีในจังหวัด' : 'ค่าจังหวัด = สถานีที่ค่าสูงสุดในจังหวัด');
 
             const overStd = ranked.filter(r => r.value > PM25_STANDARD).length;
@@ -2418,10 +2463,17 @@ if (primarySource && primarySource.features) {
                 const sub = isNational()
                     ? (r.epo ? `สคพ. ${r.epo}` : 'กทม.')
                     : `อันดับ ${nationalRank.get(r.prov)} ของประเทศ`;
+                // ค่าที่ใช้จัดอันดับมาจากข้อมูลล่าช้าหรือไม่ (โหมดสูงสุด = สถานีที่ค่าสูงสุด, โหมดเฉลี่ย = ข้อมูลใหม่สุดของจังหวัด)
+                const provNewest = r.stations.filter(s => s.pm25 !== null).reduce((a, b) => (!a || b.ts > a.ts ? b : a), null);
+                const refStation = mode === 'max' ? r.top : provNewest;
+                const staleSub = isStale(refStation)
+                    ? `<span class="pm25-sub" style="color:#b45309;">⏱ ข้อมูล ${escHtml(staleHours(refStation) >= 24
+                        ? formatAir4ThaiTime(refStation.date, refStation.time)
+                        : refStation.time + ' น.')}</span>` : '';
                 return `<tr data-prov="${escHtml(r.prov)}">
                     <td class="rank"><b>${i + 1}</b></td>
                     <td><b>${escHtml(r.prov)}</b><span class="pm25-sub">${sub}</span></td>
-                    <td class="num"><span class="pm25-badge" style="background:${lv.color}; color:${lv.text};">${fmtPm(r.value)}</span>${mode === 'max' && r.validCount > 1 ? `<span class="pm25-sub">เฉลี่ย ${fmtPm(r.mean)}</span>` : ''}</td>
+                    <td class="num"><span class="pm25-badge" style="background:${lv.color}; color:${lv.text};">${fmtPm(r.value)}</span>${mode === 'max' && r.validCount > 1 ? `<span class="pm25-sub">เฉลี่ย ${fmtPm(r.mean)}</span>` : ''}${staleSub}</td>
                     <td>${lv.label}</td>
                     <td class="num">${r.validCount}${r.stations.length > r.validCount ? `<span class="pm25-sub">จาก ${r.stations.length}</span>` : ''}</td>
                     <td class="num">${hotspotByProv[r.prov] || 0}</td>
