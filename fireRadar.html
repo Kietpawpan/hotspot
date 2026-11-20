@@ -395,7 +395,10 @@
                 </label>
                 <div style="display: flex; gap: 15px; align-items: center; font-size: 15px; margin-top: 10px; flex-wrap: wrap;">
                     <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="radio" name="timeFilter" value="24-all" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;" checked> 24 ชม.
+                        <input type="radio" name="timeFilter" value="12-all" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;" checked> 12 ชม. ล่าสุด
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="radio" name="timeFilter" value="24-all" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 24 ชม.
                     </label>
                     <label style="display: flex; align-items: center; cursor: pointer;">
                         <input type="radio" name="timeFilter" value="12-morning" class="time-radio" style="margin-right: 5px; width: 16px; height: 16px; accent-color: #4a148c;"> 12 ชม. รอบเช้า (00:00 - 11:59 น.)
@@ -828,7 +831,7 @@
         let currentRiskCount = 0;
         let landfillCounts = { size1: 0, size2: 0, size3: 0, size4: 0, size5: 0, risk: 0, closed: 0 };
 
-        let currentTimeframe = 24;
+        let currentTimeframe = 12;   // ค่าเริ่มต้น: 12 ชม. ล่าสุด (ทุกช่วงเวลา)
         let currentTimeOfDay = 'all';
         const RISK_RADIUS_KM = 0.5;
 
@@ -1731,16 +1734,22 @@ if (primarySource && primarySource.features) {
             if (map.hasLayer(pm25Layer)) renderPm25();
         }
 
+        function readTimeRadio(radio) {
+            const parts = radio.value.split('-');
+            currentTimeframe = parseInt(parts[0], 10);
+            currentTimeOfDay = parts[1];
+        }
         document.querySelectorAll('.time-radio').forEach(radio => {
             radio.addEventListener('change', function() {
                 if (this.checked) {
-                    const parts = this.value.split('-');
-                    currentTimeframe = parseInt(parts[0], 10);
-                    currentTimeOfDay = parts[1];
+                    readTimeRadio(this);
                     applyTimeFilter();
                 }
             });
         });
+        // บางเบราว์เซอร์ (เช่น Firefox) จำตัวเลือกที่ติ๊กไว้เมื่อรีเฟรชหน้า ให้ค่าที่ใช้กรองตรงกับที่แสดงบนจอเสมอ
+        const initialTimeRadio = document.querySelector('.time-radio:checked');
+        if (initialTimeRadio) readTimeRadio(initialTimeRadio);
 
         // ระบบเรดาร์คำนวณและแจ้งเตือนภัยไฟไหม้บ่อขยะอัตโนมัติ
         function calculateWasteFireRisk() {
