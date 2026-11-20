@@ -411,7 +411,7 @@
 
         <footer>
             ยิ่งเข้าใกล้จุดความร้อน ไฟสามเหลี่ยมจะกะพริบและเสียงสัญญาณจะถี่ขึ้น<br>
-            ข้อมูลจุดความร้อน: NASA FIRMS (VIIRS) ผ่านระบบ <a href="fireRadar.html">Fire Radar</a>
+            ข้อมูลจุดความร้อน: NASA FIRMS (VIIRS) ผ่านระบบ <a href="fireRadar.html">Fire Radar</a> (เฉพาะในประเทศไทย)
             · ตำแหน่ง GPS ใช้ในเครื่องของคุณเท่านั้น ไม่มีการส่งออก
         </footer>
     </div>
@@ -432,7 +432,7 @@
         // ===================== ค่าตั้งต้น =====================
         // แหล่งข้อมูลเดียวกับ fireRadar.html (Google Apps Script → NASA FIRMS)
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbyJfWRJFtBwsIZecPHZYJda69wXoWdmp1fINaU8-qagZdI7sc8TvB5FzKpGqosbxaUf/exec';
-        const RANGES_KM = [1, 2, 5, 10, 20, 50, 100];   // รัศมีสแกนที่เลือกได้
+        const RANGES_KM = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];   // รัศมีสแกนที่เลือกได้
         const DEFAULT_RANGE_IDX = 3;                      // 10 กม.
         const GRID_CELLS_PER_RADIUS = 4;                  // จำนวนช่องตารางจากกลางจอถึงขอบเขตสแกน
         const PLOT_RATIO = 0.88;                          // ขอบเขตสแกนอยู่ที่ 88% ของรัศมีจอ
@@ -477,6 +477,8 @@
         const canvas = $('radar');
         const ctx = canvas.getContext('2d');
         const bg = document.createElement('canvas');
+        const dotsLayer = document.createElement('canvas');
+        let dotsDirty = true;
         let dpr = 1;
 
         // ===================== ยูทิลิตี =====================
@@ -524,9 +526,10 @@
         function fmtDist(km) {
             if (km < 1) return Math.round(km * 1000) + ' ม.';
             if (km < 10) return km.toFixed(1) + ' กม.';
-            return Math.round(km) + ' กม.';
+            return Math.round(km).toLocaleString('th-TH') + ' กม.';
         }
-        function fmtRange(km) { return km < 1 ? Math.round(km * 1000) + ' ม.' : (Number.isInteger(km) ? km : km.toFixed(1)) + ' กม.'; }
+        // รัศมี/ขนาดช่องตาราง แสดงค่าจริง เช่น 1.25 กม., 1,000 กม.
+        function fmtRange(km) { return km < 1 ? Math.round(km * 1000) + ' ม.' : parseFloat(km.toFixed(2)).toLocaleString('th-TH') + ' กม.'; }
 
         const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
         function fmtThai(date, withDate) {
@@ -632,6 +635,7 @@
                 state.hits = all.slice(0, n);
                 state.nearest = state.hits[0] || null;
             }
+            dotsDirty = true;
             updateBeatInterval();
             renderInfo();
         }
@@ -814,6 +818,7 @@
             if (canvas.width !== S) {
                 canvas.width = canvas.height = S;
                 buildBackground();
+                dotsDirty = true;
             }
         }
 
@@ -886,6 +891,38 @@
             g.restore();
         }
 
+        // วาดจุดความร้อนทั้งหมด (ยกเว้นจุดใกล้สุด) ลงเลเยอร์แยก รวมเป็นเส้นทางเดียวต่อสี
+        function renderDots() {
+            dotsDirty = false;
+            const S = canvas.width;
+            if (dotsLayer.width !== S) dotsLayer.width = dotsLayer.height = S;
+            const g = dotsLayer.getContext('2d');
+            g.clearRect(0, 0, S, S);
+            const c = S / 2, Rp = (S / 2) * PLOT_RATIO, u = S / 400, range = rangeKm();
+            const hits = state.hits;
+            const many = hits.length > 200;
+            const dotR = many ? Math.max(2, 3.6 * u) : Math.max(3, 6.2 * u);
+            const paths = { h: new Path2D(), n: new Path2D(), l: new Path2D() };
+            for (let i = hits.length - 1; i >= 1; i--) {
+                const h = hits[i];
+                const rr = (h.d / range) * Rp;
+                const x = c + rr * Math.sin(h.brg * toRad);
+                const y = c - rr * Math.cos(h.brg * toRad);
+                const p = paths[h.pt.conf] || paths.n;
+                p.moveTo(x + dotR, y);
+                p.arc(x, y, dotR, 0, Math.PI * 2);
+            }
+            g.lineWidth = Math.max(1, (many ? 0.8 : 1.3) * u);
+            g.strokeStyle = 'rgba(60, 10, 0, 0.75)';
+            ['l', 'n', 'h'].forEach(k => { // ความเชื่อมั่นสูงวาดทับบนสุด
+                g.fillStyle = CONF_COLOR[k];
+                if (!many) { g.shadowColor = CONF_COLOR[k]; g.shadowBlur = 6 * u; }
+                g.fill(paths[k]);
+                g.shadowBlur = 0;
+                g.stroke(paths[k]);
+            });
+        }
+
         function drawText(text, x, y, sizePx, color, align, weight) {
             ctx.font = (weight || 700) + ' ' + sizePx + 'px system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", Tahoma, sans-serif';
             ctx.textAlign = align || 'center';
@@ -931,22 +968,25 @@
                 }
             }
 
-            // จุดความร้อนในรัศมี (วาดไกล → ใกล้ ให้จุดใกล้สุดอยู่บนสุด)
-            const hits = state.hits;
-            const dotR = Math.max(3, 6.2 * u);
+            // จุดความร้อนในรัศมี: ใช้เลเยอร์ที่วาดเก็บไว้ (วาดใหม่เฉพาะเมื่อตำแหน่ง/รัศมี/ข้อมูลเปลี่ยน)
+            // แต่ละเฟรมแค่ปรับความสว่างให้กะพริบ จึงลื่นแม้มีหลายพันจุดที่รัศมี 1000 กม.
+            if (dotsDirty) renderDots();
             const blinkAlpha = 0.55 + 0.45 * pulse;
-            const maxDraw = Math.min(hits.length, 3000);
-            for (let i = maxDraw - 1; i >= 0; i--) {
-                const h = hits[i];
+            ctx.globalAlpha = blinkAlpha;
+            ctx.drawImage(dotsLayer, 0, 0);
+
+            // จุดใกล้สุด: ใหญ่กว่า มีแสงเรือง และวงคลื่นขยายทุกจังหวะ
+            if (state.nearest) {
+                const h = state.nearest;
                 const rr = (h.d / range) * Rp;
                 const x = c + rr * Math.sin(h.brg * toRad);
                 const y = c - rr * Math.cos(h.brg * toRad);
                 const col = CONF_COLOR[h.pt.conf] || CONF_COLOR.n;
-                ctx.globalAlpha = blinkAlpha;
+                const nr = Math.max(3, 6.2 * u) * 1.25;
                 ctx.shadowColor = col;
                 ctx.shadowBlur = 10 * u * pulse;
                 ctx.beginPath();
-                ctx.arc(x, y, i === 0 ? dotR * 1.25 : dotR, 0, Math.PI * 2);
+                ctx.arc(x, y, nr, 0, Math.PI * 2);
                 ctx.fillStyle = col;
                 ctx.fill();
                 ctx.shadowBlur = 0;
@@ -954,16 +994,13 @@
                 ctx.strokeStyle = 'rgba(60, 10, 0, 0.75)';
                 ctx.stroke();
                 ctx.globalAlpha = 1;
-
-                if (i === 0) {
-                    // วงคลื่นขยายรอบจุดใกล้สุดทุกจังหวะ
-                    ctx.beginPath();
-                    ctx.arc(x, y, dotR * 1.25 + (1 - pulse) * 22 * u, 0, Math.PI * 2);
-                    ctx.strokeStyle = 'rgba(200, 20, 10,' + (0.8 * pulse).toFixed(3) + ')';
-                    ctx.lineWidth = Math.max(1, 2 * u);
-                    ctx.stroke();
-                }
+                ctx.beginPath();
+                ctx.arc(x, y, nr + (1 - pulse) * 22 * u, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(200, 20, 10,' + (0.8 * pulse).toFixed(3) + ')';
+                ctx.lineWidth = Math.max(1, 2 * u);
+                ctx.stroke();
             }
+            ctx.globalAlpha = 1;
 
             // ถ้าไม่พบในรัศมี: ลูกศรที่ขอบจอชี้ไปยังจุดใกล้สุดนอกรัศมี
             if (state.pos && !state.nearest && state.nearestAny) {
