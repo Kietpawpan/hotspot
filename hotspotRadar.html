@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Hotspot Radar - เรดาร์ตรวจจับจุดความร้อนใกล้ตัว</title>
+    <meta name="description" content="เรดาร์พกพาตรวจหาจุดความร้อน (Hotspot) รอบตำแหน่งของคุณ ใช้ข้อมูลชุดเดียวกับ Fire Radar">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Hotspot Radar">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://kietpawpan.github.io/hotspot/img/EPO11App.png">
+    <meta name="theme-color" content="#0b0f0c">
+
+    <style>
+        :root {
+            --bg-1: #18201a;
+            --bg-2: #060807;
+            --text: #e6efe6;
+            --muted: #9fb3a2;
+            --panel: rgba(255, 255, 255, 0.06);
+            --panel-border: rgba(255, 255, 255, 0.12);
+            --accent: #7ee36b;
+            --danger: #ff5a4f;
+            --warn: #ffb020;
+            --size: min(86vw, 56vh, 420px);
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body { margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+            background: radial-gradient(circle at 50% 18%, var(--bg-1), var(--bg-2) 70%);
+            background-color: var(--bg-2);
+            color: var(--text);
+            font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", "Sarabun", Tahoma, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            padding: max(12px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+        }
+
+        .app { max-width: 520px; margin: 0 auto; }
+
+        header { text-align: center; margin-bottom: 4px; }
+        header h1 {
+            margin: 4px 0 0;
+            font-size: 20px;
+            letter-spacing: 0.08em;
+            color: var(--accent);
+            text-shadow: 0 0 12px rgba(126, 227, 107, 0.35);
+        }
+        header p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+
+        /* ---------- ตัวเครื่องเรดาร์ ---------- */
+        .device {
+            position: relative;
+            width: var(--size);
+            margin: calc(var(--size) * 0.13) auto 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* ก้านปุ่มด้านบน */
+        .crown-stem {
+            position: absolute;
+            left: 50%;
+            top: calc(var(--size) * -0.05);
+            width: 12%;
+            height: 9%;
+            transform: translateX(-50%);
+            background: linear-gradient(90deg, #7c8389, #e9ecee 45%, #9aa1a7);
+            border-radius: 3px;
+            z-index: 0;
+        }
+
+        /* ปุ่มขยายพื้นที่สแกน (กดวนรัศมี) */
+        .crown {
+            position: absolute;
+            left: 50%;
+            top: calc(var(--size) * -0.115);
+            width: 24%;
+            height: 9%;
+            transform: translateX(-50%);
+            border: none;
+            border-radius: 12px 12px 6px 6px;
+            background: linear-gradient(180deg, #ffffff, #d5d9dc 55%, #a6adb2);
+            box-shadow: 0 4px 0 #6d7479, 0 8px 14px rgba(0, 0, 0, 0.5), inset 0 2px 2px rgba(255, 255, 255, 0.9);
+            cursor: pointer;
+            z-index: 0;
+            transition: transform 0.06s, box-shadow 0.06s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            color: #4a5257;
+            font-size: clamp(9px, calc(var(--size) * 0.028), 12px);
+            font-weight: 700;
+            letter-spacing: 0.06em;
+        }
+        .crown::before {
+            content: "";
+            position: absolute;
+            inset: 22% 10% auto 10%;
+            height: 2px;
+            background: repeating-linear-gradient(90deg, rgba(0,0,0,0.18) 0 2px, transparent 2px 5px);
+        }
+        .crown:active, .crown.pressed {
+            transform: translateX(-50%) translateY(4px);
+            box-shadow: 0 0 0 #6d7479, 0 4px 8px rgba(0, 0, 0, 0.5), inset 0 2px 2px rgba(255, 255, 255, 0.9);
+        }
+        .crown:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+        .bezel {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            border-radius: 50%;
+            padding: 7.5%;
+            background:
+                radial-gradient(circle at 32% 26%, #ffffff 0%, #e4e7e9 28%, #b3babf 62%, #7d858b 86%, #5f666b 100%);
+            box-shadow:
+                0 22px 50px rgba(0, 0, 0, 0.7),
+                0 0 0 2px #50575c,
+                inset 0 -8px 16px rgba(0, 0, 0, 0.35),
+                inset 0 8px 12px rgba(255, 255, 255, 0.85);
+        }
+        /* วงแหวนร่องรอบหน้าจอ */
+        .bezel::before {
+            content: "";
+            position: absolute;
+            inset: 4.2%;
+            border-radius: 50%;
+            background: linear-gradient(160deg, #8f979c, #f3f5f6 40%, #7b8388 85%);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45);
+        }
+
+        .screen-wrap {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            overflow: hidden;
+            background: #4e9a45;
+            box-shadow: 0 0 0 3px #1d221e, 0 0 0 6px #6c7479, 0 2px 8px 6px rgba(0, 0, 0, 0.35);
+            cursor: pointer;
+        }
+        .screen-wrap canvas { display: block; width: 100%; height: 100%; }
+        .glass {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            pointer-events: none;
+            background:
+                radial-gradient(ellipse 60% 42% at 32% 20%, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0) 70%),
+                radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 62%, rgba(0, 0, 0, 0.32) 100%);
+            box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.5);
+        }
+
+        /* ---------- ปุ่มควบคุม ---------- */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 10px;
+            align-items: center;
+            margin: 22px auto 0;
+            max-width: 420px;
+        }
+        .btn {
+            appearance: none;
+            border: 1px solid var(--panel-border);
+            background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
+            color: var(--text);
+            font: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            padding: 12px 10px;
+            border-radius: 14px;
+            cursor: pointer;
+            min-height: 48px;
+            transition: background 0.15s, transform 0.06s;
+        }
+        .btn:hover { background: rgba(255, 255, 255, 0.14); }
+        .btn:active { transform: translateY(1px); }
+        .btn:disabled { opacity: 0.4; cursor: default; }
+        .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+        .btn.primary {
+            background: linear-gradient(180deg, #8cf078, #4fb83f);
+            color: #082006;
+            border-color: #9df58a;
+        }
+        .range-chip {
+            text-align: center;
+            min-width: 112px;
+            padding: 6px 12px;
+            border-radius: 14px;
+            background: #0d150e;
+            border: 1px solid #2f4a2f;
+            box-shadow: inset 0 0 12px rgba(126, 227, 107, 0.12);
+        }
+        .range-chip .label { font-size: 11px; color: var(--muted); }
+        .range-chip .value {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--accent);
+            font-variant-numeric: tabular-nums;
+            line-height: 1.2;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin: 12px auto 0;
+            max-width: 420px;
+        }
+        .toolbar .btn { flex: 1 1 120px; font-size: 14px; padding: 10px 8px; min-height: 44px; }
+        .toolbar select.btn { text-align: center; }
+        .toolbar select.btn option { color: #111; }
+
+        /* ---------- แผงข้อมูล ---------- */
+        .panel {
+            margin: 16px auto 0;
+            max-width: 420px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 14px 16px;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 7px 0;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.09);
+            font-size: 14px;
+        }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .k { color: var(--muted); flex-shrink: 0; }
+        .stat-row .v { text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+        .v.hot { color: var(--danger); font-weight: 700; }
+        .v.ok { color: var(--accent); font-weight: 700; }
+        .v.warn { color: var(--warn); }
+
+        .notice {
+            margin: 14px auto 0;
+            max-width: 420px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            font-size: 14px;
+            line-height: 1.5;
+            background: rgba(255, 176, 32, 0.1);
+            border: 1px solid rgba(255, 176, 32, 0.35);
+            color: #ffd88a;
+            display: none;
+        }
+        .notice.show { display: block; }
+        .notice .btn { margin-top: 10px; width: 100%; font-size: 14px; }
+
+        h2 {
+            font-size: 15px;
+            margin: 0 0 8px;
+            color: var(--text);
+        }
+        .hs-list { list-style: none; margin: 0; padding: 0; }
+        .hs-item {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 10px;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.09);
+            font-size: 14px;
+        }
+        .hs-item:last-child { border-bottom: none; }
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            box-shadow: 0 0 8px currentColor;
+        }
+        .hs-item .main { min-width: 0; }
+        .hs-item .dist { font-weight: 700; font-variant-numeric: tabular-nums; }
+        .hs-item .sub { font-size: 12px; color: var(--muted); }
+        .hs-item a {
+            color: #0b1f08;
+            background: var(--accent);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 7px 10px;
+            border-radius: 10px;
+            white-space: nowrap;
+        }
+        .empty { color: var(--muted); font-size: 14px; padding: 4px 0; }
+
+        footer {
+            text-align: center;
+            margin: 18px auto 0;
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+        footer a { color: var(--accent); }
+
+        /* ---------- หน้าจอเริ่มต้น ---------- */
+        .start-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+            background: rgba(4, 7, 5, 0.82);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .start-overlay.hidden { display: none; }
+        .start-card {
+            max-width: 360px;
+            width: 100%;
+            text-align: center;
+            background: #111812;
+            border: 1px solid #2f4a2f;
+            border-radius: 20px;
+            padding: 24px 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+        }
+        .start-card h2 { font-size: 20px; color: var(--accent); margin: 0 0 8px; }
+        .start-card p { font-size: 14px; color: var(--muted); line-height: 1.6; margin: 0 0 18px; }
+        .start-card .btn { width: 100%; font-size: 17px; min-height: 54px; }
+        .start-card .btn + .btn { margin-top: 10px; font-size: 14px; min-height: 44px; }
+
+        .sr-only {
+            position: absolute;
+            width: 1px; height: 1px;
+            padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0, 0, 0, 0);
+            white-space: nowrap; border: 0;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .crown, .btn { transition: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header>
+            <h1>HOTSPOT RADAR</h1>
+            <p>เรดาร์ตรวจหาจุดความร้อนรอบตัวคุณ · ข้อมูลดาวเทียมชุดเดียวกับ Fire Radar</p>
+        </header>
+
+        <div class="device">
+            <div class="crown-stem" aria-hidden="true"></div>
+            <button class="crown" id="crownBtn" type="button" aria-label="ปุ่มขยายพื้นที่สแกน (กดวนรัศมี)" title="กดเพื่อขยายพื้นที่สแกน (วนกลับเมื่อสุด)">
+                SCAN
+            </button>
+            <div class="bezel">
+                <div class="screen-wrap" id="screenWrap" title="แตะหน้าจอเพื่อขยายพื้นที่สแกน">
+                    <canvas id="radar" role="img" aria-label="หน้าจอเรดาร์"></canvas>
+                    <div class="glass" aria-hidden="true"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" id="zoomInBtn" type="button" aria-label="ลดรัศมีสแกน">－ ย่อ</button>
+            <div class="range-chip" aria-live="polite">
+                <div class="label">รัศมีสแกน</div>
+                <div class="value" id="rangeValue">10 กม.</div>
+            </div>
+            <button class="btn" id="zoomOutBtn" type="button" aria-label="ขยายรัศมีสแกน">＋ ขยาย</button>
+        </div>
+
+        <div class="toolbar">
+            <button class="btn" id="muteBtn" type="button" aria-pressed="false">🔊 เสียง: เปิด</button>
+            <select class="btn" id="timeSelect" aria-label="ช่วงเวลาของจุดความร้อน">
+                <option value="24">🕒 ย้อนหลัง 24 ชม.</option>
+                <option value="12">🕒 ย้อนหลัง 12 ชม.</option>
+            </select>
+            <button class="btn" id="reloadBtn" type="button">⟳ โหลดข้อมูล</button>
+        </div>
+
+        <div class="notice" id="gpsNotice" role="status">
+            <div id="gpsNoticeText"></div>
+            <button class="btn" id="demoBtn" type="button">▶ ทดลองด้วยตำแหน่งจำลอง</button>
+        </div>
+
+        <div class="panel" aria-live="polite">
+            <div class="stat-row"><span class="k">สถานะ</span><span class="v" id="statStatus">รอเริ่มใช้งาน</span></div>
+            <div class="stat-row"><span class="k">ตำแหน่งของคุณ</span><span class="v" id="statPos">-</span></div>
+            <div class="stat-row"><span class="k">จุดความร้อนในรัศมี</span><span class="v" id="statCount">-</span></div>
+            <div class="stat-row"><span class="k">ใกล้ที่สุด</span><span class="v" id="statNearest">-</span></div>
+            <div class="stat-row"><span class="k">ข้อมูลดาวเทียม</span><span class="v" id="statData">กำลังโหลด…</span></div>
+        </div>
+
+        <div class="panel">
+            <h2>จุดความร้อนใกล้คุณ (เรียงตามระยะทาง)</h2>
+            <ul class="hs-list" id="hsList"><li class="empty">ยังไม่มีข้อมูล</li></ul>
+        </div>
+
+        <div class="panel" id="demoPanel" style="display:none;">
+            <div class="stat-row"><span class="k">โหมดจำลอง</span><span class="v warn">กำลังจำลองการเดินเข้าหาจุดความร้อน</span></div>
+            <button class="btn" id="stopDemoBtn" type="button" style="width:100%; margin-top:8px;">■ ออกจากโหมดจำลอง และใช้ GPS จริง</button>
+        </div>
+
+        <footer>
+            ยิ่งเข้าใกล้จุดความร้อน ไฟสามเหลี่ยมจะกะพริบและเสียงสัญญาณจะถี่ขึ้น<br>
+            ข้อมูลจุดความร้อน: NASA FIRMS (VIIRS) ผ่านระบบ <a href="fireRadar.html">Fire Radar</a>
+            · ตำแหน่ง GPS ใช้ในเครื่องของคุณเท่านั้น ไม่มีการส่งออก
+        </footer>
+    </div>
+
+    <div class="start-overlay" id="startOverlay">
+        <div class="start-card">
+            <h2>📡 เปิดเรดาร์</h2>
+            <p>แอปจะขอสิทธิ์เข้าถึงตำแหน่ง (GPS) เพื่อวางคุณไว้กลางจอ และเปิดเสียงสัญญาณเตือนเมื่อพบจุดความร้อนใกล้ตัว</p>
+            <button class="btn primary" id="startBtn" type="button">▶ เริ่มสแกน</button>
+            <button class="btn" id="startDemoBtn" type="button">ทดลองด้วยตำแหน่งจำลอง</button>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        'use strict';
+
+        // ===================== ค่าตั้งต้น =====================
+        // แหล่งข้อมูลเดียวกับ fireRadar.html (Google Apps Script → NASA FIRMS)
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbyJfWRJFtBwsIZecPHZYJda69wXoWdmp1fINaU8-qagZdI7sc8TvB5FzKpGqosbxaUf/exec';
+        const RANGES_KM = [1, 2, 5, 10, 20, 50, 100];   // รัศมีสแกนที่เลือกได้
+        const DEFAULT_RANGE_IDX = 3;                      // 10 กม.
+        const GRID_CELLS_PER_RADIUS = 4;                  // จำนวนช่องตารางจากกลางจอถึงขอบเขตสแกน
+        const PLOT_RATIO = 0.88;                          // ขอบเขตสแกนอยู่ที่ 88% ของรัศมีจอ
+        const DATA_REFRESH_MS = 10 * 60 * 1000;           // โหลดข้อมูลใหม่ทุก 10 นาที
+        const SYNC_STALE_MINUTES = 120;
+
+        // จังหวะเสียง/ไฟกะพริบ
+        const BEAT_IDLE_MS = 1600;   // ไม่พบจุดในรัศมี: จังหวะช้า
+        const BEAT_FAR_MS = 1300;    // พบจุดแต่อยู่ไกล (≥ BEAT_FAR_KM)
+        const BEAT_FAST_MS = 110;    // อยู่ติดจุดความร้อน (≤ BEAT_NEAR_KM)
+        const BEAT_NEAR_KM = 0.2;
+        const BEAT_FAR_KM = 30;
+
+        const STORE_KEY = 'hotspotRadar.v1';
+
+        // ===================== สถานะ =====================
+        const state = {
+            started: false,
+            rangeIdx: DEFAULT_RANGE_IDX,
+            muted: false,
+            timeWindowH: 24,
+            allPoints: [],      // จุดทั้งหมดจาก GAS
+            points: [],         // จุดหลังกรองช่วงเวลา
+            updated: null,
+            dataStatus: 'loading', // loading | ok | error
+            dataError: '',
+            pos: null,          // { lat, lon, acc (ม.), heading }
+            gpsStatus: 'idle',  // idle | searching | ok | denied | error | unsupported
+            hits: [],           // จุดในรัศมีสแกน (เรียงใกล้ → ไกล)
+            nearest: null,      // จุดใกล้สุดในรัศมี
+            nearestAny: null,   // จุดใกล้สุดทั้งหมด (อาจอยู่นอกรัศมี)
+            interval: BEAT_IDLE_MS,
+            lastBeat: -1e9,
+            nextBeat: 0,
+            demo: null          // { target, timer }
+        };
+
+        loadPrefs();
+
+        // ===================== DOM =====================
+        const $ = id => document.getElementById(id);
+        const canvas = $('radar');
+        const ctx = canvas.getContext('2d');
+        const bg = document.createElement('canvas');
+        let dpr = 1;
+
+        // ===================== ยูทิลิตี =====================
+        function loadPrefs() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+                if (Number.isInteger(saved.rangeIdx) && saved.rangeIdx >= 0 && saved.rangeIdx < RANGES_KM.length) state.rangeIdx = saved.rangeIdx;
+                if (typeof saved.muted === 'boolean') state.muted = saved.muted;
+                if (saved.timeWindowH === 12 || saved.timeWindowH === 24) state.timeWindowH = saved.timeWindowH;
+            } catch (e) { /* ไม่มี localStorage ก็ใช้ค่าเริ่มต้น */ }
+        }
+        function savePrefs() {
+            try {
+                localStorage.setItem(STORE_KEY, JSON.stringify({ rangeIdx: state.rangeIdx, muted: state.muted, timeWindowH: state.timeWindowH }));
+            } catch (e) { /* ข้าม */ }
+        }
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        const toRad = Math.PI / 180;
+        function distBearing(lat1, lon1, lat2, lon2) {
+            const R = 6371.0088;
+            const p1 = lat1 * toRad, p2 = lat2 * toRad;
+            const dp = (lat2 - lat1) * toRad, dl = (lon2 - lon1) * toRad;
+            const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+            const d = 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+            const y = Math.sin(dl) * Math.cos(p2);
+            const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+            const brg = (Math.atan2(y, x) / toRad + 360) % 360;
+            return { d, brg };
+        }
+        function destPoint(lat, lon, km, brgDeg) {
+            const R = 6371.0088, dr = km / R, b = brgDeg * toRad;
+            const p1 = lat * toRad, l1 = lon * toRad;
+            const p2 = Math.asin(Math.sin(p1) * Math.cos(dr) + Math.cos(p1) * Math.sin(dr) * Math.cos(b));
+            const l2 = l1 + Math.atan2(Math.sin(b) * Math.sin(dr) * Math.cos(p1), Math.cos(dr) - Math.sin(p1) * Math.sin(p2));
+            return { lat: p2 / toRad, lon: ((l2 / toRad + 540) % 360) - 180 };
+        }
+
+        const DIRS_TH = ['เหนือ', 'ตะวันออกเฉียงเหนือ', 'ตะวันออก', 'ตะวันออกเฉียงใต้', 'ใต้', 'ตะวันตกเฉียงใต้', 'ตะวันตก', 'ตะวันตกเฉียงเหนือ'];
+        function dirName(brg) { return DIRS_TH[Math.round(brg / 45) % 8]; }
+
+        function fmtDist(km) {
+            if (km < 1) return Math.round(km * 1000) + ' ม.';
+            if (km < 10) return km.toFixed(1) + ' กม.';
+            return Math.round(km) + ' กม.';
+        }
+        function fmtRange(km) { return km < 1 ? Math.round(km * 1000) + ' ม.' : (Number.isInteger(km) ? km : km.toFixed(1)) + ' กม.'; }
+
+        const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        function fmtThai(date, withDate) {
+            const th = new Date(date.getTime() + 7 * 3600 * 1000); // เวลาไทย UTC+7
+            const hm = String(th.getUTCHours()).padStart(2, '0') + ':' + String(th.getUTCMinutes()).padStart(2, '0') + ' น.';
+            return withDate === false ? hm : th.getUTCDate() + ' ' + THAI_MONTHS[th.getUTCMonth()] + ' ' + hm;
+        }
+        function fmtAgo(date) {
+            const min = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+            if (min < 1) return 'เมื่อสักครู่';
+            if (min < 60) return min + ' นาทีที่แล้ว';
+            const h = Math.floor(min / 60);
+            if (h < 48) return h + ' ชม.ที่แล้ว';
+            return Math.floor(h / 24) + ' วันที่แล้ว';
+        }
+
+        function confLevel(c) {
+            const s = String(c == null ? '' : c).trim().toLowerCase();
+            if (s === 'h' || s === 'high') return 'h';
+            if (s === 'l' || s === 'low') return 'l';
+            const n = parseFloat(s);
+            if (!isNaN(n)) return n >= 80 ? 'h' : n >= 30 ? 'n' : 'l';
+            return 'n';
+        }
+        const CONF_COLOR = { h: '#e3171b', n: '#ff7a00', l: '#ffd21f' };
+        const CONF_LABEL = { h: 'ความเชื่อมั่นสูง', n: 'ความเชื่อมั่นปกติ', l: 'ความเชื่อมั่นต่ำ' };
+
+        // ===================== ข้อมูลจุดความร้อน =====================
+        function parsePoint(pt) {
+            const lat = parseFloat(pt.lat), lon = parseFloat(pt.lon);
+            if (!isFinite(lat) || !isFinite(lon)) return null;
+            let time = null;
+            const dp = String(pt.date || '').split('-');
+            if (dp.length === 3) {
+                const ts = String(pt.time == null ? '' : pt.time).padStart(4, '0');
+                time = new Date(Date.UTC(+dp[0], +dp[1] - 1, +dp[2], parseInt(ts.slice(0, 2), 10) || 0, parseInt(ts.slice(2, 4), 10) || 0));
+                if (isNaN(time.getTime())) time = null;
+            }
+            return { lat, lon, time, conf: confLevel(pt.confidence), prov: String(pt.prov || '').trim() };
+        }
+
+        function applyTimeWindow() {
+            const pts = state.allPoints;
+            let newest = 0;
+            pts.forEach(p => { if (p.time && p.time.getTime() > newest) newest = p.time.getTime(); });
+            // อ้างอิงเวลาจากจุดล่าสุดในชุดข้อมูล (เหมือน fireRadar)
+            const cutoff = newest ? newest - state.timeWindowH * 3600 * 1000 : -Infinity;
+            state.points = pts.filter(p => !p.time || p.time.getTime() >= cutoff);
+        }
+
+        let loading = false;
+        async function loadHotspots() {
+            if (loading) return;
+            loading = true;
+            state.dataStatus = state.allPoints.length ? state.dataStatus : 'loading';
+            $('reloadBtn').disabled = true;
+            $('statData').textContent = 'กำลังโหลด…';
+            try {
+                const res = await fetch(GAS_URL + '?action=hotspots', { cache: 'no-store' });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                if (data && data.error) throw new Error(data.error);
+                const raw = Array.isArray(data && data.points) ? data.points : [];
+                state.allPoints = raw.map(parsePoint).filter(Boolean);
+                state.updated = data && data.updated ? new Date(data.updated) : new Date();
+                if (isNaN(state.updated.getTime())) state.updated = null;
+                state.dataStatus = 'ok';
+                state.dataError = '';
+                applyTimeWindow();
+            } catch (err) {
+                console.error('โหลดข้อมูลจุดความร้อนไม่สำเร็จ', err);
+                state.dataError = err && err.message ? err.message : String(err);
+                state.dataStatus = state.allPoints.length ? 'ok' : 'error';
+                if (state.allPoints.length) state.dataError = 'โหลดรอบล่าสุดไม่สำเร็จ ใช้ข้อมูลเดิม';
+            } finally {
+                loading = false;
+                $('reloadBtn').disabled = false;
+                recompute();
+            }
+        }
+
+        // ===================== คำนวณระยะ / จังหวะ =====================
+        function rangeKm() { return RANGES_KM[state.rangeIdx]; }
+
+        function recompute() {
+            const p = state.pos;
+            if (!p) {
+                state.hits = [];
+                state.nearest = null;
+                state.nearestAny = null;
+            } else {
+                const all = new Array(state.points.length);
+                for (let i = 0; i < state.points.length; i++) {
+                    const pt = state.points[i];
+                    const db = distBearing(p.lat, p.lon, pt.lat, pt.lon);
+                    all[i] = { pt, d: db.d, brg: db.brg };
+                }
+                all.sort((a, b) => a.d - b.d);
+                const r = rangeKm();
+                state.nearestAny = all[0] || null;
+                let n = 0;
+                while (n < all.length && all[n].d <= r) n++;
+                state.hits = all.slice(0, n);
+                state.nearest = state.hits[0] || null;
+            }
+            updateBeatInterval();
+            renderInfo();
+        }
+
+        // ยิ่งใกล้ยิ่งถี่ (สเกลลอการิทึม ให้รู้สึกเร่งขึ้นชัดเมื่อเข้าใกล้)
+        function computeInterval() {
+            const n = state.nearest;
+            if (!n) return BEAT_IDLE_MS;
+            const d = Math.max(n.d, BEAT_NEAR_KM);
+            const t = Math.min(1, Math.log(d / BEAT_NEAR_KM) / Math.log(BEAT_FAR_KM / BEAT_NEAR_KM));
+            return BEAT_FAST_MS + (BEAT_FAR_MS - BEAT_FAST_MS) * t;
+        }
+        function proximity() { // 0 (ไกล/ไม่พบ) → 1 (ติดจุด)
+            return 1 - (state.interval - BEAT_FAST_MS) / (BEAT_IDLE_MS - BEAT_FAST_MS);
+        }
+        function updateBeatInterval() {
+            state.interval = computeInterval();
+            const due = state.lastBeat + state.interval;
+            if (due < state.nextBeat) state.nextBeat = due; // เข้าใกล้ขึ้น → ตอบสนองทันที ไม่ต้องรอจังหวะเดิม
+        }
+
+        // ===================== เสียง =====================
+        let audioCtx = null;
+        function initAudio() {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return;
+            try {
+                if (!audioCtx) audioCtx = new AC();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                // ปลดล็อกเสียงบน iOS ด้วยบัฟเฟอร์เงียบ
+                const buf = audioCtx.createBuffer(1, 1, 22050);
+                const src = audioCtx.createBufferSource();
+                src.buffer = buf;
+                src.connect(audioCtx.destination);
+                src.start(0);
+            } catch (e) { audioCtx = null; }
+        }
+        function tone(freq, durS, gain, type) {
+            if (!audioCtx || state.muted) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const t = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = type || 'square';
+            osc.frequency.setValueAtTime(freq, t);
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(gain, t + 0.004);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + durS);
+            osc.connect(g);
+            g.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + durS + 0.02);
+        }
+        function beep() {
+            const k = proximity();
+            tone(1150 + 650 * k, state.nearest ? 0.075 : 0.06, state.nearest ? 0.09 : 0.05, 'square');
+        }
+        function click() { tone(2600, 0.025, 0.05, 'square'); }
+
+        // ===================== GPS =====================
+        let watchId = null;
+        function startGeo() {
+            stopDemo(false);
+            if (!('geolocation' in navigator)) {
+                state.gpsStatus = 'unsupported';
+                showGpsNotice('อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับการระบุตำแหน่ง (GPS)');
+                renderInfo();
+                return;
+            }
+            if (!window.isSecureContext) {
+                state.gpsStatus = 'error';
+                showGpsNotice('การใช้ GPS ต้องเปิดหน้านี้ผ่าน https:// เท่านั้น');
+                renderInfo();
+                return;
+            }
+            state.gpsStatus = 'searching';
+            hideGpsNotice();
+            renderInfo();
+            if (watchId != null) navigator.geolocation.clearWatch(watchId);
+            watchId = navigator.geolocation.watchPosition(onGeo, onGeoError, {
+                enableHighAccuracy: true,
+                maximumAge: 5000,
+                timeout: 20000
+            });
+        }
+        function stopGeo() {
+            if (watchId != null && 'geolocation' in navigator) navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+        function onGeo(pos) {
+            if (state.demo) return;
+            const c = pos.coords;
+            let heading = state.pos ? state.pos.heading : null;
+            if (c.heading != null && isFinite(c.heading) && (c.speed == null || c.speed > 0.7)) heading = c.heading;
+            state.pos = { lat: c.latitude, lon: c.longitude, acc: c.accuracy, heading };
+            state.gpsStatus = 'ok';
+            hideGpsNotice();
+            recompute();
+        }
+        function onGeoError(err) {
+            if (state.demo) return;
+            if (err.code === 1) {
+                state.gpsStatus = 'denied';
+                showGpsNotice('ไม่ได้รับอนุญาตให้เข้าถึงตำแหน่ง กรุณาเปิดสิทธิ์ตำแหน่ง (Location) ให้เบราว์เซอร์ แล้วรีเฟรชหน้านี้');
+            } else {
+                state.gpsStatus = state.pos ? 'ok' : 'error';
+                if (!state.pos) showGpsNotice('ยังหาตำแหน่ง GPS ไม่ได้ (สัญญาณอ่อนหรือหมดเวลา) ระบบจะพยายามต่อไป ลองออกไปที่โล่ง');
+            }
+            renderInfo();
+        }
+        function showGpsNotice(msg) {
+            $('gpsNoticeText').textContent = msg;
+            $('gpsNotice').classList.add('show');
+        }
+        function hideGpsNotice() { $('gpsNotice').classList.remove('show'); }
+
+        // ===================== โหมดจำลอง =====================
+        // วางผู้ใช้ห่างจากจุดความร้อนจริงจุดหนึ่ง ~6 กม. แล้วค่อย ๆ เดินเข้าหา เพื่อทดสอบเสียง/ไฟกะพริบ
+        function startDemo() {
+            stopGeo();
+            stopDemo(false);
+            let target;
+            if (state.points.length) {
+                const pt = state.points[Math.floor(Math.random() * state.points.length)];
+                target = { lat: pt.lat, lon: pt.lon };
+            } else {
+                target = { lat: 14.9799, lon: 102.0978 }; // นครราชสีมา (ยังไม่มีข้อมูล)
+            }
+            const start = destPoint(target.lat, target.lon, 6, Math.random() * 360);
+            state.demo = { target, timer: setInterval(stepDemo, 500) };
+            state.rangeIdx = DEFAULT_RANGE_IDX;
+            state.pos = { lat: start.lat, lon: start.lon, acc: 5, heading: distBearing(start.lat, start.lon, target.lat, target.lon).brg };
+            state.gpsStatus = 'ok';
+            hideGpsNotice();
+            $('demoPanel').style.display = '';
+            updateRangeUI();
+            recompute();
+        }
+        function stepDemo() {
+            if (!state.demo || !state.pos) return;
+            const t = state.demo.target;
+            const db = distBearing(state.pos.lat, state.pos.lon, t.lat, t.lon);
+            if (db.d <= 0.07) return; // ถึงจุดแล้ว หยุดรอ
+            const step = Math.min(0.04, db.d - 0.06);
+            const np = destPoint(state.pos.lat, state.pos.lon, step, db.brg);
+            state.pos = { lat: np.lat, lon: np.lon, acc: 5, heading: db.brg };
+            recompute();
+        }
+        function stopDemo(restartGps) {
+            if (!state.demo) return;
+            clearInterval(state.demo.timer);
+            state.demo = null;
+            state.pos = null;
+            $('demoPanel').style.display = 'none';
+            if (restartGps) startGeo();
+            recompute();
+        }
+
+        // ===================== กันจอดับ =====================
+        let wakeLock = null;
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+            } catch (e) { wakeLock = null; }
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && state.started) {
+                requestWakeLock();
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            }
+        });
+
+        // ===================== การวาดหน้าจอ =====================
+        function resize() {
+            const rect = canvas.getBoundingClientRect();
+            dpr = Math.min(window.devicePixelRatio || 1, 3);
+            const S = Math.max(100, Math.round(rect.width * dpr));
+            if (canvas.width !== S) {
+                canvas.width = canvas.height = S;
+                buildBackground();
+            }
+        }
+
+        // พื้นหลังจอเขียว + ตาราง (วาดครั้งเดียว ใช้ซ้ำทุกเฟรม)
+        function buildBackground() {
+            const S = canvas.width;
+            bg.width = bg.height = S;
+            const g = bg.getContext('2d');
+            const c = S / 2, R = S / 2, Rp = R * PLOT_RATIO, u = S / 400;
+
+            g.save();
+            g.beginPath();
+            g.arc(c, c, R, 0, Math.PI * 2);
+            g.clip();
+
+            const grad = g.createRadialGradient(c * 0.86, c * 0.8, R * 0.05, c, c, R);
+            grad.addColorStop(0, '#c9f3ac');
+            grad.addColorStop(0.5, '#9ad982');
+            grad.addColorStop(1, '#4f9b46');
+            g.fillStyle = grad;
+            g.fillRect(0, 0, S, S);
+
+            // เส้นสแกนไลน์แบบจอ LCD
+            g.fillStyle = 'rgba(0, 50, 0, 0.05)';
+            const step = Math.max(2, Math.round(3 * dpr));
+            for (let y = 0; y < S; y += step) g.fillRect(0, y, S, Math.max(1, Math.round(dpr)));
+
+            // ตาราง
+            const sp = Rp / GRID_CELLS_PER_RADIUS;
+            const n = Math.ceil(R / sp) + 1;
+            g.strokeStyle = 'rgba(24, 74, 24, 0.5)';
+            g.lineWidth = Math.max(1, 1.1 * u);
+            g.beginPath();
+            for (let i = -n; i <= n; i++) {
+                if (i === 0) continue;
+                const o = c + i * sp;
+                g.moveTo(o, 0); g.lineTo(o, S);
+                g.moveTo(0, o); g.lineTo(S, o);
+            }
+            g.stroke();
+
+            // แกนกลาง
+            g.strokeStyle = 'rgba(18, 64, 18, 0.7)';
+            g.lineWidth = Math.max(1.2, 1.8 * u);
+            g.beginPath();
+            g.moveTo(c, 0); g.lineTo(c, S);
+            g.moveTo(0, c); g.lineTo(S, c);
+            g.stroke();
+
+            // เส้นขอบเขตการสแกน
+            g.setLineDash([6 * u, 5 * u]);
+            g.strokeStyle = 'rgba(14, 56, 14, 0.55)';
+            g.lineWidth = Math.max(1, 1.4 * u);
+            g.beginPath();
+            g.arc(c, c, Rp, 0, Math.PI * 2);
+            g.stroke();
+            g.setLineDash([]);
+
+            // ขีดบอกทิศ
+            g.strokeStyle = 'rgba(14, 56, 14, 0.75)';
+            g.lineWidth = Math.max(1, 1.6 * u);
+            for (let a = 0; a < 360; a += 15) {
+                const len = a % 90 === 0 ? 12 * u : a % 45 === 0 ? 8 * u : 4.5 * u;
+                const s = Math.sin(a * toRad), co = Math.cos(a * toRad);
+                g.beginPath();
+                g.moveTo(c + s * (R - 2 * u), c - co * (R - 2 * u));
+                g.lineTo(c + s * (R - 2 * u - len), c - co * (R - 2 * u - len));
+                g.stroke();
+            }
+            g.restore();
+        }
+
+        function drawText(text, x, y, sizePx, color, align, weight) {
+            ctx.font = (weight || 700) + ' ' + sizePx + 'px system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", Tahoma, sans-serif';
+            ctx.textAlign = align || 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = color;
+            ctx.fillText(text, x, y);
+        }
+
+        function draw(now) {
+            const S = canvas.width;
+            if (!S) return;
+            const c = S / 2, R = S / 2, Rp = R * PLOT_RATIO, u = S / 400;
+            const range = rangeKm();
+            const sinceBeat = now - state.lastBeat;
+            const lit = sinceBeat < Math.min(230, state.interval * 0.5);
+            const pulse = Math.max(0, 1 - sinceBeat / Math.min(state.interval, 900)); // 1 → 0 หลังแต่ละจังหวะ
+
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, S, S);
+            ctx.drawImage(bg, 0, 0);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(c, c, R, 0, Math.PI * 2);
+            ctx.clip();
+
+            // ทิศเหนือ
+            drawText('N', c, c - R + 24 * u, 15 * u, 'rgba(12, 52, 12, 0.85)');
+
+            if (state.demo) drawText('โหมดจำลอง', c, c - R + 44 * u, 11 * u, 'rgba(120, 40, 0, 0.85)');
+
+            // วงความคลาดเคลื่อนของ GPS
+            if (state.pos && state.pos.acc) {
+                const ar = (state.pos.acc / 1000) / range * Rp;
+                if (ar > 16 * u && ar < R * 1.5) {
+                    ctx.beginPath();
+                    ctx.arc(c, c, ar, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(30, 90, 200, 0.10)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(30, 90, 200, 0.35)';
+                    ctx.lineWidth = Math.max(1, u);
+                    ctx.stroke();
+                }
+            }
+
+            // จุดความร้อนในรัศมี (วาดไกล → ใกล้ ให้จุดใกล้สุดอยู่บนสุด)
+            const hits = state.hits;
+            const dotR = Math.max(3, 6.2 * u);
+            const blinkAlpha = 0.55 + 0.45 * pulse;
+            const maxDraw = Math.min(hits.length, 3000);
+            for (let i = maxDraw - 1; i >= 0; i--) {
+                const h = hits[i];
+                const rr = (h.d / range) * Rp;
+                const x = c + rr * Math.sin(h.brg * toRad);
+                const y = c - rr * Math.cos(h.brg * toRad);
+                const col = CONF_COLOR[h.pt.conf] || CONF_COLOR.n;
+                ctx.globalAlpha = blinkAlpha;
+                ctx.shadowColor = col;
+                ctx.shadowBlur = 10 * u * pulse;
+                ctx.beginPath();
+                ctx.arc(x, y, i === 0 ? dotR * 1.25 : dotR, 0, Math.PI * 2);
+                ctx.fillStyle = col;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.lineWidth = Math.max(1, 1.3 * u);
+                ctx.strokeStyle = 'rgba(60, 10, 0, 0.75)';
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+
+                if (i === 0) {
+                    // วงคลื่นขยายรอบจุดใกล้สุดทุกจังหวะ
+                    ctx.beginPath();
+                    ctx.arc(x, y, dotR * 1.25 + (1 - pulse) * 22 * u, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(200, 20, 10,' + (0.8 * pulse).toFixed(3) + ')';
+                    ctx.lineWidth = Math.max(1, 2 * u);
+                    ctx.stroke();
+                }
+            }
+
+            // ถ้าไม่พบในรัศมี: ลูกศรที่ขอบจอชี้ไปยังจุดใกล้สุดนอกรัศมี
+            if (state.pos && !state.nearest && state.nearestAny) {
+                const a = state.nearestAny.brg * toRad;
+                const er = Rp + (R - Rp) * 0.15;
+                const ex = c + er * Math.sin(a), ey = c - er * Math.cos(a);
+                ctx.save();
+                ctx.translate(ex, ey);
+                ctx.rotate(a);
+                ctx.beginPath();
+                ctx.moveTo(0, -9 * u);
+                ctx.lineTo(7 * u, 5 * u);
+                ctx.lineTo(-7 * u, 5 * u);
+                ctx.closePath();
+                ctx.globalAlpha = 0.5 + 0.5 * pulse;
+                ctx.fillStyle = '#c2410c';
+                ctx.fill();
+                ctx.restore();
+                ctx.globalAlpha = 1;
+                const tr = Rp - 26 * u;
+                const tx = c + tr * Math.sin(a), ty = c - tr * Math.cos(a);
+                drawText(fmtDist(state.nearestAny.d), tx, ty, 12 * u, 'rgba(120, 40, 0, 0.95)');
+            }
+
+            // ผู้ใช้: สามเหลี่ยมกะพริบกลางจอเสมอ
+            ctx.save();
+            ctx.translate(c, c);
+            if (state.pos && state.pos.heading != null) ctx.rotate(state.pos.heading * toRad);
+            const t = 12 * u;
+            ctx.beginPath();
+            ctx.moveTo(0, -t * 1.2);
+            ctx.lineTo(t, t * 0.8);
+            ctx.lineTo(-t, t * 0.8);
+            ctx.closePath();
+            if (lit) {
+                ctx.shadowColor = 'rgba(255, 30, 30, 0.95)';
+                ctx.shadowBlur = 16 * u;
+                ctx.fillStyle = '#ff1a1a';
+            } else {
+                ctx.fillStyle = 'rgba(150, 20, 20, 0.35)';
+            }
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.lineWidth = Math.max(1, 1.6 * u);
+            ctx.strokeStyle = lit ? '#5c0000' : 'rgba(70, 0, 0, 0.45)';
+            ctx.stroke();
+            ctx.restore();
+
+            // ข้อความสถานะบนจอ
+            const msgY = c + Rp * 0.42;
+            let msg = '';
+            if (!state.started && !state.demo) msg = 'กด "เริ่มสแกน"';
+            else if (!state.pos) msg = state.gpsStatus === 'denied' ? 'ไม่ได้รับสิทธิ์ตำแหน่ง' : 'กำลังค้นหาตำแหน่ง GPS…';
+            else if (state.dataStatus === 'loading') msg = 'กำลังโหลดข้อมูล…';
+            else if (state.dataStatus === 'error') msg = 'โหลดข้อมูลไม่สำเร็จ';
+            else if (!state.nearest) msg = state.nearestAny ? 'ไม่พบในรัศมี · กด ＋ เพื่อขยาย' : 'ไม่พบจุดความร้อน';
+            if (msg) {
+                ctx.font = '700 ' + (12.5 * u) + 'px system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", Tahoma, sans-serif';
+                const w = ctx.measureText(msg).width + 18 * u;
+                ctx.fillStyle = 'rgba(214, 246, 196, 0.72)';
+                roundRect(c - w / 2, msgY - 11 * u, w, 22 * u, 11 * u);
+                ctx.fill();
+                drawText(msg, c, msgY, 12.5 * u, 'rgba(12, 52, 12, 0.95)');
+            } else if (state.nearest) {
+                drawText(fmtDist(state.nearest.d), c, msgY, 15 * u, 'rgba(110, 10, 10, 0.95)');
+            }
+
+            // มาตราส่วนด้านล่างจอ
+            const scaleTxt = 'รัศมี ' + fmtRange(range) + ' · ช่องละ ' + fmtRange(range / GRID_CELLS_PER_RADIUS);
+            const scaleY = c + R - 26 * u;
+            ctx.font = '700 ' + (11 * u) + 'px system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", Tahoma, sans-serif';
+            const sw = ctx.measureText(scaleTxt).width + 16 * u;
+            ctx.fillStyle = 'rgba(214, 246, 196, 0.8)';
+            roundRect(c - sw / 2, scaleY - 9.5 * u, sw, 19 * u, 9.5 * u);
+            ctx.fill();
+            drawText(scaleTxt, c, scaleY, 11 * u, 'rgba(12, 52, 12, 0.95)');
+
+            ctx.restore();
+        }
+
+        function roundRect(x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + w, y, x + w, y + h, r);
+            ctx.arcTo(x + w, y + h, x, y + h, r);
+            ctx.arcTo(x, y + h, x, y, r);
+            ctx.arcTo(x, y, x + w, y, r);
+            ctx.closePath();
+        }
+
+        function frame(now) {
+            if (now >= state.nextBeat) {
+                state.lastBeat = now;
+                if (state.started || state.demo) beep();
+                state.nextBeat = now + state.interval;
+            }
+            draw(now);
+            requestAnimationFrame(frame);
+        }
+
+        // ===================== แผงข้อมูล =====================
+        function renderInfo() {
+            const st = $('statStatus');
+            let statusText, statusCls = '';
+            if (state.demo) { statusText = 'โหมดจำลอง'; statusCls = 'warn'; }
+            else if (!state.started) statusText = 'รอเริ่มใช้งาน';
+            else if (state.gpsStatus === 'searching') statusText = 'กำลังค้นหา GPS…';
+            else if (state.gpsStatus === 'denied') { statusText = 'ไม่ได้รับสิทธิ์ตำแหน่ง'; statusCls = 'warn'; }
+            else if (state.gpsStatus === 'unsupported' || (state.gpsStatus === 'error' && !state.pos)) { statusText = 'ไม่มีสัญญาณ GPS'; statusCls = 'warn'; }
+            else if (state.nearest) { statusText = '⚠️ ตรวจพบจุดความร้อน'; statusCls = 'hot'; }
+            else { statusText = 'กำลังสแกน · ไม่พบในรัศมี'; statusCls = 'ok'; }
+            st.textContent = statusText;
+            st.className = 'v ' + statusCls;
+
+            $('statPos').textContent = state.pos
+                ? state.pos.lat.toFixed(5) + ', ' + state.pos.lon.toFixed(5) + (state.pos.acc ? ' (±' + Math.round(state.pos.acc) + ' ม.)' : '')
+                : '-';
+
+            const cnt = $('statCount');
+            if (!state.pos || state.dataStatus !== 'ok') { cnt.textContent = '-'; cnt.className = 'v'; }
+            else { cnt.textContent = state.hits.length + ' จุด'; cnt.className = 'v ' + (state.hits.length ? 'hot' : 'ok'); }
+
+            const nr = $('statNearest');
+            const near = state.nearest || state.nearestAny;
+            if (near) {
+                nr.textContent = fmtDist(near.d) + ' ทิศ' + dirName(near.brg) + ' (' + Math.round(near.brg) + '°)' + (state.nearest ? '' : ' · นอกรัศมี');
+                nr.className = 'v ' + (state.nearest ? 'hot' : '');
+            } else { nr.textContent = '-'; nr.className = 'v'; }
+
+            const sd = $('statData');
+            if (state.dataStatus === 'loading') { sd.textContent = 'กำลังโหลด…'; sd.className = 'v'; }
+            else if (state.dataStatus === 'error') { sd.textContent = 'โหลดไม่สำเร็จ (' + state.dataError + ')'; sd.className = 'v warn'; }
+            else {
+                const stale = state.updated && (Date.now() - state.updated.getTime()) / 60000 > SYNC_STALE_MINUTES;
+                sd.textContent = state.points.length.toLocaleString('th-TH') + ' จุด (' + state.timeWindowH + ' ชม.)' +
+                    (state.updated ? ' · อัปเดต ' + fmtThai(state.updated) + ' (' + fmtAgo(state.updated) + ')' : '') +
+                    (state.dataError ? ' · ' + state.dataError : '');
+                sd.className = 'v ' + (stale || state.dataError ? 'warn' : '');
+            }
+
+            canvas.setAttribute('aria-label', 'หน้าจอเรดาร์ รัศมี ' + fmtRange(rangeKm()) + '. ' +
+                (state.nearest ? 'พบ ' + state.hits.length + ' จุด ใกล้สุด ' + fmtDist(state.nearest.d) + ' ทิศ' + dirName(state.nearest.brg) : 'ไม่พบจุดความร้อนในรัศมี'));
+
+            renderList();
+        }
+
+        function renderList() {
+            const ul = $('hsList');
+            if (!state.pos) { ul.innerHTML = '<li class="empty">รอตำแหน่งของคุณ…</li>'; return; }
+            if (state.dataStatus !== 'ok') { ul.innerHTML = '<li class="empty">ยังไม่มีข้อมูลจุดความร้อน</li>'; return; }
+            const items = state.hits.slice(0, 10);
+            if (!items.length) {
+                const na = state.nearestAny;
+                ul.innerHTML = '<li class="empty">ไม่พบจุดความร้อนในรัศมี ' + esc(fmtRange(rangeKm())) +
+                    (na ? ' · จุดใกล้สุดอยู่ห่าง ' + esc(fmtDist(na.d)) + ' ทิศ' + esc(dirName(na.brg)) : '') + '</li>';
+                return;
+            }
+            ul.innerHTML = items.map(h => {
+                const p = h.pt;
+                const nav = 'https://www.google.com/maps/dir/?api=1&destination=' + p.lat.toFixed(6) + ',' + p.lon.toFixed(6);
+                const when = p.time ? 'พบเมื่อ ' + fmtThai(p.time) : '';
+                const sub = [p.prov ? 'จ.' + p.prov : '', when, CONF_LABEL[p.conf]].filter(Boolean).join(' · ');
+                return '<li class="hs-item">' +
+                    '<span class="dot" style="background:' + CONF_COLOR[p.conf] + ';color:' + CONF_COLOR[p.conf] + '"></span>' +
+                    '<div class="main"><div class="dist">' + esc(fmtDist(h.d)) + ' · ทิศ' + esc(dirName(h.brg)) + '</div>' +
+                    '<div class="sub">' + esc(sub) + '</div></div>' +
+                    '<a href="' + esc(nav) + '" target="_blank" rel="noopener">นำทาง</a>' +
+                    '</li>';
+            }).join('') + (state.hits.length > items.length ? '<li class="empty">และอีก ' + (state.hits.length - items.length) + ' จุด</li>' : '');
+        }
+
+        // ===================== รัศมีสแกน =====================
+        function updateRangeUI() {
+            $('rangeValue').textContent = fmtRange(rangeKm());
+            $('zoomInBtn').disabled = state.rangeIdx === 0;
+            $('zoomOutBtn').disabled = state.rangeIdx === RANGES_KM.length - 1;
+        }
+        function setRange(idx) {
+            idx = Math.max(0, Math.min(RANGES_KM.length - 1, idx));
+            if (idx === state.rangeIdx) return;
+            state.rangeIdx = idx;
+            savePrefs();
+            updateRangeUI();
+            click();
+            recompute();
+        }
+        function cycleRange() {
+            const crown = $('crownBtn');
+            crown.classList.add('pressed');
+            setTimeout(() => crown.classList.remove('pressed'), 110);
+            if (!audioCtx && state.started) initAudio();
+            setRange((state.rangeIdx + 1) % RANGES_KM.length);
+        }
+
+        // ===================== ผูกปุ่ม =====================
+        function begin(demo) {
+            initAudio();
+            state.started = true;
+            $('startOverlay').classList.add('hidden');
+            requestWakeLock();
+            if (demo) startDemo(); else startGeo();
+            state.nextBeat = 0;
+            renderInfo();
+        }
+        $('startBtn').addEventListener('click', () => begin(false));
+        $('startDemoBtn').addEventListener('click', () => begin(true));
+        $('demoBtn').addEventListener('click', () => { initAudio(); startDemo(); });
+        $('stopDemoBtn').addEventListener('click', () => stopDemo(true));
+
+        $('crownBtn').addEventListener('click', cycleRange);
+        $('screenWrap').addEventListener('click', cycleRange);
+        $('zoomOutBtn').addEventListener('click', () => setRange(state.rangeIdx + 1));
+        $('zoomInBtn').addEventListener('click', () => setRange(state.rangeIdx - 1));
+        document.addEventListener('keydown', e => {
+            if (e.target && (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT')) return;
+            if (e.key === '+' || e.key === '=') setRange(state.rangeIdx + 1);
+            else if (e.key === '-' || e.key === '_') setRange(state.rangeIdx - 1);
+        });
+
+        function updateMuteUI() {
+            const b = $('muteBtn');
+            b.textContent = state.muted ? '🔇 เสียง: ปิด' : '🔊 เสียง: เปิด';
+            b.setAttribute('aria-pressed', String(state.muted));
+        }
+        $('muteBtn').addEventListener('click', () => {
+            state.muted = !state.muted;
+            if (!state.muted) initAudio();
+            savePrefs();
+            updateMuteUI();
+        });
+
+        $('timeSelect').value = String(state.timeWindowH);
+        $('timeSelect').addEventListener('change', e => {
+            state.timeWindowH = parseInt(e.target.value, 10) === 12 ? 12 : 24;
+            savePrefs();
+            applyTimeWindow();
+            recompute();
+        });
+        $('reloadBtn').addEventListener('click', loadHotspots);
+
+        // ===================== เริ่มทำงาน =====================
+        if ('ResizeObserver' in window) new ResizeObserver(resize).observe(canvas);
+        window.addEventListener('resize', resize);
+        resize();
+        updateRangeUI();
+        updateMuteUI();
+        renderInfo();
+        loadHotspots();
+        setInterval(loadHotspots, DATA_REFRESH_MS);
+        setInterval(renderInfo, 30000); // อัปเดตข้อความ "x นาทีที่แล้ว"
+        requestAnimationFrame(frame);
+    })();
+    </script>
+</body>
+</html>
