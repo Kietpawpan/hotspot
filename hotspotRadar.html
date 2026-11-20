@@ -259,6 +259,11 @@
         }
         .notice.show { display: block; }
         .notice .btn { margin-top: 10px; width: 100%; font-size: 14px; }
+        .notice .btn[hidden], .gps-help[hidden] { display: none; }
+        .gps-help { margin-top: 10px; font-size: 13px; color: #ffe7b3; }
+        .gps-help summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+        .gps-help ol { margin: 6px 0 0; padding-left: 20px; }
+        .gps-help li { margin: 4px 0; }
 
         h2 {
             font-size: 15px;
@@ -388,6 +393,11 @@
 
         <div class="notice" id="gpsNotice" role="status">
             <div id="gpsNoticeText"></div>
+            <details class="gps-help" id="gpsHelp" hidden>
+                <summary>วิธีเปิดสิทธิ์ตำแหน่งบนเครื่องนี้</summary>
+                <ol id="gpsHelpSteps"></ol>
+            </details>
+            <button class="btn primary" id="retryGpsBtn" type="button" hidden>📍 ขอสิทธิ์ตำแหน่งอีกครั้ง</button>
             <button class="btn" id="demoBtn" type="button">▶ ทดลองด้วยตำแหน่งจำลอง</button>
         </div>
 
@@ -735,22 +745,109 @@
             hideGpsNotice();
             recompute();
         }
+        let geoRetries = 0; // จำนวนครั้งที่ผู้ใช้กด "ขอสิทธิ์ตำแหน่งอีกครั้ง"
         function onGeoError(err) {
             if (state.demo) return;
             if (err.code === 1) {
                 state.gpsStatus = 'denied';
-                showGpsNotice('ไม่ได้รับอนุญาตให้เข้าถึงตำแหน่ง กรุณาเปิดสิทธิ์ตำแหน่ง (Location) ให้เบราว์เซอร์ แล้วรีเฟรชหน้านี้');
+                stopGeo();
+                if (geoRetries === 0) {
+                    showGpsNotice('ไม่ได้รับอนุญาตให้เข้าถึงตำแหน่ง กด "ขอสิทธิ์ตำแหน่งอีกครั้ง" แล้วเลือก "อนุญาต" (Allow)', { retry: true, help: true });
+                } else {
+                    // เบราว์เซอร์ที่ถูกบล็อกไว้จะปฏิเสธทันทีโดยไม่ถามซ้ำ ต้องไปเปิดสิทธิ์ในการตั้งค่าก่อน
+                    showGpsNotice('เบราว์เซอร์ยังปฏิเสธสิทธิ์ตำแหน่ง (อาจถูกบล็อกไว้ จึงไม่ถามซ้ำ) ให้เปิดสิทธิ์ตามขั้นตอนด้านล่าง แล้วกดปุ่มอีกครั้งหรือรีเฟรชหน้า', { retry: true, help: true, openHelp: true });
+                }
             } else {
                 state.gpsStatus = state.pos ? 'ok' : 'error';
-                if (!state.pos) showGpsNotice('ยังหาตำแหน่ง GPS ไม่ได้ (สัญญาณอ่อนหรือหมดเวลา) ระบบจะพยายามต่อไป ลองออกไปที่โล่ง');
+                if (!state.pos) showGpsNotice('ยังหาตำแหน่ง GPS ไม่ได้ (สัญญาณอ่อนหรือหมดเวลา) ระบบจะพยายามต่อไป ลองออกไปที่โล่ง', { retry: true });
             }
             renderInfo();
         }
-        function showGpsNotice(msg) {
+        function showGpsNotice(msg, opts) {
+            opts = opts || {};
             $('gpsNoticeText').textContent = msg;
+            const retry = $('retryGpsBtn');
+            retry.hidden = !opts.retry;
+            retry.disabled = false;
+            retry.textContent = '📍 ขอสิทธิ์ตำแหน่งอีกครั้ง';
+            const help = $('gpsHelp');
+            help.hidden = !opts.help;
+            if (opts.help) {
+                const ol = $('gpsHelpSteps');
+                ol.innerHTML = '';
+                permissionHelpSteps().forEach(s => {
+                    const li = document.createElement('li');
+                    li.textContent = s;
+                    ol.appendChild(li);
+                });
+                if (opts.openHelp) help.open = true;
+            }
             $('gpsNotice').classList.add('show');
         }
         function hideGpsNotice() { $('gpsNotice').classList.remove('show'); }
+
+        // ขั้นตอนเปิดสิทธิ์ตำแหน่ง ตามชนิดเครื่อง/เบราว์เซอร์ที่ใช้อยู่
+        function permissionHelpSteps() {
+            const ua = navigator.userAgent || '';
+            const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+            const done = 'เสร็จแล้วกลับมาหน้านี้ กด "ขอสิทธิ์ตำแหน่งอีกครั้ง" หรือรีเฟรชหน้า';
+            if (/\bLine\//i.test(ua) || /FBAN|FBAV|FB_IAB|Instagram/i.test(ua)) {
+                return [
+                    'คุณเปิดหน้านี้จากในแอป LINE หรือ Facebook ซึ่งมักไม่ส่งตำแหน่งให้หน้าเว็บ',
+                    'แตะ ⋮ หรือ ⋯ มุมขวาบน แล้วเลือก "เปิดในเบราว์เซอร์อื่น" (Safari หรือ Chrome)',
+                    'เมื่อเปิดในเบราว์เซอร์แล้ว กด "เริ่มสแกน" และเลือก "อนุญาต"'
+                ];
+            }
+            if (isIOS && /CriOS/i.test(ua)) {
+                return [
+                    'ตั้งค่า > ความเป็นส่วนตัวและความปลอดภัย > บริการหาตำแหน่ง: เปิด',
+                    'ตั้งค่า > แอป > Chrome > ตำแหน่ง: เลือก "ขณะใช้แอป"',
+                    done
+                ];
+            }
+            if (isIOS) {
+                return [
+                    'ตั้งค่า > ความเป็นส่วนตัวและความปลอดภัย > บริการหาตำแหน่ง: เปิด',
+                    'ในหน้าเดียวกัน แตะ "เว็บไซต์ Safari" แล้วเลือก "ขณะใช้แอป" หรือ "ถามครั้งถัดไป"',
+                    'ใน Safari แตะ aA หรือ ⋯ ที่แถบที่อยู่ > การตั้งค่าเว็บไซต์ > ตำแหน่ง > อนุญาต',
+                    done
+                ];
+            }
+            if (/Android/i.test(ua)) {
+                return [
+                    'เปิด "ตำแหน่ง" จากแถบตั้งค่าด่วน (ปัดลงจากด้านบนจอ)',
+                    'แตะไอคอนทางซ้ายของ URL > สิทธิ์ > ตำแหน่ง > อนุญาต',
+                    'ถ้ายังไม่ได้: ตั้งค่าเครื่อง > แอป > Chrome > สิทธิ์ > ตำแหน่ง > "อนุญาตเฉพาะขณะใช้แอป"',
+                    done
+                ];
+            }
+            return [
+                'คลิกไอคอนทางซ้ายของ URL แล้วเปิด "ตำแหน่ง" (Location)',
+                'ถ้าใช้ Mac: ตั้งค่าระบบ > ความเป็นส่วนตัวและความปลอดภัย > บริการหาตำแหน่ง ต้องเปิดให้เบราว์เซอร์ด้วย',
+                done
+            ];
+        }
+
+        function retryGeo() {
+            initAudio();
+            geoRetries++;
+            const btn = $('retryGpsBtn');
+            btn.disabled = true;
+            btn.textContent = 'กำลังขอสิทธิ์…';
+            startGeo();
+        }
+
+        // ถ้าผู้ใช้ไปเปิดสิทธิ์ในการตั้งค่าแล้ว (เบราว์เซอร์ที่รองรับ Permissions API) เริ่ม GPS ให้เองโดยไม่ต้องรีเฟรช
+        let permWatching = false;
+        function watchGeoPermission() {
+            if (permWatching || !navigator.permissions || !navigator.permissions.query) return;
+            permWatching = true;
+            navigator.permissions.query({ name: 'geolocation' }).then(status => {
+                status.addEventListener('change', () => {
+                    if (status.state !== 'denied' && state.started && !state.demo && state.gpsStatus === 'denied') startGeo();
+                });
+            }).catch(() => { /* เบราว์เซอร์ไม่รองรับ ใช้ปุ่มแทน */ });
+        }
 
         // ===================== โหมดจำลอง =====================
         // วางผู้ใช้ห่างจากจุดความร้อนจริงจุดหนึ่ง ~6 กม. แล้วค่อย ๆ เดินเข้าหา เพื่อทดสอบเสียง/ไฟกะพริบ
@@ -1201,12 +1298,14 @@
             state.started = true;
             $('startOverlay').classList.add('hidden');
             requestWakeLock();
+            watchGeoPermission();
             if (demo) startDemo(); else startGeo();
             state.nextBeat = 0;
             renderInfo();
         }
         $('startBtn').addEventListener('click', () => begin(false));
         $('startDemoBtn').addEventListener('click', () => begin(true));
+        $('retryGpsBtn').addEventListener('click', retryGeo);
         $('demoBtn').addEventListener('click', () => { initAudio(); startDemo(); });
         $('stopDemoBtn').addEventListener('click', () => stopDemo(true));
 
