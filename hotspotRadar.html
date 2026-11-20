@@ -217,7 +217,9 @@
             margin: 12px auto 0;
             max-width: 420px;
         }
-        .toolbar .btn { flex: 1 1 120px; font-size: 14px; padding: 10px 8px; min-height: 44px; }
+        .toolbar .btn { flex: 1 1 160px; font-size: 14px; padding: 10px 8px; min-height: 44px; }
+        .toolbar .btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); box-shadow: inset 0 0 10px rgba(126, 227, 107, 0.18); }
+        .range-chip .cell { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
         .toolbar select.btn { text-align: center; }
         .toolbar select.btn option { color: #111; }
 
@@ -378,18 +380,22 @@
             <div class="range-chip" aria-live="polite">
                 <div class="label">รัศมีสแกน</div>
                 <div class="value" id="rangeValue">10 กม.</div>
+                <div class="cell" id="rangeCell">ช่องละ 2.5 กม.</div>
             </div>
             <button class="btn" id="zoomOutBtn" type="button" aria-label="ขยายรัศมีสแกน">＋ ขยาย</button>
         </div>
 
         <div class="toolbar">
             <button class="btn" id="muteBtn" type="button" aria-pressed="false">🔊 เสียง: เปิด</button>
+            <button class="btn" id="compassBtn" type="button" aria-pressed="false" title="หมุนจอเรดาร์ตามทิศที่ด้านบนของมือถือชี้ไป เหมือนระบบนำทาง">🧭 หมุนตามทิศ: ปิด</button>
             <select class="btn" id="timeSelect" aria-label="ช่วงเวลาของจุดความร้อน">
                 <option value="12">🕒 ย้อนหลัง 12 ชม.</option>
                 <option value="24">🕒 ย้อนหลัง 24 ชม.</option>
             </select>
             <button class="btn" id="reloadBtn" type="button">⟳ โหลดข้อมูล</button>
         </div>
+
+        <div class="notice" id="compassNotice" role="status"></div>
 
         <div class="notice" id="gpsNotice" role="status">
             <div id="gpsNoticeText"></div>
@@ -478,7 +484,10 @@
             interval: BEAT_IDLE_MS,
             lastBeat: -1e9,
             nextBeat: 0,
-            demo: null          // { target, timer }
+            demo: null,         // { target, timer }
+            headingUp: false,   // true = หมุนจอตามทิศที่ด้านบนของเครื่องชี้ไป (แบบระบบนำทาง)
+            compass: null,      // ทิศที่ด้านบนของจอชี้ไป (องศาจากทิศเหนือ ตามเข็มนาฬิกา) จากเข็มทิศของเครื่อง
+            rot: 0              // มุมที่หมุนจออยู่จริง (ค่อย ๆ ไล่ตาม compass ให้ภาพนิ่ง ไม่สั่น)
         };
 
         loadPrefs();
@@ -488,6 +497,7 @@
         const canvas = $('radar');
         const ctx = canvas.getContext('2d');
         const bg = document.createElement('canvas');
+        const gridLayer = document.createElement('canvas'); // ตาราง + ขีดบอกทิศ (หมุนตามทิศได้)
         const dotsLayer = document.createElement('canvas');
         let dotsDirty = true;
         let dpr = 1;
@@ -498,6 +508,7 @@
                 const saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
                 if (Number.isInteger(saved.rangeIdx) && saved.rangeIdx >= 0 && saved.rangeIdx < RANGES_KM.length) state.rangeIdx = saved.rangeIdx;
                 if (typeof saved.muted === 'boolean') state.muted = saved.muted;
+                if (saved.headingUp === true) state.headingUp = true; // จะขอใช้เข็มทิศอีกครั้งตอนกด "เริ่มสแกน"
                 // ใช้ช่วงเวลาที่บันทึกไว้เฉพาะเมื่อผู้ใช้เคยเลือกเอง (ค่าเก่าที่บันทึกอัตโนมัติจะได้ค่าเริ่มต้นใหม่)
                 if (saved.timeWindowUserSet === true && (saved.timeWindowH === 12 || saved.timeWindowH === 24)) {
                     state.timeWindowH = saved.timeWindowH;
@@ -507,7 +518,7 @@
         }
         function savePrefs() {
             try {
-                localStorage.setItem(STORE_KEY, JSON.stringify({ rangeIdx: state.rangeIdx, muted: state.muted, timeWindowH: state.timeWindowH, timeWindowUserSet: state.timeWindowUserSet }));
+                localStorage.setItem(STORE_KEY, JSON.stringify({ rangeIdx: state.rangeIdx, muted: state.muted, timeWindowH: state.timeWindowH, timeWindowUserSet: state.timeWindowUserSet, headingUp: state.headingUp }));
             } catch (e) { /* ข้าม */ }
         }
 
@@ -896,6 +907,95 @@
             recompute();
         }
 
+        // ===================== เข็มทิศ (โหมดหมุนตามทิศ) =====================
+        // iPhone: ใช้ webkitCompassHeading (ต้องขอสิทธิ์จากการกดปุ่ม)
+        // Android/Chrome: ใช้ deviceorientationabsolute → ทิศ = 360 - alpha
+        let compassListening = false;
+        let compassTimer = null;
+        let compassNoticeTimer = null;
+        let compassHintShown = false;
+
+        function screenAngle() { // จอหมุนแนวนอนอยู่กี่องศา (ให้ทิศตรงกับด้านบนของ "จอ" ไม่ใช่ตัวเครื่อง)
+            if (screen.orientation && typeof screen.orientation.angle === 'number') return screen.orientation.angle;
+            if (typeof window.orientation === 'number') return window.orientation;
+            return 0;
+        }
+        function onOrientation(e) {
+            let h = null;
+            if (typeof e.webkitCompassHeading === 'number' && e.webkitCompassHeading >= 0) h = e.webkitCompassHeading;
+            else if (e.absolute && typeof e.alpha === 'number') h = 360 - e.alpha;
+            if (h == null || !isFinite(h)) return;
+            state.compass = ((h + screenAngle()) % 360 + 360) % 360;
+            if (!compassHintShown && state.headingUp) {
+                compassHintShown = true;
+                showCompassNotice('🧭 จอหมุนตามทิศแล้ว ถ้าทิศดูเพี้ยน ให้โบกมือถือเป็นรูปเลข 8 เพื่อปรับเทียบเข็มทิศ และอยู่ห่างจากโลหะหรือแม่เหล็ก', 7000);
+            }
+        }
+        function startCompassListeners() {
+            if (compassListening) return;
+            compassListening = true;
+            if ('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', onOrientation);
+            window.addEventListener('deviceorientation', onOrientation); // iPhone และเบราว์เซอร์ที่ส่งค่าแบบ absolute ใน event นี้
+        }
+        function stopCompassListeners() {
+            if (!compassListening) return;
+            compassListening = false;
+            window.removeEventListener('deviceorientationabsolute', onOrientation);
+            window.removeEventListener('deviceorientation', onOrientation);
+        }
+
+        // ต้องเรียกจากการกดปุ่มโดยตรง (iPhone จะถามสิทธิ์ได้เฉพาะตอนผู้ใช้กด)
+        async function enableCompass() {
+            const DOE = window.DeviceOrientationEvent;
+            if (!DOE || !window.isSecureContext) {
+                compassFail('เครื่องหรือเบราว์เซอร์นี้ไม่รองรับเข็มทิศ จึงแสดงแบบทิศเหนืออยู่ด้านบนแทน');
+                return;
+            }
+            state.headingUp = true;
+            updateCompassUI();
+            if (typeof DOE.requestPermission === 'function') {
+                let res = 'denied';
+                try { res = await DOE.requestPermission(); } catch (e) { res = 'denied'; }
+                if (res !== 'granted') {
+                    compassFail('ไม่ได้รับอนุญาตให้ใช้เซ็นเซอร์ทิศทาง (iPhone: "การเคลื่อนไหวและการวางแนว" / Android: "เซ็นเซอร์การเคลื่อนไหว") กดปุ่ม 🧭 อีกครั้งแล้วเลือก "อนุญาต" ถ้าไม่ถามซ้ำ ให้เปิดสิทธิ์ในการตั้งค่าเว็บไซต์ของเบราว์เซอร์ แล้วรีเฟรชหน้า');
+                    return;
+                }
+            }
+            if (!state.headingUp) return; // ผู้ใช้กดปิดระหว่างรอ
+            savePrefs();
+            startCompassListeners();
+            clearTimeout(compassTimer);
+            compassTimer = setTimeout(() => {
+                if (state.headingUp && state.compass == null) {
+                    compassFail('ไม่ได้รับข้อมูลจากเข็มทิศของเครื่อง (คอมพิวเตอร์ส่วนใหญ่ไม่มีเข็มทิศ) จึงแสดงแบบทิศเหนืออยู่ด้านบนแทน');
+                }
+            }, 3000);
+        }
+        function disableCompass() {
+            state.headingUp = false;
+            clearTimeout(compassTimer);
+            stopCompassListeners();
+            state.compass = null;
+            savePrefs();
+            updateCompassUI();
+        }
+        function compassFail(msg) {
+            disableCompass();
+            showCompassNotice(msg, 9000);
+        }
+        function showCompassNotice(msg, ms) {
+            const el = $('compassNotice');
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(compassNoticeTimer);
+            compassNoticeTimer = setTimeout(() => el.classList.remove('show'), ms || 8000);
+        }
+        function updateCompassUI() {
+            const b = $('compassBtn');
+            b.textContent = state.headingUp ? '🧭 หมุนตามทิศ: เปิด' : '🧭 หมุนตามทิศ: ปิด';
+            b.setAttribute('aria-pressed', String(state.headingUp));
+        }
+
         // ===================== กันจอดับ =====================
         let wakeLock = null;
         async function requestWakeLock() {
@@ -947,6 +1047,19 @@
             g.fillStyle = 'rgba(0, 50, 0, 0.05)';
             const step = Math.max(2, Math.round(3 * dpr));
             for (let y = 0; y < S; y += step) g.fillRect(0, y, S, Math.max(1, Math.round(dpr)));
+            g.restore();
+
+            buildGrid();
+        }
+
+        // ตาราง แกน ขอบเขตสแกน และขีดบอกทิศ: วาดแบบทิศเหนืออยู่บน แล้วหมุนทั้งเลเยอร์ตอนแสดงผล
+        // (เลเยอร์เป็นสี่เหลี่ยมจัตุรัสที่ล้อมวงกลมหน้าจอ หมุนกี่องศาก็ยังคลุมหน้าจอเต็ม)
+        function buildGrid() {
+            const S = canvas.width;
+            gridLayer.width = gridLayer.height = S;
+            const g = gridLayer.getContext('2d');
+            const c = S / 2, R = S / 2, Rp = R * PLOT_RATIO, u = S / 400;
+            g.save();
 
             // ตาราง
             const sp = Rp / GRID_CELLS_PER_RADIUS;
@@ -991,6 +1104,22 @@
                 g.stroke();
             }
             g.restore();
+        }
+
+        // ตำแหน่งบนจอของจุดที่ระยะ rr (พิกเซล) ทิศ brgDeg โดยคิดการหมุนจอแล้ว
+        function screenXY(c, rr, brgDeg) {
+            const a = (brgDeg - state.rot) * toRad;
+            return [c + rr * Math.sin(a), c - rr * Math.cos(a)];
+        }
+        // วาดเลเยอร์ที่เตรียมไว้แบบทิศเหนืออยู่บน โดยหมุนตามมุมจอปัจจุบัน
+        function drawRotated(layer, c) {
+            if (!state.rot) { ctx.drawImage(layer, 0, 0); return; }
+            ctx.save();
+            ctx.translate(c, c);
+            ctx.rotate(-state.rot * toRad);
+            ctx.translate(-c, -c);
+            ctx.drawImage(layer, 0, 0);
+            ctx.restore();
         }
 
         // วาดจุดความร้อนทั้งหมด (ยกเว้นจุดใกล้สุด) ลงเลเยอร์แยก รวมเป็นเส้นทางเดียวต่อสี
@@ -1051,10 +1180,8 @@
             ctx.arc(c, c, R, 0, Math.PI * 2);
             ctx.clip();
 
-            // ทิศเหนือ
-            drawText('N', c, c - R + 24 * u, 15 * u, 'rgba(12, 52, 12, 0.85)');
-
-            if (state.demo) drawText('โหมดจำลอง', c, c - R + 44 * u, 11 * u, 'rgba(120, 40, 0, 0.85)');
+            // ตาราง + ขีดบอกทิศ (หมุนตามทิศเมื่อเปิดโหมดหมุนตามทิศ)
+            drawRotated(gridLayer, c);
 
             // วงความคลาดเคลื่อนของ GPS
             if (state.pos && state.pos.acc) {
@@ -1075,14 +1202,12 @@
             if (dotsDirty) renderDots();
             const blinkAlpha = 0.55 + 0.45 * pulse;
             ctx.globalAlpha = blinkAlpha;
-            ctx.drawImage(dotsLayer, 0, 0);
+            drawRotated(dotsLayer, c);
 
             // จุดใกล้สุด: ใหญ่กว่า มีแสงเรือง และวงคลื่นขยายทุกจังหวะ
             if (state.nearest) {
                 const h = state.nearest;
-                const rr = (h.d / range) * Rp;
-                const x = c + rr * Math.sin(h.brg * toRad);
-                const y = c - rr * Math.cos(h.brg * toRad);
+                const [x, y] = screenXY(c, (h.d / range) * Rp, h.brg);
                 const col = CONF_COLOR[h.pt.conf] || CONF_COLOR.n;
                 const nr = Math.max(3, 6.2 * u) * 1.25;
                 ctx.shadowColor = col;
@@ -1106,7 +1231,7 @@
 
             // ถ้าไม่พบในรัศมี: ลูกศรที่ขอบจอชี้ไปยังจุดใกล้สุดนอกรัศมี
             if (state.pos && !state.nearest && state.nearestAny) {
-                const a = state.nearestAny.brg * toRad;
+                const a = (state.nearestAny.brg - state.rot) * toRad;
                 const er = Rp + (R - Rp) * 0.15;
                 const ex = c + er * Math.sin(a), ey = c - er * Math.cos(a);
                 ctx.save();
@@ -1127,10 +1252,40 @@
                 drawText(fmtDist(state.nearestAny.d), tx, ty, 12 * u, 'rgba(120, 40, 0, 0.95)');
             }
 
+            // อักษรทิศ N E S W (ตำแหน่งหมุนตามทิศ แต่ตัวอักษรตั้งตรงอ่านง่าย)
+            [['N', 0], ['E', 90], ['S', 180], ['W', 270]].forEach(([label, b]) => {
+                const [lx, ly] = screenXY(c, R - 24 * u, b);
+                drawText(label, lx, ly, (label === 'N' ? 15 : 12.5) * u, label === 'N' ? 'rgba(160, 20, 20, 0.92)' : 'rgba(12, 52, 12, 0.85)');
+            });
+
+            // โหมดหมุนตามทิศ: ขีดชี้ทิศที่ด้านบนเครื่องหันไป (ตรึงไว้ด้านบนจอ) + ป้ายบอกทิศ
+            let topY = c - R + 46 * u;
+            if (state.headingUp) {
+                ctx.beginPath();
+                ctx.moveTo(c - 7 * u, c - R + 2 * u);
+                ctx.lineTo(c + 7 * u, c - R + 2 * u);
+                ctx.lineTo(c, c - R + 14 * u);
+                ctx.closePath();
+                ctx.fillStyle = '#b91c1c';
+                ctx.fill();
+                const hd = state.compass == null ? 'กำลังอ่านเข็มทิศ…' : 'หันไป ' + dirName(state.compass) + ' ' + Math.round(state.compass) + '°';
+                ctx.font = '700 ' + (11 * u) + 'px system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", Tahoma, sans-serif';
+                const hw = ctx.measureText(hd).width + 16 * u;
+                ctx.fillStyle = 'rgba(214, 246, 196, 0.85)';
+                roundRect(c - hw / 2, topY - 9.5 * u, hw, 19 * u, 9.5 * u);
+                ctx.fill();
+                drawText(hd, c, topY, 11 * u, 'rgba(12, 52, 12, 0.95)');
+                topY += 22 * u;
+            }
+            if (state.demo) drawText('โหมดจำลอง', c, topY, 11 * u, 'rgba(120, 40, 0, 0.85)');
+
             // ผู้ใช้: สามเหลี่ยมกะพริบกลางจอเสมอ
+            // ชี้ไปทางที่หันหน้า (เข็มทิศ) ในโหมดหมุนตามทิศ = ชี้ขึ้นเสมอ, โหมดปกติชี้ตามทิศที่เดิน (GPS)
             ctx.save();
             ctx.translate(c, c);
-            if (state.pos && state.pos.heading != null) ctx.rotate(state.pos.heading * toRad);
+            const faceDeg = state.headingUp && state.compass != null ? state.compass
+                : (state.pos && state.pos.heading != null ? state.pos.heading : null);
+            if (faceDeg != null) ctx.rotate((faceDeg - state.rot) * toRad);
             const t = 12 * u;
             ctx.beginPath();
             ctx.moveTo(0, -t * 1.2);
@@ -1170,16 +1325,6 @@
                 drawText(fmtDist(state.nearest.d), c, msgY, 15 * u, 'rgba(110, 10, 10, 0.95)');
             }
 
-            // มาตราส่วนด้านล่างจอ
-            const scaleTxt = 'รัศมี ' + fmtRange(range) + ' · ช่องละ ' + fmtRange(range / GRID_CELLS_PER_RADIUS);
-            const scaleY = c + R - 26 * u;
-            ctx.font = '700 ' + (11 * u) + 'px system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", Tahoma, sans-serif';
-            const sw = ctx.measureText(scaleTxt).width + 16 * u;
-            ctx.fillStyle = 'rgba(214, 246, 196, 0.8)';
-            roundRect(c - sw / 2, scaleY - 9.5 * u, sw, 19 * u, 9.5 * u);
-            ctx.fill();
-            drawText(scaleTxt, c, scaleY, 11 * u, 'rgba(12, 52, 12, 0.95)');
-
             ctx.restore();
         }
 
@@ -1193,7 +1338,15 @@
             ctx.closePath();
         }
 
+        let lastFrameAt = 0;
         function frame(now) {
+            // หมุนจอไล่ตามเข็มทิศแบบนุ่มนวล (ไปทางที่สั้นกว่าเสมอ เช่น 350° → 10° หมุนผ่าน 0°)
+            const dt = lastFrameAt ? Math.min(100, now - lastFrameAt) : 16;
+            lastFrameAt = now;
+            const target = state.headingUp && state.compass != null ? state.compass : 0;
+            const diff = ((target - state.rot) % 360 + 540) % 360 - 180;
+            state.rot = Math.abs(diff) < 0.05 ? target : ((state.rot + diff * (1 - Math.exp(-dt / 90))) % 360 + 360) % 360;
+
             if (now >= state.nextBeat) {
                 state.lastBeat = now;
                 if (state.started || state.demo) beep();
@@ -1277,6 +1430,7 @@
         // ===================== รัศมีสแกน =====================
         function updateRangeUI() {
             $('rangeValue').textContent = fmtRange(rangeKm());
+            $('rangeCell').textContent = 'ช่องละ ' + fmtRange(rangeKm() / GRID_CELLS_PER_RADIUS);
             $('zoomInBtn').disabled = state.rangeIdx === 0;
             $('zoomOutBtn').disabled = state.rangeIdx === RANGES_KM.length - 1;
         }
@@ -1304,6 +1458,7 @@
             $('startOverlay').classList.add('hidden');
             requestWakeLock();
             watchGeoPermission();
+            if (state.headingUp) enableCompass(); // เคยเปิดโหมดหมุนตามทิศไว้ ขอใช้เข็มทิศอีกครั้ง (ต้องอยู่ในการกดปุ่ม)
             if (demo) startDemo(); else startGeo();
             state.nextBeat = 0;
             renderInfo();
@@ -1329,6 +1484,10 @@
             b.textContent = state.muted ? '🔇 เสียง: ปิด' : '🔊 เสียง: เปิด';
             b.setAttribute('aria-pressed', String(state.muted));
         }
+        $('compassBtn').addEventListener('click', () => {
+            if (state.headingUp) disableCompass(); else enableCompass();
+        });
+
         $('muteBtn').addEventListener('click', () => {
             state.muted = !state.muted;
             if (!state.muted) initAudio();
@@ -1352,6 +1511,7 @@
         resize();
         updateRangeUI();
         updateMuteUI();
+        updateCompassUI();
         renderInfo();
         loadHotspots();
         setInterval(loadHotspots, DATA_REFRESH_MS);
