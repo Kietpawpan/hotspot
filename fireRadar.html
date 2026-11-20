@@ -17,6 +17,8 @@
     <!-- นำ CSS สำหรับ Marker Cluster กลับมาใช้งาน -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <!-- เส้นลมแบบอนิเมชัน (leaflet-velocity) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-velocity@2.1.4/dist/leaflet-velocity.min.css" />
 
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
 
@@ -407,6 +409,11 @@
                     <b>🌫️ แสดงค่า PM2.5 รายจังหวัด พร้อมจัดอันดับ</b>
                     <span style="font-size: 14px; color: #64748b;">(สถานีตรวจวัดคุณภาพอากาศ กรมควบคุมมลพิษ)</span>
                 </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 16px; flex-wrap: wrap; margin-top: 10px;">
+                    <input type="checkbox" id="windToggle" style="width: 18px; height: 18px; accent-color: #4a148c; margin: 0;">
+                    <b>💨 แสดงเส้นลม (ทิศทางและความเร็วลม)</b>
+                    <span style="font-size: 14px; color: #64748b;">(ลมผิวพื้นจาก Open-Meteo · ชี้เมาส์บนแผนที่เพื่อดูค่า ณ จุดนั้น)</span>
+                </label>
             </div>
 
             <!-- ส่วนปักหมุดจุดเกิดเหตุด่วนและจำลองกรวยควันตามทิศลม -->
@@ -495,6 +502,7 @@
     
     <!-- นำ JS สำหรับ Marker Cluster กลับมาใช้งาน -->
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <script src="https://unpkg.com/leaflet-velocity@2.1.4/dist/leaflet-velocity.min.js"></script>
 
     <script>
         // ============================================================================
@@ -660,6 +668,13 @@
         const PM25_EXPIRE_HOURS = 24;        // เก่ากว่านี้ไม่นำมาคิดค่าจังหวัด/จัดอันดับ (บางสถานีค้างเป็นสัปดาห์)
         const ALL_TH_PROVINCES = Object.keys(PROVINCE_TO_EPO).concat(["กรุงเทพมหานคร"]);
 
+        // เส้นลม (Open-Meteo + leaflet-velocity)
+        const WIND_CACHE_MINUTES = 30;       // เก็บข้อมูลลมไว้ในเครื่อง 30 นาที (Open-Meteo ฟรีแต่จำกัดจำนวนครั้ง)
+        const WIND_MAX_VELOCITY_MS = 8;      // ความเร็วที่ได้สีเข้มสุด (~29 กม./ชม.)
+        // สีเข้มพอให้เห็นบนแผนที่ถนนพื้นสว่าง (ลมทั่วไปในไทย 10–20 กม./ชม. อยู่ช่วงเขียว–ทอง)
+        const WIND_COLORS = ['#2b6cb0', '#3182ce', '#2c9a8f', '#2f9e55', '#c99a1e', '#dd6b20', '#d43f3f', '#9b2c2c'];
+        const WIND_MAX_POINTS = 180;         // จำนวนจุดสูงสุดต่อคำขอ (เลือกความละเอียดตาราง 0.5° หรือ 1° ให้ไม่เกินนี้)
+
         const gasWebappUrl = 'https://script.google.com/macros/s/AKfycbyJfWRJFtBwsIZecPHZYJda69wXoWdmp1fINaU8-qagZdI7sc8TvB5FzKpGqosbxaUf/exec';
         const landfillGasUrl = 'https://script.google.com/macros/s/AKfycbwWI0NvtyToeNBq5Y0Yu6VCKiJh27JDSDBZTJ0IbQ1mGsErkJfFdzYdkiVAw72GGWKZ/exec';
         const longdoApiKey = 'bce812933744d2530d26f0fabb0017cf';
@@ -757,6 +772,13 @@
         map.getPane('pm25Pane').style.zIndex = 350;
         const PM25_LAYER_NAME = "🌫️ PM2.5 รายจังหวัด (คพ.)";
         const pm25Layer = L.layerGroup();
+
+        // ชั้นข้อมูลเส้นลม: อยู่เหนือสีพื้น PM2.5 แต่ใต้จุดความร้อน และไม่รับการคลิก (คลิกทะลุไปที่แผนที่ได้)
+        map.createPane('windPane');
+        map.getPane('windPane').style.zIndex = 380;
+        map.getPane('windPane').style.pointerEvents = 'none';
+        const WIND_LAYER_NAME = "💨 เส้นลม (Open-Meteo)";
+        const windLayer = L.layerGroup();
         
         // กำหนดเลเยอร์จัดกลุ่มจุดความร้อน
         const hotspotLayer = L.markerClusterGroup({
@@ -772,7 +794,8 @@
             "🚨 แจ้งเตือนไฟไหม้บ่อขยะ": riskAlertLayer,
             "จุดเกิดเหตุด่วน (🚨)": incidentLayer,
             "🗑️ สถานที่กำจัดขยะ": landfillLayer,
-            [PM25_LAYER_NAME]: pm25Layer
+            [PM25_LAYER_NAME]: pm25Layer,
+            [WIND_LAYER_NAME]: windLayer
         };
 
         L.control.layers(baseMaps, overlayMaps).addTo(map);
@@ -808,6 +831,16 @@
         let pm25LoadError = null;     // ข้อความผิดพลาดล่าสุด
         let pm25LegendSummary = null; // สรุปสำหรับคำอธิบายสัญลักษณ์บนแผนที่
         let pm25LastDetailed = null;  // หมุดสถานีแสดงแบบตัวเลข (true) หรือจุดสี (false)
+
+        // สถานะข้อมูลเส้นลม (โหลดเมื่อเปิดตัวเลือกเส้นลม)
+        let windVelocityLayer = null; // ชั้นอนิเมชันอนุภาคลม (สร้างครั้งแรกเมื่อได้ข้อมูล)
+        let windMeta = null;          // สรุป: เวลา ความเร็วเฉลี่ย ทิศลมเด่น
+        let windLoadError = null;
+        let windLoadedKey = null;     // ตารางพิกัดที่แสดงอยู่ (เปลี่ยนเมื่อสลับพื้นที่)
+        let windLoadedAt = 0;
+        let windLoadingKey = null;    // ตารางที่กำลังโหลดอยู่ (กันโหลดซ้ำซ้อน)
+        let windFailKey = null;       // ตารางที่โหลดไม่สำเร็จล่าสุด และเวลา (เว้นระยะก่อนลองใหม่อัตโนมัติ)
+        let windFailAt = 0;
 
         function matchFeatureToProvince(feature, regionConfig) {
             const props = feature.properties || {};
@@ -1300,6 +1333,7 @@ if (primarySource && primarySource.features) {
             updateRegionUIAndBoundaries(currentEpoId, true).then(() => {
                 fetchNasaData();
                 fetchLandfillData();
+                refreshWind(false); // กรณีเปิดหน้าพร้อม ?wind=1 ในโหมดราย สคพ. (ต้องรู้ขอบเขตพื้นที่ก่อน)
             });
         });
 
@@ -1311,6 +1345,7 @@ if (primarySource && primarySource.features) {
             syncEpoUrlParam(epoId);
             await updateRegionUIAndBoundaries(currentEpoId, true);
             processRegionalData();
+            refreshWind(false); // ตารางลมของพื้นที่ใหม่ (ถ้าเปิดเส้นลมอยู่)
             showToast(`สลับพื้นที่ไปยัง ${regionFullName()} เรียบร้อยแล้ว`, "info");
         }
 
@@ -1387,6 +1422,24 @@ if (primarySource && primarySource.features) {
                     html += '<div style="margin-top:4px; font-size:13px; color:#b91c1c;">โหลดข้อมูล PM2.5 ไม่สำเร็จ</div>';
                 } else {
                     html += '<div style="margin-top:4px; font-size:13px; color:#64748b;">กำลังโหลดข้อมูล...</div>';
+                }
+            }
+
+            if (activeLayers.has(WIND_LAYER_NAME)) {
+                const maxKmh = Math.round(WIND_MAX_VELOCITY_MS * 3.6);
+                html += `<div class="legend-title">💨 เส้นลมผิวพื้น (${regionLabel()})</div>`;
+                html += `<div style="height:8px; border-radius:4px; margin:4px 0 2px; background:linear-gradient(to right, ${WIND_COLORS.join(', ')});"></div>`;
+                html += `<div style="display:flex; justify-content:space-between; font-size:11px; color:#475569;"><span>0</span><span>${Math.round(maxKmh / 2)}</span><span>${maxKmh}+ กม./ชม.</span></div>`;
+                if (windMeta) {
+                    const dirTxt = windMeta.steadiness >= 0.5
+                        ? `ส่วนใหญ่พัดจากทิศ<b>${thaiCompass(windMeta.dirFrom)}</b>`
+                        : 'ทิศทางแปรปรวนในพื้นที่';
+                    html += `<div style="font-size:13px; margin-top:4px;">ลมเฉลี่ย <b>${windMeta.meanKmh.toFixed(1)}</b> กม./ชม. ${dirTxt}</div>`;
+                    html += `<div style="font-size:12px; color:#64748b;">ข้อมูล ณ ${formatAir4ThaiTime(...String(windMeta.time).split('T'))} · เส้นวิ่งไปตามทิศที่ลมพัดไป สีบอกความเร็ว</div>`;
+                } else if (windLoadError) {
+                    html += '<div style="font-size:13px; margin-top:4px; color:#b91c1c;">โหลดข้อมูลลมไม่สำเร็จ</div>';
+                } else {
+                    html += '<div style="font-size:13px; margin-top:4px; color:#64748b;">กำลังโหลดข้อมูลลม...</div>';
                 }
             }
 
@@ -2623,6 +2676,188 @@ if (primarySource && primarySource.features) {
 
         // เปิดหน้าพร้อมตัวเลือก PM2.5 ได้ด้วย ?pm25=1
         if (urlParams.get('pm25') === '1') map.addLayer(pm25Layer);
+
+        // ============================================================================
+        // เส้นลม: ดึงลมผิวพื้น (10 ม.) เป็นตารางพิกัดจาก Open-Meteo → แปลงเป็นเวกเตอร์ u/v
+        // → วาดอนุภาคลมวิ่งด้วย leaflet-velocity (สีบอกความเร็ว ชี้เมาส์ดูทิศ/ความเร็ว ณ จุด)
+        // ============================================================================
+        const WIND_VELOCITY_OPTIONS = {
+            displayValues: true,
+            displayOptions: {
+                velocityType: 'ลม',
+                position: 'bottomright',
+                emptyString: 'ชี้เมาส์บนแผนที่เพื่อดูทิศและความเร็วลม',
+                angleConvention: 'meteoCW',   // องศาที่ลมพัดมา วัดตามเข็มนาฬิกาจากทิศเหนือ (แบบอุตุนิยมวิทยา)
+                speedUnit: 'k/h',
+                directionString: 'พัดจาก',
+                speedString: 'ความเร็ว'
+            },
+            paneName: 'windPane',
+            minVelocity: 0,
+            maxVelocity: WIND_MAX_VELOCITY_MS,
+            velocityScale: 0.008,
+            particleAge: 60,
+            lineWidth: 2,
+            particleMultiplier: 1 / 250,
+            frameRate: 20,
+            opacity: 0.95,
+            colorScale: WIND_COLORS
+        };
+
+        function thaiCompass(deg) {
+            const names = ['เหนือ', 'ตะวันออกเฉียงเหนือ', 'ตะวันออก', 'ตะวันออกเฉียงใต้', 'ใต้', 'ตะวันตกเฉียงใต้', 'ตะวันตก', 'ตะวันตกเฉียงเหนือ'];
+            return names[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+        }
+
+        // ตารางพิกัด: ทั้งประเทศใช้กรอบประเทศไทย, ราย สคพ. ใช้กรอบเขตพื้นที่ขยายออก 1°
+        // เลือกระยะห่าง 0.5° ถ้าจำนวนจุดไม่เกิน WIND_MAX_POINTS ไม่เช่นนั้นใช้ 1°
+        function windGridSpec() {
+            let b; // [west, south, east, north]
+            if (isNational()) {
+                b = [97, 5, 106, 21];
+            } else {
+                if (!boundaryGeoJSON || !boundaryGeoJSON.features || !boundaryGeoJSON.features.length) return null; // รอขอบเขตพื้นที่
+                const boxes = boundaryGeoJSON.features.map(f => f.bbox).filter(Boolean);
+                b = [
+                    Math.min(...boxes.map(x => x[0])) - 1, Math.min(...boxes.map(x => x[1])) - 1,
+                    Math.max(...boxes.map(x => x[2])) + 1, Math.max(...boxes.map(x => x[3])) + 1
+                ];
+            }
+            for (const res of [0.5, 1]) {
+                const west = Math.floor(b[0] / res) * res, east = Math.ceil(b[2] / res) * res;
+                const south = Math.floor(b[1] / res) * res, north = Math.ceil(b[3] / res) * res;
+                const nx = Math.round((east - west) / res) + 1, ny = Math.round((north - south) / res) + 1;
+                if (nx * ny <= WIND_MAX_POINTS || res === 1) {
+                    return { res, west, east, south, north, nx, ny, key: `${res}:${west},${south},${east},${north}` };
+                }
+            }
+        }
+
+        async function fetchWindField(spec) {
+            const cacheKey = 'fireRadarWind:' + spec.key;
+            try {
+                const c = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+                if (c && Date.now() - c.t < WIND_CACHE_MINUTES * 60000) return Object.assign({}, c.v, { loadedAt: c.t });
+            } catch (e) { /* ไม่มี localStorage ก็ข้ามแคช */ }
+
+            // จุดเรียงจากเหนือลงใต้ แต่ละแถวจากตะวันตกไปตะวันออก (ตามรูปแบบที่ leaflet-velocity ใช้)
+            const lats = [], lons = [];
+            for (let j = 0; j < spec.ny; j++) {
+                for (let i = 0; i < spec.nx; i++) {
+                    lats.push(+(spec.north - j * spec.res).toFixed(2));
+                    lons.push(+(spec.west + i * spec.res).toFixed(2));
+                }
+            }
+            const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lats.join(',') + '&longitude=' + lons.join(',') +
+                '&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms&timezone=Asia%2FBangkok';
+            const res = await fetch(url);
+            if (res.status === 429) throw new Error('บริการข้อมูลลมจำกัดจำนวนครั้งต่อวัน กรุณาลองใหม่ภายหลัง');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const json = await res.json();
+            const list = Array.isArray(json) ? json : [json]; // หลายพิกัด = ได้ผลเป็นรายการตามลำดับที่ขอ
+            if (list.length !== lats.length) throw new Error('ได้ข้อมูลลมไม่ครบทุกจุด');
+
+            const u = [], v = [];
+            let sumU = 0, sumV = 0, sumS = 0, n = 0, time = '';
+            list.forEach(p => {
+                const cur = (p && p.current) || {};
+                const s = Number(cur.wind_speed_10m), d = Number(cur.wind_direction_10m);
+                if (!isFinite(s) || !isFinite(d)) { u.push(0); v.push(0); return; }
+                // ทิศลมแบบอุตุฯ คือทิศที่ลม "พัดมา" จึงกลับทิศเป็นเวกเตอร์ที่ลมพัดไป
+                const rad = d * Math.PI / 180;
+                const uu = -s * Math.sin(rad), vv = -s * Math.cos(rad);
+                u.push(+uu.toFixed(2));
+                v.push(+vv.toFixed(2));
+                sumU += uu; sumV += vv; sumS += s; n++;
+                if (!time && cur.time) time = cur.time;
+            });
+            if (!n) throw new Error('ไม่พบข้อมูลลม');
+
+            const header = { parameterCategory: 2, nx: spec.nx, ny: spec.ny, lo1: spec.west, la1: spec.north, lo2: spec.east, la2: spec.south, dx: spec.res, dy: spec.res, refTime: time };
+            const meanU = sumU / n, meanV = sumV / n, meanS = sumS / n;
+            const value = {
+                key: spec.key,
+                data: [
+                    { header: Object.assign({ parameterNumber: 2 }, header), data: u },
+                    { header: Object.assign({ parameterNumber: 3 }, header), data: v }
+                ],
+                meta: {
+                    time: time,
+                    points: n,
+                    res: spec.res,
+                    meanKmh: meanS * 3.6,
+                    dirFrom: (Math.atan2(-meanU, -meanV) * 180 / Math.PI + 360) % 360, // ทิศลมเด่น (ทิศที่ลมพัดมา)
+                    steadiness: meanS > 0 ? Math.sqrt(meanU * meanU + meanV * meanV) / meanS : 0 // 1 = ลมทิศเดียวกันทั้งพื้นที่
+                }
+            };
+            try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), v: value })); } catch (e) { /* เต็ม/ไม่อนุญาต ก็ข้าม */ }
+            return Object.assign({}, value, { loadedAt: Date.now() });
+        }
+
+        async function refreshWind(force = false) {
+            if (!map.hasLayer(windLayer)) return;
+            const spec = windGridSpec();
+            if (!spec) return; // ยังไม่มีขอบเขตพื้นที่ จะถูกเรียกอีกครั้งเมื่อโหลดเสร็จ
+            const fresh = windLoadedKey === spec.key && Date.now() - windLoadedAt < WIND_CACHE_MINUTES * 60000;
+            if (fresh && !force) return;
+            if (windLoadingKey === spec.key) return; // กำลังโหลดตารางนี้อยู่แล้ว
+            // เพิ่งโหลดไม่สำเร็จ (เช่น เกินโควตา) รอ 10 นาทีก่อนลองใหม่อัตโนมัติ ไม่ยิงซ้ำให้โควตาหมดเร็วขึ้น
+            if (!force && windFailKey === spec.key && Date.now() - windFailAt < 10 * 60000) return;
+            if (force) { try { localStorage.removeItem('fireRadarWind:' + spec.key); } catch (e) { /* ข้าม */ } }
+
+            windLoadError = null;
+            if (windLoadedKey !== spec.key) windMeta = null; // พื้นที่ใหม่: แสดง "กำลังโหลด" แทนสรุปของพื้นที่เดิม
+            updateDynamicLegend();
+            windLoadingKey = spec.key;
+            try {
+                const field = await fetchWindField(spec);
+                const now = windGridSpec();
+                if (!map.hasLayer(windLayer) || !now || now.key !== field.key) return; // ปิดหรือสลับพื้นที่ระหว่างโหลด
+                windMeta = field.meta;
+                windLoadedKey = field.key;
+                windLoadedAt = field.loadedAt;
+                windFailKey = null;
+                if (!windVelocityLayer) {
+                    windVelocityLayer = L.velocityLayer(Object.assign({}, WIND_VELOCITY_OPTIONS, { data: field.data }));
+                    windLayer.addLayer(windVelocityLayer);
+                } else {
+                    windVelocityLayer.setData(field.data);
+                }
+            } catch (err) {
+                console.warn('โหลดข้อมูลลมไม่สำเร็จ', err);
+                windLoadError = err.message || String(err);
+                windFailKey = spec.key;
+                windFailAt = Date.now();
+                showToast('ดึงข้อมูลลมไม่สำเร็จ: ' + windLoadError, 'error');
+            } finally {
+                if (windLoadingKey === spec.key) windLoadingKey = null;
+            }
+            updateDynamicLegend();
+        }
+
+        document.getElementById('windToggle').addEventListener('change', function () {
+            if (this.checked) map.addLayer(windLayer);
+            else map.removeLayer(windLayer);
+        });
+
+        map.on('overlayadd', function (e) {
+            if (e.layer !== windLayer) return;
+            document.getElementById('windToggle').checked = true;
+            setUrlParam('wind', '1');
+            refreshWind(false);
+        });
+
+        map.on('overlayremove', function (e) {
+            if (e.layer !== windLayer) return;
+            document.getElementById('windToggle').checked = false;
+            setUrlParam('wind', null);
+        });
+
+        // ตรวจทุก 5 นาที: ถ้าข้อมูลเก่าเกิน 30 นาทีและยังเปิดเส้นลมอยู่ จะโหลดใหม่
+        setInterval(() => { if (map.hasLayer(windLayer)) refreshWind(false); }, 5 * 60000);
+
+        // เปิดหน้าพร้อมเส้นลมได้ด้วย ?wind=1
+        if (urlParams.get('wind') === '1') map.addLayer(windLayer);
 
         // มาตราส่วนแผนที่ (Scale Control)
         const scaleControl = L.control.scale({
