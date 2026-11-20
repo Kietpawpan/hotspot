@@ -414,6 +414,18 @@
                     <b>💨 แสดงเส้นลม (ทิศทางและความเร็วลม)</b>
                     <span style="font-size: 14px; color: #64748b;">(ลมผิวพื้นจาก Open-Meteo · ชี้เมาส์บนแผนที่เพื่อดูค่า ณ จุดนั้น)</span>
                 </label>
+                <div id="windOffsetGroup" style="display: none; align-items: center; gap: 14px; flex-wrap: wrap; margin: 8px 0 0 26px; font-size: 15px;">
+                    <span style="color: #475569;">ดูลม:</span>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="radio" name="windOffset" value="0" class="wind-offset-radio" style="width: 16px; height: 16px; accent-color: #4a148c; margin: 0;"> ตอนนี้
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="radio" name="windOffset" value="6" class="wind-offset-radio" style="width: 16px; height: 16px; accent-color: #4a148c; margin: 0;"> ล่วงหน้า 6 ชม.
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="radio" name="windOffset" value="12" class="wind-offset-radio" style="width: 16px; height: 16px; accent-color: #4a148c; margin: 0;"> ล่วงหน้า 12 ชม.
+                    </label>
+                </div>
             </div>
 
             <!-- ส่วนปักหมุดจุดเกิดเหตุด่วนและจำลองกรวยควันตามทิศลม -->
@@ -841,6 +853,8 @@
         let windLoadingKey = null;    // ตารางที่กำลังโหลดอยู่ (กันโหลดซ้ำซ้อน)
         let windFailKey = null;       // ตารางที่โหลดไม่สำเร็จล่าสุด และเวลา (เว้นระยะก่อนลองใหม่อัตโนมัติ)
         let windFailAt = 0;
+        let windFields = null;        // ชุดลมของพื้นที่ปัจจุบัน แยกตามช่วงเวลา {0: ตอนนี้, 6: +6 ชม., 12: +12 ชม.}
+        let windOffset = [6, 12].includes(Number(urlParams.get('windh'))) ? Number(urlParams.get('windh')) : 0; // ?windh=6 หรือ 12
 
         function matchFeatureToProvince(feature, regionConfig) {
             const props = feature.properties || {};
@@ -1427,7 +1441,9 @@ if (primarySource && primarySource.features) {
 
             if (activeLayers.has(WIND_LAYER_NAME)) {
                 const maxKmh = Math.round(WIND_MAX_VELOCITY_MS * 3.6);
-                html += `<div class="legend-title">💨 เส้นลมผิวพื้น (${regionLabel()})</div>`;
+                const shownOffset = windMeta ? windMeta.offset : windOffset; // ตามข้อมูลที่แสดงจริง
+                const windWhen = shownOffset ? `พยากรณ์ +${shownOffset} ชม.` : 'ตอนนี้';
+                html += `<div class="legend-title">💨 เส้นลมผิวพื้น · ${windWhen} (${regionLabel()})</div>`;
                 html += `<div style="height:8px; border-radius:4px; margin:4px 0 2px; background:linear-gradient(to right, ${WIND_COLORS.join(', ')});"></div>`;
                 html += `<div style="display:flex; justify-content:space-between; font-size:11px; color:#475569;"><span>0</span><span>${Math.round(maxKmh / 2)}</span><span>${maxKmh}+ กม./ชม.</span></div>`;
                 if (windMeta) {
@@ -1435,7 +1451,11 @@ if (primarySource && primarySource.features) {
                         ? `ส่วนใหญ่พัดจากทิศ<b>${thaiCompass(windMeta.dirFrom)}</b>`
                         : 'ทิศทางแปรปรวนในพื้นที่';
                     html += `<div style="font-size:13px; margin-top:4px;">ลมเฉลี่ย <b>${windMeta.meanKmh.toFixed(1)}</b> กม./ชม. ${dirTxt}</div>`;
-                    html += `<div style="font-size:12px; color:#64748b;">ข้อมูล ณ ${formatAir4ThaiTime(...String(windMeta.time).split('T'))} · เส้นวิ่งไปตามทิศที่ลมพัดไป สีบอกความเร็ว</div>`;
+                    const whenTxt = formatAir4ThaiTime(...String(windMeta.time).split('T'));
+                    if (windOffset && windMeta.offset !== windOffset) {
+                        html += `<div style="font-size:12px; color:#b45309;">ไม่มีข้อมูลพยากรณ์ +${windOffset} ชม. แสดงลมตอนนี้แทน</div>`;
+                    }
+                    html += `<div style="font-size:12px; color:#64748b;">${windMeta.offset ? 'ลมพยากรณ์สำหรับ' : 'ข้อมูล ณ'} ${whenTxt} · เส้นวิ่งไปตามทิศที่ลมพัดไป สีบอกความเร็ว</div>`;
                 } else if (windLoadError) {
                     html += '<div style="font-size:13px; margin-top:4px; color:#b91c1c;">โหลดข้อมูลลมไม่สำเร็จ</div>';
                 } else {
@@ -2733,8 +2753,48 @@ if (primarySource && primarySource.features) {
             }
         }
 
+        // ช่วงเวลาลมที่เลือกดูได้: ตอนนี้, พยากรณ์ล่วงหน้า 6 และ 12 ชั่วโมง
+        const WIND_OFFSETS = [0, 6, 12];
+
+        // แปลงรายการลม (ความเร็ว ม./วินาที + ทิศที่ลมพัดมา) เป็นชุดข้อมูล u/v ของ leaflet-velocity + สรุป
+        function buildWindField(spec, samples, time, offset) {
+            const u = [], v = [];
+            let sumU = 0, sumV = 0, sumS = 0, n = 0;
+            samples.forEach(w => {
+                const s = Number(w && w.s), d = Number(w && w.d);
+                if (!isFinite(s) || !isFinite(d)) { u.push(0); v.push(0); return; }
+                // ทิศลมแบบอุตุฯ คือทิศที่ลม "พัดมา" จึงกลับทิศเป็นเวกเตอร์ที่ลมพัดไป
+                const rad = d * Math.PI / 180;
+                const uu = -s * Math.sin(rad), vv = -s * Math.cos(rad);
+                u.push(+uu.toFixed(2));
+                v.push(+vv.toFixed(2));
+                sumU += uu; sumV += vv; sumS += s; n++;
+            });
+            if (!n) return null;
+            const header = { parameterCategory: 2, nx: spec.nx, ny: spec.ny, lo1: spec.west, la1: spec.north, lo2: spec.east, la2: spec.south, dx: spec.res, dy: spec.res, refTime: time };
+            const meanU = sumU / n, meanV = sumV / n, meanS = sumS / n;
+            return {
+                data: [
+                    { header: Object.assign({ parameterNumber: 2 }, header), data: u },
+                    { header: Object.assign({ parameterNumber: 3 }, header), data: v }
+                ],
+                meta: {
+                    offset: offset,
+                    time: time,
+                    points: n,
+                    res: spec.res,
+                    meanKmh: meanS * 3.6,
+                    dirFrom: (Math.atan2(-meanU, -meanV) * 180 / Math.PI + 360) % 360, // ทิศลมเด่น (ทิศที่ลมพัดมา)
+                    steadiness: meanS > 0 ? Math.sqrt(meanU * meanU + meanV * meanV) / meanS : 0 // 1 = ลมทิศเดียวกันทั้งพื้นที่
+                }
+            };
+        }
+
+        // เวลาแบบ "2026-11-20T10:45" (เวลาไทยตามที่ขอ) → ตัวเลขไว้เทียบกัน
+        const windTimeValue = t => Date.parse(String(t || '') + ':00Z');
+
         async function fetchWindField(spec) {
-            const cacheKey = 'fireRadarWind:' + spec.key;
+            const cacheKey = 'fireRadarWind2:' + spec.key;
             try {
                 const c = JSON.parse(localStorage.getItem(cacheKey) || 'null');
                 if (c && Date.now() - c.t < WIND_CACHE_MINUTES * 60000) return Object.assign({}, c.v, { loadedAt: c.t });
@@ -2748,8 +2808,11 @@ if (primarySource && primarySource.features) {
                     lons.push(+(spec.west + i * spec.res).toFixed(2));
                 }
             }
+            // คำขอเดียวได้ทั้งลมปัจจุบันและพยากรณ์รายชั่วโมง 14 ชม. ข้างหน้า (ไม่เพิ่มจำนวนครั้งที่เรียก)
             const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lats.join(',') + '&longitude=' + lons.join(',') +
-                '&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms&timezone=Asia%2FBangkok';
+                '&current=wind_speed_10m,wind_direction_10m' +
+                '&hourly=wind_speed_10m,wind_direction_10m&forecast_hours=14' +
+                '&wind_speed_unit=ms&timezone=Asia%2FBangkok';
             const res = await fetch(url);
             if (res.status === 429) throw new Error('บริการข้อมูลลมจำกัดจำนวนครั้งต่อวัน กรุณาลองใหม่ภายหลัง');
             if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -2757,39 +2820,37 @@ if (primarySource && primarySource.features) {
             const list = Array.isArray(json) ? json : [json]; // หลายพิกัด = ได้ผลเป็นรายการตามลำดับที่ขอ
             if (list.length !== lats.length) throw new Error('ได้ข้อมูลลมไม่ครบทุกจุด');
 
-            const u = [], v = [];
-            let sumU = 0, sumV = 0, sumS = 0, n = 0, time = '';
-            list.forEach(p => {
-                const cur = (p && p.current) || {};
-                const s = Number(cur.wind_speed_10m), d = Number(cur.wind_direction_10m);
-                if (!isFinite(s) || !isFinite(d)) { u.push(0); v.push(0); return; }
-                // ทิศลมแบบอุตุฯ คือทิศที่ลม "พัดมา" จึงกลับทิศเป็นเวกเตอร์ที่ลมพัดไป
-                const rad = d * Math.PI / 180;
-                const uu = -s * Math.sin(rad), vv = -s * Math.cos(rad);
-                u.push(+uu.toFixed(2));
-                v.push(+vv.toFixed(2));
-                sumU += uu; sumV += vv; sumS += s; n++;
-                if (!time && cur.time) time = cur.time;
-            });
-            if (!n) throw new Error('ไม่พบข้อมูลลม');
+            const fields = {};
+            // ตอนนี้
+            const nowTime = (list.find(p => p && p.current && p.current.time) || {}).current?.time || '';
+            const nowField = buildWindField(spec, list.map(p => {
+                const c = (p && p.current) || {};
+                return { s: c.wind_speed_10m, d: c.wind_direction_10m };
+            }), nowTime, 0);
+            if (!nowField) throw new Error('ไม่พบข้อมูลลม');
+            fields[0] = nowField;
 
-            const header = { parameterCategory: 2, nx: spec.nx, ny: spec.ny, lo1: spec.west, la1: spec.north, lo2: spec.east, la2: spec.south, dx: spec.res, dy: spec.res, refTime: time };
-            const meanU = sumU / n, meanV = sumV / n, meanS = sumS / n;
-            const value = {
-                key: spec.key,
-                data: [
-                    { header: Object.assign({ parameterNumber: 2 }, header), data: u },
-                    { header: Object.assign({ parameterNumber: 3 }, header), data: v }
-                ],
-                meta: {
-                    time: time,
-                    points: n,
-                    res: spec.res,
-                    meanKmh: meanS * 3.6,
-                    dirFrom: (Math.atan2(-meanU, -meanV) * 180 / Math.PI + 360) % 360, // ทิศลมเด่น (ทิศที่ลมพัดมา)
-                    steadiness: meanS > 0 ? Math.sqrt(meanU * meanU + meanV * meanV) / meanS : 0 // 1 = ลมทิศเดียวกันทั้งพื้นที่
-                }
-            };
+            // พยากรณ์: เลือกชั่วโมงที่ใกล้ "ตอนนี้ + N ชม." ที่สุด
+            const hourlyRef = (list.find(p => p && p.hourly && Array.isArray(p.hourly.time)) || {}).hourly;
+            if (hourlyRef && nowTime) {
+                const base = windTimeValue(nowTime);
+                WIND_OFFSETS.filter(h => h > 0).forEach(h => {
+                    const target = base + h * 3600000;
+                    let best = -1, bestDiff = Infinity;
+                    hourlyRef.time.forEach((t, i) => {
+                        const diff = Math.abs(windTimeValue(t) - target);
+                        if (diff < bestDiff) { best = i; bestDiff = diff; }
+                    });
+                    if (best < 0 || bestDiff > 90 * 60000) return; // ไม่มีชั่วโมงที่ใกล้พอ
+                    const f = buildWindField(spec, list.map(p => {
+                        const hr = (p && p.hourly) || {};
+                        return { s: (hr.wind_speed_10m || [])[best], d: (hr.wind_direction_10m || [])[best] };
+                    }), hourlyRef.time[best], h);
+                    if (f) fields[h] = f;
+                });
+            }
+
+            const value = { key: spec.key, fields: fields };
             try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), v: value })); } catch (e) { /* เต็ม/ไม่อนุญาต ก็ข้าม */ }
             return Object.assign({}, value, { loadedAt: Date.now() });
         }
@@ -2803,26 +2864,21 @@ if (primarySource && primarySource.features) {
             if (windLoadingKey === spec.key) return; // กำลังโหลดตารางนี้อยู่แล้ว
             // เพิ่งโหลดไม่สำเร็จ (เช่น เกินโควตา) รอ 10 นาทีก่อนลองใหม่อัตโนมัติ ไม่ยิงซ้ำให้โควตาหมดเร็วขึ้น
             if (!force && windFailKey === spec.key && Date.now() - windFailAt < 10 * 60000) return;
-            if (force) { try { localStorage.removeItem('fireRadarWind:' + spec.key); } catch (e) { /* ข้าม */ } }
+            if (force) { try { localStorage.removeItem('fireRadarWind2:' + spec.key); } catch (e) { /* ข้าม */ } }
 
             windLoadError = null;
-            if (windLoadedKey !== spec.key) windMeta = null; // พื้นที่ใหม่: แสดง "กำลังโหลด" แทนสรุปของพื้นที่เดิม
+            if (windLoadedKey !== spec.key) { windMeta = null; windFields = null; } // พื้นที่ใหม่: แสดง "กำลังโหลด" แทนสรุปของพื้นที่เดิม
             updateDynamicLegend();
             windLoadingKey = spec.key;
             try {
                 const field = await fetchWindField(spec);
                 const now = windGridSpec();
                 if (!map.hasLayer(windLayer) || !now || now.key !== field.key) return; // ปิดหรือสลับพื้นที่ระหว่างโหลด
-                windMeta = field.meta;
+                windFields = field.fields;
                 windLoadedKey = field.key;
                 windLoadedAt = field.loadedAt;
                 windFailKey = null;
-                if (!windVelocityLayer) {
-                    windVelocityLayer = L.velocityLayer(Object.assign({}, WIND_VELOCITY_OPTIONS, { data: field.data }));
-                    windLayer.addLayer(windVelocityLayer);
-                } else {
-                    windVelocityLayer.setData(field.data);
-                }
+                applyWindOffset();
             } catch (err) {
                 console.warn('โหลดข้อมูลลมไม่สำเร็จ', err);
                 windLoadError = err.message || String(err);
@@ -2835,6 +2891,33 @@ if (primarySource && primarySource.features) {
             updateDynamicLegend();
         }
 
+        // แสดงชุดลมตามช่วงเวลาที่เลือก (สลับได้ทันที ไม่ต้องโหลดใหม่)
+        function applyWindOffset() {
+            if (!windFields || !windFields[0]) return;
+            const f = windFields[windOffset] || windFields[0]; // ไม่มีพยากรณ์ช่วงนั้น → แสดงลมตอนนี้
+            windMeta = f.meta;
+            if (!windVelocityLayer) {
+                windVelocityLayer = L.velocityLayer(Object.assign({}, WIND_VELOCITY_OPTIONS, { data: f.data }));
+                windLayer.addLayer(windVelocityLayer);
+            } else {
+                windVelocityLayer.setData(f.data);
+            }
+            document.querySelectorAll('.wind-offset-radio').forEach(r => {
+                r.disabled = !windFields[Number(r.value)];
+            });
+        }
+
+        document.querySelectorAll('.wind-offset-radio').forEach(r => {
+            r.checked = Number(r.value) === windOffset;
+            r.addEventListener('change', function () {
+                if (!this.checked) return;
+                windOffset = Number(this.value);
+                setUrlParam('windh', windOffset ? String(windOffset) : null);
+                applyWindOffset();
+                updateDynamicLegend();
+            });
+        });
+
         document.getElementById('windToggle').addEventListener('change', function () {
             if (this.checked) map.addLayer(windLayer);
             else map.removeLayer(windLayer);
@@ -2843,6 +2926,7 @@ if (primarySource && primarySource.features) {
         map.on('overlayadd', function (e) {
             if (e.layer !== windLayer) return;
             document.getElementById('windToggle').checked = true;
+            document.getElementById('windOffsetGroup').style.display = 'flex';
             setUrlParam('wind', '1');
             refreshWind(false);
         });
@@ -2850,6 +2934,7 @@ if (primarySource && primarySource.features) {
         map.on('overlayremove', function (e) {
             if (e.layer !== windLayer) return;
             document.getElementById('windToggle').checked = false;
+            document.getElementById('windOffsetGroup').style.display = 'none';
             setUrlParam('wind', null);
         });
 
